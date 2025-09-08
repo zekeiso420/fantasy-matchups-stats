@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sleeper Fantasy Football Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>Sleeper Fantasy Football Tracker</h1>
+                <div class="theme-toggle-container">
+                    <span class="theme-label">☀️</span>
+                    <label class="theme-slider">
+                        <input type="checkbox" id="theme-toggle" onchange="toggleTheme()">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="theme-label">🌙</span>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <!-- Sections Container -->
+            <div class="sections-container">
+                <!-- User Input Section -->
+                <section id="user-input" class="section">
+                    <h2>Enter Your Sleeper Username</h2>
+                    <div class="input-group">
+                        <input type="text" id="username" placeholder="Enter Sleeper username" />
+                        <button id="fetch-user" onclick="fetchUser()">Get Leagues</button>
+                    </div>
+                    <div id="user-info" class="user-info hidden"></div>
+                </section>
+
+                <!-- League Selection Section -->
+                <section id="league-selection" class="section hidden">
+                    <h2>Select Your League</h2>
+                    <select id="league-select" onchange="selectLeague()">
+                        <option value="">Choose a league...</option>
+                    </select>
+                    <div id="league-info" class="league-info hidden"></div>
+                </section>
+
+                <!-- Week Selection Section -->
+                <section id="week-selection" class="section hidden">
+                    <h2>Select Week</h2>
+                    <select id="week-select" onchange="selectWeek()">
+                        <option value="">Choose a week...</option>
+                    </select>
+                </section>
+            </div>
+
+            <!-- Matchup Display Section -->
+            <section id="matchup-display" class="section hidden">
+                <div class="matchup-header">
+                    <h2>Your Matchup</h2>
+                    <div class="update-controls">
+                        <button id="refresh-btn" onclick="refreshMatchup()">Refresh Now</button>
+                        <span id="auto-refresh-status">Auto-refresh: ON</span>
+                        <button id="toggle-refresh" onclick="toggleAutoRefresh()">Turn Off</button>
+                    </div>
+                </div>
+
+                <!-- Tab Navigation -->
+                <div class="tab-navigation">
+                    <button class="tab-btn active" onclick="switchTab('team-view')">Team View</button>
+                    <button class="tab-btn" onclick="switchTab('game-view')">By Game Time</button>
+                </div>
+                
+                <!-- Team View Tab -->
+                <div id="team-view" class="tab-content active">
+                    <div class="teams-container">
+                        <div class="team" id="user-team">
+                            <h3 id="user-team-name">Your Team</h3>
+                            <div class="team-score" id="user-score">0</div>
+                            <div class="roster" id="user-roster"></div>
+                        </div>
+                        
+                        <div class="vs-divider">VS</div>
+                        
+                        <div class="team" id="opponent-team">
+                            <h3 id="opponent-team-name">Opponent</h3>
+                            <div class="team-score" id="opponent-score">0</div>
+                            <div class="roster" id="opponent-roster"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game View Tab -->
+                <div id="game-view" class="tab-content hidden">
+                    <div id="games-by-time"></div>
+                </div>
+            </section>
+
+            <!-- Loading Indicator -->
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
+
+            <!-- Error Display -->
+            <div id="error" class="error hidden">
+                <p id="error-message"></p>
+                <button onclick="clearError()">Dismiss</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
