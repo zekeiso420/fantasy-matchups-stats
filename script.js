@@ -101,6 +101,30 @@ function clearError() {
     errorDiv.classList.add('hidden');
 }
 
+// Shorten player name for mobile display (e.g., "Lamar Jackson" -> "L. Jackson")
+function shortenPlayerName(fullName) {
+    if (!fullName || typeof fullName !== 'string') {
+        return 'Unknown';
+    }
+    
+    const nameParts = fullName.trim().split(' ');
+    
+    if (nameParts.length < 2) {
+        return fullName; // Return as-is if only one name part
+    }
+    
+    // For names like "D/ST", "DST", keep them as-is
+    if (fullName.includes('/') || fullName.length <= 3) {
+        return fullName;
+    }
+    
+    // Take first initial and last name
+    const firstInitial = nameParts[0].charAt(0).toUpperCase();
+    const lastName = nameParts[nameParts.length - 1];
+    
+    return `${firstInitial}. ${lastName}`;
+}
+
 // Populate week selection dropdown
 function populateWeekSelect() {
     weekSelect.innerHTML = '<option value="">Choose a week...</option>';
@@ -457,15 +481,18 @@ async function displayRoster(containerId, matchupData, rosterData) {
             </div>
             <div class="player-details">
                 <div class="player-header">
-                    <span class="player-name">${player.name}</span>
-                    <span class="player-position">${player.position} - ${player.team}</span>
+                    <span class="player-name player-name-full">${player.name}</span>
+                    <span class="player-name player-name-short">${shortenPlayerName(player.name)}</span>
                 </div>
                 <div class="game-info">
                     <div class="game-time ${gameStatusClass}">${gameStatus}</div>
                     <div class="game-opponent">${gameTime}</div>
                 </div>
             </div>
-            <div class="player-points">${formatPoints(player.points)}</div>
+            <div class="player-stats">
+                <div class="player-position">${player.position} - ${player.team}</div>
+                <div class="player-points">${formatPoints(player.points)}</div>
+            </div>
         `;
         
         return playerDiv;

@@ -875,8 +875,18 @@ select:hover {
     line-height: 1.2;
 }
 
-.player-header .player-position {
-    font-size: 12px;
+.player-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+    gap: 4px;
+    flex-shrink: 0;
+    min-width: 60px;
+}
+
+.player-position {
+    font-size: 11px;
     color: var(--player-card-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -918,6 +928,15 @@ select:hover {
     color: var(--points-color);
     text-align: right;
     min-width: 50px;
+}
+
+/* Name display control - Desktop: show full names, hide short names */
+.player-name-short {
+    display: none;
+}
+
+.player-name-full {
+    display: inline;
 }
 
 /* Legacy player styles for backwards compatibility */
@@ -1023,46 +1042,449 @@ select:hover {
         padding: 15px;
     }
     
+    /* Header improvements for tablets */
     header h1 {
         font-size: 2rem;
     }
     
-    .teams-container {
-        grid-template-columns: 1fr;
-        gap: 20px;
+    .header-content {
+        flex-direction: column;
+        gap: 15px;
+        position: static;
     }
     
-    .vs-divider {
-        justify-self: center;
-        order: 1;
+    .theme-toggle-container {
+        position: static;
+        transform: none;
+        align-self: center;
     }
     
-    .matchup-header {
+    /* Sections container for tablets */
+    .sections-container {
         flex-direction: column;
         align-items: stretch;
     }
     
-    .update-controls {
-        justify-content: center;
+    .section.collapsed {
+        min-width: auto;
+        max-width: none;
+        height: auto;
+        margin-right: 0;
+        margin-bottom: 15px;
     }
     
+    /* Teams container - side-by-side on mobile with more space */
+    .teams-container {
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        align-items: start;
+    }
+    
+    .team {
+        padding: 18px;
+        min-width: 0; /* Allow shrinking */
+    }
+    
+    /* Hide VS divider on mobile */
+    .vs-divider {
+        display: none;
+    }
+    
+    /* Compact mobile player cards for Team View */
+    .player-card {
+        padding: 14px 18px;
+        gap: 14px;
+        border-radius: 10px;
+        margin-bottom: 16px;
+        background: var(--player-card-bg);
+        display: flex;
+        align-items: center;
+    }
+    
+    /* Hide player avatars on mobile for cleaner look */
+    .player-avatar {
+        display: none;
+    }
+    
+    .player-details {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .player-header {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+    
+    .player-header .player-name {
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.2;
+        color: var(--player-card-text);
+    }
+    
+    .player-header .player-position {
+        font-size: 11px;
+        color: var(--player-card-text-secondary);
+        opacity: 0.8;
+    }
+    
+    .game-info {
+        display: none; /* Hide game info on mobile for cleaner look */
+    }
+    
+    .player-points {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--points-color);
+        min-width: 40px;
+        text-align: right;
+        flex-shrink: 0;
+    }
+    
+    /* Mobile: show short names, hide full names */
+    .player-name-short {
+        display: inline;
+    }
+    
+    .player-name-full {
+        display: none;
+    }
+    
+    /* Roster section adjustments */
+    .roster-section {
+        margin-bottom: 32px;
+    }
+    
+    .roster-section-header {
+        font-size: 13px;
+        padding: 10px 14px;
+        margin-bottom: 16px;
+    }
+    
+    .roster-section-players {
+        gap: 14px;
+    }
+    
+    /* Team scores */
+    .team-score {
+        font-size: 2rem;
+        margin-bottom: 15px;
+    }
+    
+    .team h3 {
+        font-size: 1.1rem;
+        margin-bottom: 12px;
+    }
+    
+    /* Matchup header */
+    .matchup-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .update-controls {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    /* Input improvements */
     .input-group {
         flex-direction: column;
+        gap: 12px;
+    }
+    
+    /* Tab navigation */
+    .tab-btn {
+        flex: 1;
+        text-align: center;
+        margin-right: 0;
+        padding: 15px 12px;
+        font-size: 15px;
+    }
+    
+    /* Game view improvements */
+    .game-players {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .compact-game-header {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+    
+    .game-time-status,
+    .final-status,
+    .game-status,
+    .live-status-container {
+        text-align: center;
+    }
+    
+    /* Touch-friendly buttons */
+    button {
+        min-height: 44px;
+        padding: 12px 20px;
+    }
+    
+    select {
+        min-height: 44px;
+        padding: 12px 40px 12px 16px;
+    }
+    
+    input[type="text"] {
+        min-height: 44px;
+        padding: 12px 16px;
     }
 }
 
 @media (max-width: 480px) {
+    .container {
+        padding: 8px;
+    }
+    
+    /* Header for small mobile */
+    header {
+        margin-bottom: 20px;
+    }
+    
+    header h1 {
+        font-size: 1.75rem;
+        line-height: 1.2;
+    }
+    
+    .theme-toggle-container {
+        padding: 6px 12px;
+        gap: 8px;
+        scale: 0.9;
+    }
+    
+    /* Sections */
     .section {
-        padding: 20px 15px;
+        padding: 16px 12px;
+        margin-bottom: 15px;
+    }
+    
+    .section h2 {
+        font-size: 1.25rem;
+        margin-bottom: 15px;
+    }
+    
+    /* Teams container - more breathing room for mobile */
+    .teams-container {
+        gap: 12px;
+    }
+    
+    /* Team display */
+    .team {
+        padding: 14px;
+        min-width: 0;
+        overflow: hidden;
+    }
+    
+    .team h3 {
+        font-size: 1rem;
+        margin-bottom: 10px;
     }
     
     .team-score {
-        font-size: 2rem;
+        font-size: 1.75rem;
+        margin-bottom: 12px;
     }
     
     .vs-divider {
-        width: 50px;
-        height: 50px;
+        width: 30px;
+        height: 30px;
+        font-size: 1rem;
+        margin: 8px 0;
+        flex-shrink: 0;
+    }
+    
+    /* Player cards for small screens */
+    .player-card {
+        padding: 10px;
+        gap: 10px;
+        border-radius: 8px;
+    }
+    
+    .player-avatar {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .player-headshot,
+    .player-initials {
+        width: 45px;
+        height: 45px;
+        font-size: 14px;
+    }
+    
+    .team-logo-overlay {
+        width: 14px;
+        height: 14px;
+        bottom: -1px;
+        right: -1px;
+    }
+    
+    .player-header .player-name {
+        font-size: 14px;
+    }
+    
+    .player-header .player-position {
+        font-size: 11px;
+    }
+    
+    .player-points {
+        font-size: 18px;
+        min-width: 45px;
+    }
+    
+    /* Game time and opponent info */
+    .game-time {
+        font-size: 10px;
+    }
+    
+    .game-opponent {
+        font-size: 10px;
+    }
+    
+    /* Roster section headers */
+    .roster-section-header {
+        font-size: 14px;
+        padding: 6px 10px;
+        margin-bottom: 10px;
+    }
+    
+    /* Tab navigation for small screens */
+    .tab-navigation {
+        margin-bottom: 15px;
+    }
+    
+    .tab-btn {
+        padding: 12px 8px;
+        font-size: 14px;
+    }
+    
+    /* Game slots */
+    .game-slot {
+        padding: 12px;
+        margin-bottom: 15px;
+    }
+    
+    .large-score {
         font-size: 1.5rem;
+        margin: 8px 0;
+    }
+    
+    /* Matchup header */
+    .matchup-header h2 {
+        font-size: 1.25rem;
+    }
+    
+    .update-controls {
+        gap: 10px;
+    }
+    
+    .update-controls button {
+        padding: 8px 12px;
+        font-size: 13px;
+        min-height: 40px;
+    }
+    
+    #auto-refresh-status {
+        font-size: 13px;
+    }
+    
+    /* Touch targets */
+    button {
+        min-height: 44px;
+        font-size: 15px;
+    }
+    
+    select {
+        min-height: 44px;
+        font-size: 15px;
+    }
+    
+    input[type="text"] {
+        min-height: 44px;
+        font-size: 15px;
+    }
+    
+    /* Error and loading for mobile */
+    .error {
+        left: 10px;
+        right: 10px;
+        top: 10px;
+        max-width: none;
+    }
+    
+    /* Game team headers */
+    .game-team-header {
+        font-size: 14px;
+        padding-bottom: 6px;
+        margin-bottom: 8px;
+    }
+    
+    /* Team matchup scoring */
+    .team-matchup-with-score {
+        font-size: 1rem;
+    }
+    
+    .team-abbr {
+        font-size: 1.1rem;
+    }
+}
+
+/* Extra small screens */
+@media (max-width: 360px) {
+    .container {
+        padding: 8px;
+    }
+    
+    header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .player-card {
+        padding: 8px;
+        gap: 8px;
+    }
+    
+    .player-avatar {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .player-headshot,
+    .player-initials {
+        width: 40px;
+        height: 40px;
+        font-size: 12px;
+    }
+    
+    .player-header .player-name {
+        font-size: 13px;
+    }
+    
+    .player-points {
+        font-size: 16px;
+        min-width: 40px;
+    }
+    
+    .team-score {
+        font-size: 1.75rem;
+    }
+    
+    .vs-divider {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
     }
 }
