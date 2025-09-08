@@ -78,8 +78,13 @@ function clearCache() {
 function getCurrentNFLWeek() {
     // This is a simplified calculation - in a real app you'd want to use a more accurate method
     const now = new Date();
-    const seasonStart = new Date('2024-09-05'); // Approximate NFL season start
-    const weeksSinceStart = Math.floor((now - seasonStart) / (7 * 24 * 60 * 60 * 1000));
+    const seasonStart = new Date('2025-09-04'); // Approximate NFL 2025 season start (first Thursday in September)
+    const weeksSinceStart = Math.floor((now - seasonStart) / (7 * 24 * 60 * 60 * 1000)) + 1;
+    
+    // If we're before the season starts, default to week 1
+    if (now < seasonStart) {
+        return 1;
+    }
     
     // NFL regular season is weeks 1-18, then playoffs
     if (weeksSinceStart < 1) return 1;
@@ -170,7 +175,7 @@ function calculateTeamScore(matchupData) {
 
 // Format player points for display
 function formatPoints(points) {
-    return typeof points === 'number' ? points.toFixed(1) : '0.0';
+    return typeof points === 'number' ? points.toFixed(2) : '0.00';
 }
 
 // Check if games are currently active (simplified logic)

@@ -7,9 +7,9 @@
 /* CSS Variables for Theme Support */
 :root {
     /* Light theme (default) */
-    --bg-gradient-start: #667eea;
-    --bg-gradient-end: #764ba2;
-    --text-primary: #333;
+    --bg-gradient-start: #f8fafc;
+    --bg-gradient-end: #f1f5f9;
+    --text-primary: #f8f8f8;
     --text-secondary: #4a5568;
     --text-muted: #718096;
     --bg-section: #ffffff;
@@ -38,6 +38,8 @@
 
 /* Dark theme */
 body.dark-theme {
+    --bg-gradient-start: #334155;
+    --bg-gradient-end: #1e293b;
     --text-primary: #ffffff;
     --text-secondary: #a0aec0;
     --text-muted: #718096;
@@ -67,7 +69,9 @@ body.dark-theme {
 
 /* Light theme explicit class (same as default) */
 body.light-theme {
-    --text-primary: #333;
+    --bg-gradient-start: #f8fafc;
+    --bg-gradient-end: #f1f5f9;
+    --text-primary: #f8f8f8;
     --text-secondary: #4a5568;
     --text-muted: #718096;
     --bg-section: #ffffff;
@@ -122,10 +126,15 @@ header {
 }
 
 header h1 {
-    color: var(--text-secondary);
+    color: #1e293b;
     font-size: 2.5rem;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     margin-bottom: 10px;
+}
+
+/* Dark theme title color */
+body.dark-theme header h1 {
+    color: #f8f8f8;
 }
 
 .theme-toggle-container {
@@ -140,13 +149,26 @@ header h1 {
     padding: 8px 16px;
     border-radius: 25px;
     backdrop-filter: blur(10px);
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    border: 2px solid rgba(0, 0, 0, 0.3);
     transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .theme-toggle-container:hover {
     background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.5);
+    border-color: rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Dark theme toggle container styling */
+body.dark-theme .theme-toggle-container {
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-theme .theme-toggle-container:hover {
+    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
 }
 
 .theme-label {
@@ -343,16 +365,34 @@ select {
     width: 100%;
     padding: 12px 16px;
     border: 2px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: 20px;
     font-size: 16px;
     background: var(--bg-input);
     color: var(--text-primary);
     cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23667eea' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px var(--shadow-light);
 }
 
 select:focus {
     outline: none;
     border-color: var(--border-hover);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 12px var(--shadow-medium);
+    transform: translateY(-1px);
+}
+
+select:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 4px 12px var(--shadow-medium);
+    transform: translateY(-1px);
 }
 
 .hidden {

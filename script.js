@@ -166,7 +166,11 @@ async function fetchUserLeagues() {
         leagues.forEach(league => {
             const option = document.createElement('option');
             option.value = league.league_id;
-            option.textContent = `${league.name} (${league.total_rosters} teams)`;
+            // Truncate league name if longer than 24 characters
+            const displayName = league.name.length > 24 
+                ? league.name.substring(0, 24) + '...' 
+                : league.name;
+            option.textContent = displayName;
             leagueSelect.appendChild(option);
         });
         
