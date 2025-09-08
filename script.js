@@ -579,7 +579,8 @@ function setupAutoRefresh() {
                 delete window.nflScheduleCache;
             }
             
-            await loadMatchup();
+            // Refresh the currently viewing matchup instead of always going back to user's matchup
+            await refreshCurrentMatchup();
         } catch (error) {
             // Silent error handling for auto-refresh
         }
@@ -618,6 +619,41 @@ function updateRefreshStatus() {
     }
 }
 
+// Refresh the currently viewing matchup (for auto-refresh)
+async function refreshCurrentMatchup() {
+    if (!currentUser || !currentLeague || !currentWeek) {
+        return;
+    }
+    
+    try {
+        // If we're viewing the user's own matchup, use loadMatchup
+        if (!currentViewingMatchup || currentViewingMatchup.isUserMatchup) {
+            await loadMatchup();
+        } else {
+            // If we're viewing a different matchup, refresh that one
+            const matchupIndex = allMatchupsData.findIndex(matchup => 
+                (matchup.team1.rosterId === currentViewingMatchup.team1.rosterId && 
+                 matchup.team2.rosterId === currentViewingMatchup.team2.rosterId) ||
+                (matchup.team1.rosterId === currentViewingMatchup.team2.rosterId && 
+                 matchup.team2.rosterId === currentViewingMatchup.team1.rosterId)
+            );
+            
+            if (matchupIndex >= 0) {
+                // Reload all matchups data first to get fresh scores
+                await loadOtherMatchups();
+                // Then switch to the same matchup (which will have fresh data)
+                await switchToMatchup(matchupIndex);
+            } else {
+                // Fallback to user's matchup if we can't find the current one
+                await loadMatchup();
+            }
+        }
+    } catch (error) {
+        // Silent error handling for auto-refresh
+        console.error('Auto-refresh error:', error);
+    }
+}
+
 // Manual refresh
 async function refreshMatchup() {
     if (!currentUser || !currentLeague || !currentWeek) {
@@ -628,7 +664,7 @@ async function refreshMatchup() {
     try {
         // Clear any cached data to ensure fresh API calls
         clearCache();
-        await loadMatchup();
+        await refreshCurrentMatchup();
     } catch (error) {
         showError(`Failed to refresh: ${error.message}`);
     }
