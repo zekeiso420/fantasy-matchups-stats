@@ -15,6 +15,10 @@ const errorMessage = document.getElementById('error-message');
 // Theme management
 let currentTheme = 'auto';
 
+// Global matchup data storage
+let allMatchupsData = [];
+let currentViewingMatchup = null;
+
 // Initialize the app
 document.addEventListener('DOMContentLoaded', function() {
     // Allow Enter key to trigger user fetch
@@ -288,6 +292,9 @@ async function loadMatchup() {
         
         // Show matchup section
         matchupDisplaySection.classList.remove('hidden');
+        
+        // Load other matchups for sidebar
+        await loadOtherMatchups();
         
         // Start auto-refresh if games are active
         setupAutoRefresh();
@@ -1220,6 +1227,238 @@ async function displayGameSlots(gameSlots, container, opponentUser) {
     
     if (container.innerHTML === '') {
         container.innerHTML = '<div class="no-players">No games found for this week.</div>';
+    }
+}
+
+// Load other matchups for the sidebar
+async function loadOtherMatchups() {
+    if (!currentLeague || !currentWeek) return;
+    
+    try {
+        const [matchups, rosters, users] = await Promise.all([
+            getMatchups(currentLeague.league_id, currentWeek),
+            getLeagueRosters(currentLeague.league_id),
+            getLeagueUsers(currentLeague.league_id)
+        ]);
+        
+        // Group matchups by matchup_id
+        const matchupGroups = {};
+        matchups.forEach(matchup => {
+            if (!matchupGroups[matchup.matchup_id]) {
+                matchupGroups[matchup.matchup_id] = [];
+            }
+            matchupGroups[matchup.matchup_id].push(matchup);
+        });
+        
+        const otherMatchups = [];
+        
+        // Process each matchup pair (including user's own matchup)
+        Object.values(matchupGroups).forEach(group => {
+            if (group.length === 2) {
+                const [team1, team2] = group;
+                
+                // Get roster and user info for each team
+                const roster1 = rosters.find(r => r.roster_id === team1.roster_id);
+                const roster2 = rosters.find(r => r.roster_id === team2.roster_id);
+                const user1 = users.find(u => u.user_id === roster1?.owner_id);
+                const user2 = users.find(u => u.user_id === roster2?.owner_id);
+                
+                const team1Score = calculateTeamScore(team1);
+                const team2Score = calculateTeamScore(team2);
+                
+                // Include user's own matchup but mark it differently
+                const isUserMatchup = roster1?.owner_id === currentUser.user_id || roster2?.owner_id === currentUser.user_id;
+                
+                otherMatchups.push({
+                    team1: {
+                        name: user1?.display_name || user1?.username || `Team ${team1.roster_id}`,
+                        score: team1Score,
+                        rosterId: team1.roster_id,
+                        userId: user1?.user_id
+                    },
+                    team2: {
+                        name: user2?.display_name || user2?.username || `Team ${team2.roster_id}`,
+                        score: team2Score,
+                        rosterId: team2.roster_id,
+                        userId: user2?.user_id
+                    },
+                    isUserMatchup: isUserMatchup,
+                    matchupData: { team1, team2, roster1, roster2, user1, user2 }
+                });
+            }
+        });
+        
+        // Store all matchups data for click functionality
+        allMatchupsData = otherMatchups;
+        
+        // Set the current user's matchup as the active viewing matchup if not already set
+        if (!currentViewingMatchup) {
+            currentViewingMatchup = otherMatchups.find(matchup => matchup.isUserMatchup);
+        }
+        
+        // Display other matchups in sidebar
+        displayOtherMatchups(otherMatchups);
+        
+        // Show the sidebar
+        const sidebar = document.getElementById('other-matchups-sidebar');
+        if (sidebar && otherMatchups.length > 0) {
+            sidebar.classList.remove('hidden');
+        }
+        
+    } catch (error) {
+        console.error('Failed to load other matchups:', error);
+    }
+}
+
+// Display other matchups in the sidebar
+function displayOtherMatchups(matchups) {
+    const container = document.getElementById('other-matchups-list');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (matchups.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-muted); font-size: 12px;">No other matchups found</p>';
+        return;
+    }
+    
+    matchups.forEach((matchup, index) => {
+        const matchupDiv = document.createElement('div');
+        matchupDiv.className = 'other-matchup-item';
+        
+        // Add active class if this is the currently viewing matchup
+        if (currentViewingMatchup && 
+            ((currentViewingMatchup.team1.rosterId === matchup.team1.rosterId && 
+              currentViewingMatchup.team2.rosterId === matchup.team2.rosterId) ||
+             (currentViewingMatchup.team1.rosterId === matchup.team2.rosterId && 
+              currentViewingMatchup.team2.rosterId === matchup.team1.rosterId))) {
+            matchupDiv.classList.add('active');
+        }
+        
+        const team1Score = parseFloat(matchup.team1.score);
+        const team2Score = parseFloat(matchup.team2.score);
+        
+        matchupDiv.innerHTML = `
+            <div class="other-matchup-teams">
+                <div class="other-matchup-team">${matchup.team1.name}</div>
+                <div class="other-matchup-vs">VS</div>
+                <div class="other-matchup-team">${matchup.team2.name}</div>
+            </div>
+            <div class="other-matchup-scores">
+                <div class="other-matchup-score ${team1Score > team2Score ? 'winning' : ''}">${formatPoints(team1Score)}</div>
+                <div class="other-matchup-score ${team2Score > team1Score ? 'winning' : ''}">${formatPoints(team2Score)}</div>
+            </div>
+        `;
+        
+        // Add click handler to switch to this matchup
+        matchupDiv.addEventListener('click', () => {
+            switchToMatchup(index);
+        });
+        
+        // Add data attributes for easier identification
+        matchupDiv.setAttribute('data-matchup-index', index);
+        
+        container.appendChild(matchupDiv);
+    });
+}
+
+// Switch to viewing a different matchup
+async function switchToMatchup(matchupIndex) {
+    if (!allMatchupsData || !allMatchupsData[matchupIndex]) {
+        showError('Matchup data not found');
+        return;
+    }
+    
+    const selectedMatchup = allMatchupsData[matchupIndex];
+    currentViewingMatchup = selectedMatchup;
+    
+    try {
+        showLoading(true);
+        
+        // Create matchup data structure similar to findUserMatchup format
+        const { matchupData } = selectedMatchup;
+        const { team1, team2, roster1, roster2, user1, user2 } = matchupData;
+        
+        // Structure the data for displayMatchup function
+        const displayData = {
+            userMatchup: team1,
+            opponentMatchup: team2,
+            userRoster: roster1,
+            opponentRoster: roster2,
+            opponentUser: user2,
+            users: [user1, user2] // Include users array for fallback logic
+        };
+        
+        // Update the display names for this matchup
+        document.getElementById('user-team-name').textContent = selectedMatchup.team1.name;
+        document.getElementById('opponent-team-name').textContent = selectedMatchup.team2.name;
+        
+        // Update scores
+        document.getElementById('user-score').textContent = formatPoints(selectedMatchup.team1.score);
+        document.getElementById('opponent-score').textContent = formatPoints(selectedMatchup.team2.score);
+        
+        // Display rosters for the selected matchup
+        await displayRoster('user-roster', team1, roster1);
+        await displayRoster('opponent-roster', team2, roster2);
+        
+        // Update sidebar to highlight the active matchup
+        updateSidebarActiveState();
+        
+        // Update game view if it's currently active
+        const gameViewTab = document.getElementById('game-view');
+        if (gameViewTab && !gameViewTab.classList.contains('hidden')) {
+            await displaySelectedMatchupGameView(displayData);
+        }
+        
+        showLoading(false);
+        
+    } catch (error) {
+        showLoading(false);
+        showError(`Failed to switch matchup: ${error.message}`);
+    }
+}
+
+// Update the sidebar to show which matchup is currently active
+function updateSidebarActiveState() {
+    const matchupItems = document.querySelectorAll('.other-matchup-item');
+    
+    matchupItems.forEach((item, index) => {
+        item.classList.remove('active');
+        
+        if (currentViewingMatchup && allMatchupsData[index]) {
+            const matchup = allMatchupsData[index];
+            // Check if this is the currently viewing matchup
+            if ((currentViewingMatchup.team1.rosterId === matchup.team1.rosterId && 
+                 currentViewingMatchup.team2.rosterId === matchup.team2.rosterId) ||
+                (currentViewingMatchup.team1.rosterId === matchup.team2.rosterId && 
+                 currentViewingMatchup.team2.rosterId === matchup.team1.rosterId)) {
+                item.classList.add('active');
+            }
+        }
+    });
+}
+
+// Display game view for the selected matchup
+async function displaySelectedMatchupGameView(matchupData) {
+    const container = document.getElementById('games-by-time');
+    container.innerHTML = '<p>Loading game schedule...</p>';
+    
+    try {
+        // Get opponent user data with fallback logic
+        const { opponentUser, opponentRoster, users } = matchupData;
+        let actualOpponentUser = opponentUser;
+        if (!actualOpponentUser && opponentRoster?.owner_id && users) {
+            actualOpponentUser = users.find(user => user.user_id === opponentRoster.owner_id);
+        }
+        
+        // Group players by their NFL team's actual game time
+        const gameSlots = await groupPlayersByActualGameTime(matchupData);
+        
+        // Display the grouped games with the properly resolved opponent user
+        await displayGameSlots(gameSlots, container, actualOpponentUser);
+        
+    } catch (error) {
+        container.innerHTML = `<p>Error loading game view: ${error.message}</p>`;
     }
 }
 

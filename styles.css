@@ -107,9 +107,119 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 20px;
+}
+
+/* Main Layout with Sidebar */
+.main-layout {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+}
+
+.sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--bg-section);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 32px var(--shadow-light);
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+
+.sidebar h3 {
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.main-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.other-matchups-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.other-matchup-item {
+    background: var(--bg-section-hover);
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.other-matchup-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--shadow-medium);
+}
+
+.other-matchup-item.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 2px solid #667eea;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+}
+
+.other-matchup-item.active .other-matchup-team,
+.other-matchup-item.active .other-matchup-vs,
+.other-matchup-item.active .other-matchup-score {
+    color: white;
+}
+
+.other-matchup-item.active .other-matchup-score.winning {
+    color: #c6f6d5;
+    font-weight: 700;
+}
+
+.other-matchup-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.other-matchup-team {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.other-matchup-vs {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.other-matchup-scores {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.other-matchup-score {
+    font-size: 16px;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.other-matchup-score.winning {
+    color: #48bb78;
 }
 
 header {
@@ -1040,6 +1150,16 @@ select:hover {
 @media (max-width: 768px) {
     .container {
         padding: 15px;
+    }
+    
+    /* Hide sidebar on mobile */
+    .main-layout {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .sidebar {
+        display: none !important;
     }
     
     /* Header improvements for tablets */

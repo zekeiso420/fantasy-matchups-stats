@@ -23,8 +23,20 @@
         </header>
 
         <main>
-            <!-- Sections Container -->
-            <div class="sections-container">
+            <!-- Main Content Layout -->
+            <div class="main-layout">
+                <!-- Sidebar for Other Matchups (Desktop Only) -->
+                <aside id="other-matchups-sidebar" class="sidebar hidden">
+                    <h3>Other Matchups</h3>
+                    <div id="other-matchups-list" class="other-matchups-list">
+                        <!-- Other matchups will be populated here -->
+                    </div>
+                </aside>
+
+                <!-- Main Content Area -->
+                <div class="main-content">
+                    <!-- Sections Container -->
+                    <div class="sections-container">
                 <!-- User Input Section -->
                 <section id="user-input" class="section">
                     <h2>Enter Your Sleeper Username</h2>
@@ -95,17 +107,19 @@
                 </div>
             </section>
 
-            <!-- Loading Indicator -->
-            <div id="loading" class="loading hidden">
-                <div class="spinner"></div>
-                <p>Loading...</p>
-            </div>
+                    <!-- Loading Indicator -->
+                    <div id="loading" class="loading hidden">
+                        <div class="spinner"></div>
+                        <p>Loading...</p>
+                    </div>
 
-            <!-- Error Display -->
-            <div id="error" class="error hidden">
-                <p id="error-message"></p>
-                <button onclick="clearError()">Dismiss</button>
-            </div>
+                    <!-- Error Display -->
+                    <div id="error" class="error hidden">
+                        <p id="error-message"></p>
+                        <button onclick="clearError()">Dismiss</button>
+                    </div>
+                </div> <!-- Close main-content -->
+            </div> <!-- Close main-layout -->
         </main>
     </div>
 
