@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fantasy Matchup Stats</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -42,7 +48,7 @@
                     <h2>Enter Your Sleeper Username</h2>
                     <div class="input-group">
                         <input type="text" id="username" placeholder="Enter Sleeper username" />
-                        <button id="fetch-user" onclick="fetchUser()">Get Leagues</button>
+                        <button id="fetch-user">Get Leagues</button>
                     </div>
                     <div id="user-info" class="user-info hidden"></div>
                 </section>
@@ -69,30 +75,41 @@
             <section id="matchup-display" class="section hidden">
                 <div class="matchup-header">
                     <h2>Your Matchup</h2>
+                    <!-- Team Header for both tabs -->
+                    <div class="team-header-shared">
+                        <div class="team-header">
+                            <span id="user-team-name">Your Team</span>
+                            <span id="user-score">0.0</span>
+                        </div>
+                        <div class="vs-center">VS</div>
+                        <div class="team-header">
+                            <span id="opponent-team-name">Opponent</span>
+                            <span id="opponent-score">0.0</span>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Tab Navigation -->
+                <!-- Tab Navigation - Segmented Control -->
                 <div class="tab-navigation">
-                    <button class="tab-btn active" onclick="switchTab('team-view')">Team View</button>
-                    <button class="tab-btn" onclick="switchTab('game-view')">By Game Time</button>
+                    <button class="tab-btn active" data-tab="position-view">Position Matchups</button>
+                    <button class="tab-btn" data-tab="game-view">By Game Time</button>
                 </div>
                 
-                <!-- Team View Tab -->
-                <div id="team-view" class="tab-content active">
-                    <div class="teams-container">
-                        <div class="team" id="user-team">
-                            <h3 id="user-team-name">Your Team</h3>
-                            <div class="team-score" id="user-score">0</div>
-                            <div class="roster" id="user-roster"></div>
+                <!-- Position View Tab -->
+                <div id="position-view" class="tab-content active">
+                    <div class="position-lanes-header">
+                        <div class="team-header">
+                            <span id="position-user-team-name">Your Team</span>
+                            <span id="position-user-score">0.0</span>
                         </div>
-                        
-                        <div class="vs-divider">VS</div>
-                        
-                        <div class="team" id="opponent-team">
-                            <h3 id="opponent-team-name">Opponent</h3>
-                            <div class="team-score" id="opponent-score">0</div>
-                            <div class="roster" id="opponent-roster"></div>
+                        <div class="vs-center">VS</div>
+                        <div class="team-header">
+                            <span id="position-opponent-team-name">Opponent</span>
+                            <span id="position-opponent-score">0.0</span>
                         </div>
+                    </div>
+                    <div id="position-lanes" class="position-lanes-container">
+                        <!-- Position lanes will be populated here -->
                     </div>
                 </div>
 
@@ -120,6 +137,7 @@
 
     <script src="api-backend.js"></script>
     <script src="utils.js"></script>
+    <script src="api.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

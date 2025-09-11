@@ -1,5 +1,39 @@
 // Utility functions to consolidate shared logic across tabs and components
 
+// Constants - Centralized position and slot definitions
+const BENCHLIKE = new Set(["BN", "IR", "TAXI"]);
+const SLOT_ALIAS = { 
+    "DST": "DEF", 
+    "D/ST": "DEF", 
+    "REC_FLEX": "FLEX", 
+    "OP": "SUPER_FLEX", 
+    "SUPER_FLEX": "SUPER_FLEX" 
+};
+
+const canon = s => SLOT_ALIAS[s] ?? s;
+
+function startingSlotsFromLeague(league) {
+    return league.roster_positions
+        .map(canon)
+        .filter(s => !BENCHLIKE.has(s)); // keep exact order & duplicates
+}
+
+const POSITION_MAPPINGS = {
+    'D/ST': 'DEF',
+    'DST': 'DEF'
+};
+
+const POSITION_PRIORITY = {
+    'QB': 1,
+    'RB': 2,
+    'WR': 3,
+    'TE': 4,
+    'K': 5,
+    'DEF': 6,
+    'D/ST': 6,
+    'DST': 6
+};
+
 // Team and User Name Resolution
 function resolveUserDisplayName(user, fallbackPrefix = 'Team', fallbackId = 'Unknown') {
     if (!user) {
@@ -128,7 +162,7 @@ async function createPlayerCard(player, isTeamView = true) {
 }
 
 // Async headshot loading function with comprehensive ESPN player mapping
-async function loadPlayerHeadshotAsync(playerDiv, playerId, playerName) {
+async function loadPlayerHeadshotAsync(playerDiv, playerId, playerName, isCompactMode = false) {
     if (!playerId) return;
     
     try {
@@ -157,8 +191,12 @@ async function loadPlayerHeadshotAsync(playerDiv, playerId, playerName) {
             headshotUrl = `https://a.espncdn.com/i/headshots/nfl/players/full/${espnId}.png`;
         }
         
-        const headshotImg = playerDiv.querySelector('.player-headshot');
-        const initialsDiv = playerDiv.querySelector('.player-initials');
+        // Select appropriate CSS classes based on mode
+        const headshotSelector = isCompactMode ? '.compact-headshot' : '.player-headshot';
+        const initialsSelector = isCompactMode ? '.compact-initials' : '.player-initials';
+        
+        const headshotImg = playerDiv.querySelector(headshotSelector);
+        const initialsDiv = playerDiv.querySelector(initialsSelector);
         
         if (headshotImg && initialsDiv) {
             headshotImg.onload = function() {
@@ -248,17 +286,6 @@ function updateTeamDisplay(userTeamName, opponentTeamName, userScore, opponentSc
     document.getElementById('opponent-score').textContent = formatPoints(opponentScore);
 }
 
-// Position Priority for Sorting
-const POSITION_PRIORITY = {
-    'QB': 1,
-    'RB': 2,
-    'WR': 3,
-    'TE': 4,
-    'K': 5,
-    'DEF': 6,
-    'D/ST': 6,
-    'DST': 6
-};
 
 function sortPlayersByPosition(players) {
     return players.sort((a, b) => {
@@ -310,4 +337,19 @@ async function processRosterPlayers(matchupData, rosterData) {
         starters: sortPlayersByPosition(starters),
         bench: sortPlayersByPosition(bench)
     };
+}
+
+// Helper function to make pale colors (consolidated from multiple locations)
+function makePaleColor(hexColor, opacity = 0.15) {
+    if (!hexColor) return 'rgba(45, 55, 72, 0.1)'; // Default pale gray
+    
+    // Remove # if present
+    const hex = hexColor.replace('#', '');
+    
+    // Convert hex to RGB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }

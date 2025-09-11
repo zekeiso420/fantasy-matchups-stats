@@ -9,6 +9,16 @@ let playersData = null;
 let autoRefreshInterval = null;
 let isAutoRefreshEnabled = true;
 
+// Performance optimization: Cache team lookups (moved from script.js)
+const teamInfoCache = new Map();
+async function getTeamInfoCached(code) {
+    if (!code) return null;
+    if (teamInfoCache.has(code)) return teamInfoCache.get(code);
+    const info = await getTeamInfo(code);
+    teamInfoCache.set(code, info);
+    return info;
+}
+
 // Utility function to make API calls
 async function makeApiCall(url) {
     try {
@@ -442,20 +452,6 @@ async function getTeamGameTime(team, week) {
     }
 }
 
-// Convert hex color to pale version (lighter opacity)
-function makePaleColor(hexColor, opacity = 0.2) {
-    if (!hexColor) return 'rgba(45, 55, 72, 0.1)'; // Default pale gray
-    
-    // Remove # if present
-    const hex = hexColor.replace('#', '');
-    
-    // Convert hex to RGB
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-}
 
 // Error handling wrapper
 async function handleApiCall(apiFunction, ...args) {

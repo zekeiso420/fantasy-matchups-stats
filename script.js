@@ -28,9 +28,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Add event listener for the Get Leagues button
+    fetchUserBtn.addEventListener('click', fetchUser);
+    
     // Add event listeners for dropdowns
     leagueSelect.addEventListener('change', selectLeague);
     weekSelect.addEventListener('change', selectWeek);
+    
+    // Set up event-safe tab switchers
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => switchTab(e.currentTarget.dataset.tab, e.currentTarget));
+    });
     
     // Set up week options (1-18 for regular season)
     populateWeekSelect();
@@ -162,12 +170,8 @@ async function fetchUser() {
         showLoading(true);
         currentUser = await getUserByUsername(username);
         
-        // Display user info
-        userInfoDiv.innerHTML = `
-            <p><strong>User:</strong> ${currentUser.display_name || currentUser.username}</p>
-            <p><strong>User ID:</strong> ${currentUser.user_id}</p>
-        `;
-        userInfoDiv.classList.remove('hidden');
+        // Hide user info div - keep it clean
+        userInfoDiv.classList.add('hidden');
         
         // Collapse the user input section
         document.getElementById('user-input').classList.add('collapsed');
@@ -230,13 +234,8 @@ async function selectLeague() {
         showLoading(true);
         currentLeague = await getLeague(leagueId);
         
-        // Display league info
-        leagueInfoDiv.innerHTML = `
-            <p><strong>League:</strong> ${currentLeague.name}</p>
-            <p><strong>Season:</strong> ${currentLeague.season}</p>
-            <p><strong>Teams:</strong> ${currentLeague.total_rosters}</p>
-        `;
-        leagueInfoDiv.classList.remove('hidden');
+        // Hide league info div - keep it clean
+        leagueInfoDiv.classList.add('hidden');
         
         // Collapse the league selection section
         leagueSelectionSection.classList.add('collapsed');
@@ -328,9 +327,8 @@ async function displayMatchup(matchupData) {
     // Use consolidated display update function
     updateTeamDisplay(userTeamName, opponentTeamName, userScore, opponentScore);
     
-    // Display rosters
-    await displayRoster('user-roster', userMatchup, userRoster);
-    await displayRoster('opponent-roster', opponentMatchup, opponentRoster);
+    // Auto-populate Position View since it's the default active tab
+    await displayPositionView();
 }
 
 // Track roster rendering to prevent duplicates
@@ -447,28 +445,16 @@ async function refreshMatchup() {
     }
 }
 
-// Tab switching functionality
-function switchTab(tabName) {
-    // Hide all tab contents
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.add('hidden');
-    });
-    
-    // Remove active class from all tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Show selected tab content
+// Tab switching functionality - Event-safe version
+function switchTab(tabName, el) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
     document.getElementById(tabName).classList.remove('hidden');
-    
-    // Add active class to clicked button
-    event.target.classList.add('active');
-    
-    // If switching to game view, populate it
-    if (tabName === 'game-view') {
-        displayGameView();
-    }
+    el?.classList.add('active');
+
+    if (tabName === 'game-view') displayGameView();
+    else if (tabName === 'position-view') displayPositionView();
 }
 
 // Display matchups organized by game time
@@ -672,18 +658,10 @@ function sortGamesByPriority(gameSlots) {
         if (!isKeyAFreeAgent && isKeyBFreeAgent) return -1;
         if (isKeyAFreeAgent && isKeyBFreeAgent) return 0; // Both are free agents, keep same order
         
-        // Check if games are Thursday games
-        const isThursdayA = dataA.time && dataA.time.toLowerCase().includes('thursday');
-        const isThursdayB = dataB.time && dataB.time.toLowerCase().includes('thursday');
-        
-        // Force Thursday games to appear right above Free Agents (but below all other games)
-        if (isThursdayA && !isThursdayB) return 1;
-        if (!isThursdayA && isThursdayB) return -1;
-        
         const statusA = getGameStatus(dataA.status);
         const statusB = getGameStatus(dataB.status);
         
-        // Priority order: live games first, then upcoming (soonest first), then completed (most recently finished first), then Thursday games, then Free Agents
+        // Priority order: live games first, then upcoming (by day: Thu, Fri, Sun, Mon), then completed (most recently finished first), then Free Agents
         
         // If one is live and other isn't, live comes first
         if (statusA === 'live' && statusB !== 'live') return -1;
@@ -711,16 +689,26 @@ function sortGamesByPriority(gameSlots) {
             validDateB = false;
         }
         
-        // If both are live, sort by most recently started (earlier start time first)
+        // If both are live, sort by earliest start time first (games that started earlier appear at the top)
         if (statusA === 'live' && statusB === 'live') {
             if (validDateA && validDateB) {
-                return dateA - dateB;
+                return dateA - dateB; // Earlier start times (smaller dates) come first
             }
+            // Fallback to string comparison for consistent ordering
             return dataA.time.localeCompare(dataB.time);
         }
         
-        // If both are upcoming, sort by soonest first
+        // If both are upcoming, sort by preferred day order: Thursday, Friday, Sunday, Monday
         if (statusA === 'upcoming' && statusB === 'upcoming') {
+            const dayOrderA = getDayOrderPriority(dataA.time);
+            const dayOrderB = getDayOrderPriority(dataB.time);
+            
+            // If different day priorities, sort by day order
+            if (dayOrderA !== dayOrderB) {
+                return dayOrderA - dayOrderB;
+            }
+            
+            // If same day or no day info, sort by time
             if (validDateA && validDateB) {
                 return dateA - dateB;
             }
@@ -747,7 +735,38 @@ function sortGamesByPriority(gameSlots) {
     });
 }
 
-// Display game slots in the container
+// Get day order priority for scheduled games (Thursday=0, Friday=1, Sunday=2, Monday=3, others=999)
+function getDayOrderPriority(timeString) {
+    if (!timeString) return 999;
+    
+    const timeLower = timeString.toLowerCase();
+    
+    if (timeLower.includes('thursday')) return 0;
+    if (timeLower.includes('friday')) return 1;
+    if (timeLower.includes('sunday')) return 2;
+    if (timeLower.includes('monday')) return 3;
+    
+    // For dates without day names, try to parse the date and get the day
+    try {
+        const date = new Date(timeString);
+        if (!isNaN(date.getTime())) {
+            const dayOfWeek = date.getDay(); // 0=Sunday, 1=Monday, ..., 4=Thursday, 5=Friday
+            switch (dayOfWeek) {
+                case 4: return 0; // Thursday
+                case 5: return 1; // Friday
+                case 0: return 2; // Sunday
+                case 1: return 3; // Monday
+                default: return 999; // Other days
+            }
+        }
+    } catch (e) {
+        // If parsing fails, return high priority (will be sorted last)
+    }
+    
+    return 999; // Unknown days go last
+}
+
+// Display game slots in the container with enhanced design system
 async function displayGameSlots(gameSlots, container, opponentUser, userTeamName = null) {
     container.innerHTML = '';
     
@@ -765,9 +784,9 @@ async function displayGameSlots(gameSlots, container, opponentUser, userTeamName
         
         const safeId = gameKey.replace(/[^a-zA-Z0-9]/g, '');
         
-        // Get team info for logos and colors
-        const awayTeamInfo = await getTeamInfo(data.awayTeam);
-        const homeTeamInfo = await getTeamInfo(data.homeTeam);
+        // Get team info for logos and colors using cached lookups
+        const awayTeamInfo = await getTeamInfoCached(data.awayTeam);
+        const homeTeamInfo = await getTeamInfoCached(data.homeTeam);
         
         // Apply winning team background color if game is completed
         let gameBackgroundStyle = '';
@@ -784,111 +803,176 @@ async function displayGameSlots(gameSlots, container, opponentUser, userTeamName
             gameDiv.style.cssText = gameBackgroundStyle;
         }
         
-        // Create the new compact header design
-        let headerContent = '';
-        if (data.isCompleted && data.homeScore && data.awayScore) {
-            // Completed game with score
-            headerContent = `
-                <div class="compact-game-header">
-                    <div class="game-time-status">
-                        <span class="game-time">${data.time}</span>
-                    </div>
-                    <div class="team-matchup-with-score">
-                        ${awayTeamInfo?.logo ? `<img src="${awayTeamInfo.logo}" alt="${data.awayTeam}" class="team-logo">` : ''}
-                        <span class="team-abbr">${data.awayTeam}</span>
-                        <span class="vs-text">@</span>
-                        <span class="team-abbr">${data.homeTeam}</span>
-                        ${homeTeamInfo?.logo ? `<img src="${homeTeamInfo.logo}" alt="${data.homeTeam}" class="team-logo">` : ''}
-                    </div>
-                    <div class="final-status">Final</div>
-                </div>
-                <div class="large-score">${data.awayScore} - ${data.homeScore}</div>
-            `;
-        } else if (data.isLive && data.homeScore && data.awayScore) {
-            // Live game with current score and clock
-            const clockDisplay = data.gameClock && data.gameQuarter ? 
-                `${data.gameQuarter} - ${data.gameClock}` : '';
-            
-            headerContent = `
-                <div class="compact-game-header">
-                    <div class="game-time-status">
-                        <span class="game-time">${data.time}</span>
-                    </div>
-                    <div class="team-matchup-with-score">
-                        ${awayTeamInfo?.logo ? `<img src="${awayTeamInfo.logo}" alt="${data.awayTeam}" class="team-logo">` : ''}
-                        <span class="team-abbr">${data.awayTeam}</span>
-                        <span class="vs-text">@</span>
-                        <span class="team-abbr">${data.homeTeam}</span>
-                        ${homeTeamInfo?.logo ? `<img src="${homeTeamInfo.logo}" alt="${data.homeTeam}" class="team-logo">` : ''}
-                    </div>
-                    <div class="live-status-container">
-                        <div class="live-status">LIVE</div>
-                        ${clockDisplay ? `<div class="live-clock">${clockDisplay}</div>` : ''}
-                    </div>
-                </div>
-                <div class="large-score live-score">${data.awayScore} - ${data.homeScore}</div>
-            `;
-        } else {
-            // Upcoming game
-            headerContent = `
-                <div class="compact-game-header">
-                    <div class="game-time-status">
-                        <span class="game-time">${data.time}</span>
-                    </div>
-                    <div class="team-matchup-with-score">
-                        ${awayTeamInfo?.logo ? `<img src="${awayTeamInfo.logo}" alt="${data.awayTeam}" class="team-logo">` : ''}
-                        <span class="team-abbr">${data.awayTeam}</span>
-                        <span class="vs-text">@</span>
-                        <span class="team-abbr">${data.homeTeam}</span>
-                        ${homeTeamInfo?.logo ? `<img src="${homeTeamInfo.logo}" alt="${data.homeTeam}" class="team-logo">` : ''}
-                    </div>
-                    <div class="game-status">${data.status}</div>
-                </div>
-            `;
-        }
-        
         // Use the correct team names - either from current matchup context or fallback to currentUser
         const leftTeamName = userTeamName || (currentUser.display_name || currentUser.username);
         const opponentName = opponentUser?.display_name || 
                             opponentUser?.username || 
                             'Opponent';
         
+        // Calculate advantage for this game
+        const userTotalPoints = data.userPlayers.reduce((sum, player) => sum + (player.points || 0), 0);
+        const opponentTotalPoints = data.opponentPlayers.reduce((sum, player) => sum + (player.points || 0), 0);
+        const totalPoints = Math.max(userTotalPoints + opponentTotalPoints, 0.001);
+        const userAdvantagePercent = Math.round((userTotalPoints / totalPoints) * 100);
+        const pointsDiff = (userTotalPoints - opponentTotalPoints).toFixed(1);
+        
+        // Create the enhanced game capsule header
+        let headerContent = '';
+        const isLive = data.isLive;
+        const headerClass = isLive ? 'game-capsule-header live' : 'game-capsule-header';
+        
+        if (data.isCompleted && data.homeScore && data.awayScore) {
+            // Completed game with score
+            headerContent = `
+                <div class="${headerClass}">
+                    <div class="kickoff-info">
+                        <div class="kickoff-time">${formatGameTime(data.time)}</div>
+                        <div class="kickoff-date">Final</div>
+                    </div>
+                    <div class="matchup-display">
+                        <div class="team-matchup-info">
+                            ${awayTeamInfo?.logo ? `<img src="${awayTeamInfo.logo}" alt="${data.awayTeam}" class="nfl-team-logo">` : ''}
+                            <span class="nfl-team-code">${data.awayTeam}</span>
+                        </div>
+                        <span class="matchup-separator">@</span>
+                        <div class="team-matchup-info">
+                            <span class="nfl-team-code">${data.homeTeam}</span>
+                            ${homeTeamInfo?.logo ? `<img src="${homeTeamInfo.logo}" alt="${data.homeTeam}" class="nfl-team-logo">` : ''}
+                        </div>
+                    </div>
+                    <div class="game-status-display">
+                        <div class="status-primary final">Final</div>
+                    </div>
+                </div>
+                <div class="game-score-display">
+                    <div class="score-team">
+                        <div class="score-team-name">${data.awayTeam}</div>
+                        <div class="score-value">${data.awayScore}</div>
+                    </div>
+                    <div class="score-separator">-</div>
+                    <div class="score-team">
+                        <div class="score-value">${data.homeScore}</div>
+                        <div class="score-team-name">${data.homeTeam}</div>
+                    </div>
+                </div>
+            `;
+        } else if (isLive && data.homeScore && data.awayScore) {
+            // Live game with current score and clock
+            const clockDisplay = data.gameClock && data.gameQuarter ? 
+                `${data.gameQuarter} - ${data.gameClock}` : '';
+            
+            headerContent = `
+                <div class="${headerClass}">
+                    <div class="kickoff-info">
+                        <div class="kickoff-time">${formatGameTime(data.time)}</div>
+                        <div class="kickoff-date">Live</div>
+                    </div>
+                    <div class="matchup-display">
+                        <div class="team-matchup-info">
+                            ${awayTeamInfo?.logo ? `<img src="${awayTeamInfo.logo}" alt="${data.awayTeam}" class="nfl-team-logo">` : ''}
+                            <span class="nfl-team-code">${data.awayTeam}</span>
+                        </div>
+                        <span class="matchup-separator">@</span>
+                        <div class="team-matchup-info">
+                            <span class="nfl-team-code">${data.homeTeam}</span>
+                            ${homeTeamInfo?.logo ? `<img src="${homeTeamInfo.logo}" alt="${data.homeTeam}" class="nfl-team-logo">` : ''}
+                        </div>
+                    </div>
+                    <div class="game-status-display">
+                        <div class="status-primary live">Live</div>
+                        ${clockDisplay ? `<div class="status-secondary">${clockDisplay}</div>` : ''}
+                    </div>
+                </div>
+                <div class="game-score-display live">
+                    <div class="score-team">
+                        <div class="score-team-name">${data.awayTeam}</div>
+                        <div class="score-value live">${data.awayScore}</div>
+                    </div>
+                    <div class="score-separator">-</div>
+                    <div class="score-team">
+                        <div class="score-value live">${data.homeScore}</div>
+                        <div class="score-team-name">${data.homeTeam}</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Upcoming game
+            headerContent = `
+                <div class="${headerClass}">
+                    <div class="kickoff-info">
+                        <div class="kickoff-time">${formatGameTime(data.time)}</div>
+                        <div class="kickoff-date">${formatGameDate(data.time)}</div>
+                    </div>
+                    <div class="matchup-display">
+                        <div class="team-matchup-info">
+                            ${awayTeamInfo?.logo ? `<img src="${awayTeamInfo.logo}" alt="${data.awayTeam}" class="nfl-team-logo">` : ''}
+                            <span class="nfl-team-code">${data.awayTeam}</span>
+                        </div>
+                        <span class="matchup-separator">@</span>
+                        <div class="team-matchup-info">
+                            <span class="nfl-team-code">${data.homeTeam}</span>
+                            ${homeTeamInfo?.logo ? `<img src="${homeTeamInfo.logo}" alt="${data.homeTeam}" class="nfl-team-logo">` : ''}
+                        </div>
+                    </div>
+                    <div class="game-status-display">
+                        <div class="status-primary upcoming">${data.status}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Create the enhanced two-stack layout
         gameDiv.innerHTML = `
             ${headerContent}
-            <div class="game-players">
-                <div class="game-team">
-                    <div class="game-team-header">${leftTeamName}</div>
-                    <div class="game-team-players" id="user-players-${safeId}"></div>
+            <div class="game-two-stack">
+                <div class="stack-team left">
+                    <div class="stack-header">
+                        <div class="stack-team-name">${leftTeamName}</div>
+                        <div class="player-count-chip">${data.userPlayers.length}</div>
+                    </div>
+                    <div class="stack-players" id="user-players-${safeId}"></div>
                 </div>
-                <div class="game-team">
-                    <div class="game-team-header">${opponentName}</div>
-                    <div class="game-team-players" id="opponent-players-${safeId}"></div>
+                <div class="vs-gutter">
+                    <div class="vs-label">VS</div>
+                    <div class="game-advantage-bar">
+                        <div class="advantage-fill-game" style="width: ${userAdvantagePercent}%"></div>
+                    </div>
+                    <div class="points-advantage ${pointsDiff > 0 ? 'positive' : pointsDiff < 0 ? 'negative' : 'neutral'}">
+                        ${pointsDiff > 0 ? `+${pointsDiff}` : pointsDiff}
+                    </div>
+                </div>
+                <div class="stack-team right">
+                    <div class="stack-header">
+                        <div class="stack-team-name">${opponentName}</div>
+                        <div class="player-count-chip">${data.opponentPlayers.length}</div>
+                    </div>
+                    <div class="stack-players" id="opponent-players-${safeId}"></div>
                 </div>
             </div>
         `;
         
         container.appendChild(gameDiv);
         
-        // Populate user players for this game using consolidated function
+        // Populate user players for this game using enhanced function
         const userPlayersContainer = document.getElementById(`user-players-${safeId}`);
         if (data.userPlayers.length > 0) {
             for (const player of data.userPlayers) {
-                const playerDiv = await createPlayerCard(player, false); // false for game view
+                const playerDiv = await createGamePlayerCard(player, 'left');
                 userPlayersContainer.appendChild(playerDiv);
             }
         } else {
-            userPlayersContainer.innerHTML = '<div class="no-players">No players in this game</div>';
+            userPlayersContainer.innerHTML = '<div class="empty-slot">No players in this game</div>';
         }
         
-        // Populate opponent players for this game using consolidated function
+        // Populate opponent players for this game using enhanced function
         const opponentPlayersContainer = document.getElementById(`opponent-players-${safeId}`);
         if (data.opponentPlayers.length > 0) {
             for (const player of data.opponentPlayers) {
-                const playerDiv = await createPlayerCard(player, false); // false for game view
+                const playerDiv = await createGamePlayerCard(player, 'right');
                 opponentPlayersContainer.appendChild(playerDiv);
             }
         } else {
-            opponentPlayersContainer.innerHTML = '<div class="no-players">No players in this game</div>';
+            opponentPlayersContainer.innerHTML = '<div class="empty-slot">No players in this game</div>';
         }
     }
     
@@ -1064,12 +1148,16 @@ async function switchToMatchup(matchupIndex) {
         document.getElementById('user-score').textContent = formatPoints(selectedMatchup.team1.score);
         document.getElementById('opponent-score').textContent = formatPoints(selectedMatchup.team2.score);
         
-        // Display rosters for the selected matchup (force update)
-        await displayRoster('user-roster', team1, roster1, true);
-        await displayRoster('opponent-roster', team2, roster2, true);
+        // No longer displaying traditional rosters - Position View will handle display
         
         // Update sidebar to highlight the active matchup
         updateSidebarActiveState();
+        
+        // Update position view if it's currently active
+        const positionViewTab = document.getElementById('position-view');
+        if (positionViewTab && !positionViewTab.classList.contains('hidden')) {
+            await displayPositionView(true); // Force update when switching matchups
+        }
         
         // Update game view if it's currently active
         const gameViewTab = document.getElementById('game-view');
@@ -1134,13 +1222,397 @@ async function displaySelectedMatchupGameView(matchupData) {
     }
 }
 
-// Helper function to create pale colors for game backgrounds  
-function makePaleColor(hexColor, opacity = 0.15) {
-    const hex = hexColor.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+// Get starters maintaining exact slot order from API (don't sort by position)
+async function getStartersInSlotOrder(matchupData, rosterData) {
+    const starters = [];
+    
+    // Process each starter ID in the exact order from the API
+    for (let i = 0; i < matchupData.starters.length; i++) {
+        const playerId = matchupData.starters[i];
+        if (playerId && rosterData.players.includes(playerId)) {
+            const playerInfo = await getPlayerInfo(playerId, matchupData);
+            starters.push({
+                ...playerInfo,
+                id: playerId,
+                isStarted: true,
+                slotIndex: i // Track the original slot index
+            });
+        } else {
+            // Handle empty slots (shouldn't normally happen but good to be safe)
+            starters.push(null);
+        }
+    }
+    
+    return starters;
+}
+
+// Position Lanes System - Using constants from utils.js
+// SLOT_ORDER and POSITION_MAPPINGS are now defined in utils.js
+
+// Track position view rendering state to prevent duplicates
+let isPositionViewRendering = false;
+
+// Display Position View with lane-based layout
+async function displayPositionView(forceUpdate = false) {
+    const container = document.getElementById('position-lanes');
+    
+    // Prevent duplicate rendering
+    if (isPositionViewRendering) {
+        console.log('Position view already rendering, skipping duplicate call');
+        return;
+    }
+    
+    // Check if container already has content (avoid unnecessary re-renders)
+    // Only skip if not forcing update and content exists
+    const hasContent = container.children.length > 0 && !container.textContent.includes('Loading');
+    if (!forceUpdate && hasContent) {
+        console.log('Position view already has content, skipping duplicate render');
+        return;
+    }
+    
+    isPositionViewRendering = true;
+    container.innerHTML = '<p>Loading position matchups...</p>';
+    
+    if (!currentUser || !currentLeague || !currentWeek) {
+        container.innerHTML = '<p>Please select a user, league, and week first.</p>';
+        isPositionViewRendering = false;
+        return;
+    }
+    
+    try {
+        let matchupData;
+        let userTeamName, opponentTeamName;
+        
+        // Check if we're viewing a different matchup than the original user's
+        if (currentViewingMatchup && !currentViewingMatchup.isUserMatchup) {
+            const { matchupData: selectedMatchupData } = currentViewingMatchup;
+            const { team1, team2, roster1, roster2, user1, user2 } = selectedMatchupData;
+            
+            matchupData = {
+                userMatchup: team1,
+                opponentMatchup: team2,
+                userRoster: roster1,
+                opponentRoster: roster2,
+                opponentUser: user2,
+                users: [user1, user2]
+            };
+            
+            userTeamName = currentViewingMatchup.team1.name;
+            opponentTeamName = currentViewingMatchup.team2.name;
+        } else {
+            // Use original user's matchup (default behavior)
+            matchupData = await findUserMatchup(
+                currentLeague.league_id, 
+                currentUser.user_id, 
+                currentWeek
+            );
+            
+            const { opponentUser, opponentRoster, users } = matchupData;
+            const actualOpponentUser = resolveOpponentUser(opponentUser, opponentRoster, users);
+            
+            userTeamName = resolveUserDisplayName(currentUser);
+            opponentTeamName = resolveUserDisplayName(actualOpponentUser, 'Team', opponentRoster?.roster_id || 'Unknown');
+        }
+        
+        // Update position view header
+        document.getElementById('position-user-team-name').textContent = userTeamName;
+        document.getElementById('position-opponent-team-name').textContent = opponentTeamName;
+        document.getElementById('position-user-score').textContent = formatPoints(calculateTeamScore(matchupData.userMatchup));
+        document.getElementById('position-opponent-score').textContent = formatPoints(calculateTeamScore(matchupData.opponentMatchup));
+        
+        // Use league's roster positions instead of hardcoded SLOT_ORDER
+        const slotLabels = startingSlotsFromLeague(currentLeague);
+        const userStarters = await getStartersInSlotOrder(matchupData.userMatchup, matchupData.userRoster);
+        const opponentStarters = await getStartersInSlotOrder(matchupData.opponentMatchup, matchupData.opponentRoster);
+        
+        // Pair by index using the league's slot labels
+        const lanes = pairBySlot(slotLabels, userStarters, opponentStarters);
+        await displayPositionLanes(lanes, container);
+        
+    } catch (error) {
+        container.innerHTML = `<p>Error loading position view: ${error.message}</p>`;
+        console.error('Position view error:', error);
+    } finally {
+        isPositionViewRendering = false;
+    }
+}
+
+// Pair players by slot labels and index - matches league's exact slot configuration
+function pairBySlot(slotLabels, leftPlayers, rightPlayers) {
+    return slotLabels.map((slot, i) => ({
+        slot,
+        left: leftPlayers[i] ?? null,
+        right: rightPlayers[i] ?? null
+    }));
+}
+
+// Display position lanes with 3-column grid layout
+async function displayPositionLanes(lanes, container) {
+    // Ensure container is completely cleared first
+    container.innerHTML = '';
+    
+    // Add a small delay to prevent race conditions
+    await new Promise(resolve => setTimeout(resolve, 10));
+    
+    for (let i = 0; i < lanes.length; i++) {
+        const lane = lanes[i];
+        if (lane) {  // Make sure lane exists
+            const laneRow = await createLaneRow(lane, i);
+            container.appendChild(laneRow);
+        }
+    }
+}
+
+// Create a single lane row with left player, center gutter, right player
+async function createLaneRow(lane, index) {
+    const left = lane.left;
+    const right = lane.right;
+    const leftProj = left?.points ?? 0;
+    const rightProj = right?.points ?? 0;
+    const total = Math.max(leftProj + rightProj, 0.001);
+    const leftPct = Math.round((leftProj / total) * 100);
+    const diff = (leftProj - rightProj).toFixed(1);
+    
+    // Create lane row container
+    const laneRow = document.createElement('div');
+    laneRow.className = `position-lane ${index % 2 === 1 ? 'zebra' : ''}`;
+    
+    // Create the three-column layout
+    laneRow.innerHTML = `
+        <div class="lane-player left" id="lane-left-${index}"></div>
+        <div class="lane-center">
+            <div class="position-label">${lane.slot}</div>
+            <div class="advantage-bar">
+                <div class="advantage-fill" style="width: ${leftPct}%"></div>
+            </div>
+            <div class="points-diff ${diff > 0 ? 'positive' : diff < 0 ? 'negative' : 'neutral'}">
+                ${diff > 0 ? `+${diff}` : diff}
+            </div>
+        </div>
+        <div class="lane-player right" id="lane-right-${index}"></div>
+    `;
+    
+    // Populate player cells
+    const leftContainer = laneRow.querySelector(`#lane-left-${index}`);
+    const rightContainer = laneRow.querySelector(`#lane-right-${index}`);
+    
+    if (left) {
+        const leftPlayerCell = await createPlayerCell(left, 'left', lane.slot);
+        leftContainer.appendChild(leftPlayerCell);
+    } else {
+        leftContainer.innerHTML = '<div class="empty-player">—</div>';
+    }
+    
+    if (right) {
+        const rightPlayerCell = await createPlayerCell(right, 'right', lane.slot);
+        rightContainer.appendChild(rightPlayerCell);
+    } else {
+        rightContainer.innerHTML = '<div class="empty-player">—</div>';
+    }
+    
+    return laneRow;
+}
+
+// Create a player cell for position lanes
+async function createPlayerCell(player, side, slot) {
+    const playerCell = document.createElement('div');
+    playerCell.className = `player-cell ${side}`;
+    
+    // Get team info for logos
+    const teamInfo = await getTeamInfo(player.team);
+    
+    // Get game time information for this player
+    const gameInfo = await getTeamGameTime(player.team, currentWeek);
+    
+    // Format game time display
+    let gameTimeDisplay = 'Game TBD';
+    if (gameInfo) {
+        const gameDate = formatGameDate(gameInfo.time);
+        const gameTime = formatGameTime(gameInfo.time);
+        const fullGameTime = `${gameDate} ${gameTime}`;
+        
+        if (gameInfo.homeTeam === player.team) {
+            // Home game
+            gameTimeDisplay = `${fullGameTime} vs ${gameInfo.awayTeam}`;
+        } else if (gameInfo.awayTeam === player.team) {
+            // Away game  
+            gameTimeDisplay = `${fullGameTime} @ ${gameInfo.homeTeam}`;
+        } else if (gameInfo.time === 'Free Agent') {
+            gameTimeDisplay = 'Free Agent';
+        } else {
+            gameTimeDisplay = fullGameTime;
+        }
+    }
+    
+    // Create initials for immediate display
+    const initials = player.name.split(' ').map(n => n[0]).join('');
+    
+    // Create different layouts for left vs right sides
+    if (side === 'left') {
+        // Team 1 (left): Name first, then position/team, then game info
+        playerCell.innerHTML = `
+            <div class="player-avatar">
+                <div class="player-initials">${initials}</div>
+                <img class="player-headshot" style="display: none;" alt="${player.name}">
+                ${teamInfo?.logoSmall ? `<img src="${teamInfo.logoSmall}" alt="${player.team}" class="team-logo-overlay">` : ''}
+            </div>
+            <div class="player-info">
+                <div class="player-name">${player.name} <span class="player-team-pos">${player.position} - ${player.team}</span></div>
+                <div class="player-game-info">${gameTimeDisplay}</div>
+            </div>
+            <div class="player-points">
+                <div class="current-points">${formatPoints(player.points)}</div>
+            </div>
+        `;
+    } else {
+        // Team 2 (right): Position/team first, then name, then game info - mirrored layout
+        playerCell.innerHTML = `
+            <div class="player-points">
+                <div class="current-points">${formatPoints(player.points)}</div>
+            </div>
+            <div class="player-info right-align">
+                <div class="player-name"><span class="player-team-pos">${player.position} - ${player.team}</span> ${player.name}</div>
+                <div class="player-game-info">${gameTimeDisplay}</div>
+            </div>
+            <div class="player-avatar right">
+                <div class="player-initials">${initials}</div>
+                <img class="player-headshot" style="display: none;" alt="${player.name}">
+                ${teamInfo?.logoSmall ? `<img src="${teamInfo.logoSmall}" alt="${player.team}" class="team-logo-overlay">` : ''}
+            </div>
+        `;
+    }
+    
+    // Load headshot asynchronously in the background (non-blocking) using utils.js function
+    loadPlayerHeadshotAsync(playerCell, player.id, player.name);
+    
+    return playerCell;
+}
+
+
+// Format game time for display (e.g., "Sunday 1:00 PM" -> "1:00 PM")
+function formatGameTime(gameTimeString) {
+    if (!gameTimeString) return 'TBD';
+    
+    try {
+        // Handle different time formats
+        if (gameTimeString.includes('PM') || gameTimeString.includes('AM')) {
+            // Extract time portion if it contains day name
+            const timeMatch = gameTimeString.match(/(\d{1,2}:\d{2}\s?(AM|PM))/i);
+            if (timeMatch) {
+                return timeMatch[1];
+            }
+        }
+        
+        // Try to parse as date and format
+        const date = new Date(gameTimeString);
+        if (!isNaN(date.getTime())) {
+            return date.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        }
+        
+        // Fallback to original string
+        return gameTimeString;
+    } catch (error) {
+        return gameTimeString || 'TBD';
+    }
+}
+
+// Format game date for display (e.g., "Sunday, Sep 10")
+function formatGameDate(gameTimeString) {
+    if (!gameTimeString) return 'TBD';
+    
+    try {
+        const date = new Date(gameTimeString);
+        if (!isNaN(date.getTime())) {
+            return date.toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+        
+        // Extract day name if present and convert to abbreviated form
+        const dayMatch = gameTimeString.match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/i);
+        if (dayMatch) {
+            const fullDay = dayMatch[1].toLowerCase();
+            const dayAbbreviations = {
+                'monday': 'Mon',
+                'tuesday': 'Tue', 
+                'wednesday': 'Wed',
+                'thursday': 'Thu',
+                'friday': 'Fri',
+                'saturday': 'Sat',
+                'sunday': 'Sun'
+            };
+            return dayAbbreviations[fullDay] || dayMatch[1];
+        }
+        
+        return 'Game Day';
+    } catch (error) {
+        return 'Game Day';
+    }
+}
+
+// Create enhanced player card for game view with compact design
+async function createGamePlayerCard(player, side = 'left') {
+    const playerCard = document.createElement('div');
+    const cardClass = player.isStarted ? 'game-player-card started' : 'game-player-card benched';
+    playerCard.className = cardClass;
+    
+    // Get team info for logos
+    const teamInfo = await getTeamInfo(player.team);
+    
+    // Create initials for immediate display
+    const initials = player.name.split(' ').map(n => n[0]).join('');
+    
+    // Create different layouts for left vs right sides
+    if (side === 'left') {
+        // Team 1 (left): Standard layout
+        playerCard.innerHTML = `
+            <div class="compact-avatar">
+                <div class="compact-initials">${initials}</div>
+                <img class="compact-headshot" style="display: none;" alt="${player.name}">
+                ${teamInfo?.logoSmall ? `<img src="${teamInfo.logoSmall}" alt="${player.team}" class="compact-team-logo">` : ''}
+            </div>
+            <div class="compact-player-info">
+                <div class="compact-player-name">${player.name}</div>
+                <div class="compact-player-details">
+                    <span class="compact-position">${player.position}</span>
+                    <span class="compact-team">${player.team}</span>
+                </div>
+            </div>
+            <div class="compact-points">
+                <div class="compact-score">${formatPoints(player.points)}</div>
+            </div>
+        `;
+    } else {
+        // Team 2 (right): Mirrored layout
+        playerCard.innerHTML = `
+            <div class="compact-points">
+                <div class="compact-score">${formatPoints(player.points)}</div>
+            </div>
+            <div class="compact-player-info right-align">
+                <div class="compact-player-name">${player.name}</div>
+                <div class="compact-player-details">
+                    <span class="compact-position">${player.position}</span>
+                    <span class="compact-team">${player.team}</span>
+                </div>
+            </div>
+            <div class="compact-avatar">
+                <div class="compact-initials">${initials}</div>
+                <img class="compact-headshot" style="display: none;" alt="${player.name}">
+                ${teamInfo?.logoSmall ? `<img src="${teamInfo.logoSmall}" alt="${player.team}" class="compact-team-logo">` : ''}
+            </div>
+        `;
+    }
+    
+    // Load headshot asynchronously in the background using utils.js function
+    loadPlayerHeadshotAsync(playerCard, player.id, player.name, true); // true for compact mode
+    
+    return playerCard;
 }
 
 // Cleanup on page unload

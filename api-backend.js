@@ -2,11 +2,6 @@
 const API_BASE = '';  // Empty for same-origin requests
 
 // Global variables
-let currentUser = null;
-let currentLeague = null;
-let currentWeek = null;
-let isAutoRefreshEnabled = true;
-let autoRefreshInterval = null;
 
 // SSE connection for real-time updates
 let eventSource = null;
@@ -442,6 +437,15 @@ async function getTeamGameTime(team, week) {
             };
         }
 
+        // Team abbreviation mapping (Sleeper -> ESPN)
+        const teamMappings = {
+            'WAS': 'WSH',  // Washington Commanders
+            // Add other mappings as needed
+        };
+
+        // Get the ESPN equivalent team abbreviation
+        const espnTeam = teamMappings[team] || team;
+
         // Find the game for this team
         for (const event of scoreboard.events) {
             if (!event.competitions || !event.competitions[0]) continue;
@@ -459,8 +463,8 @@ async function getTeamGameTime(team, week) {
             const homeAbbr = homeTeam.team?.abbreviation;
             const awayAbbr = awayTeam.team?.abbreviation;
             
-            // Check if this game involves our team
-            if (homeAbbr === team || awayAbbr === team) {
+            // Check if this game involves our team (using ESPN mapping)
+            if (homeAbbr === espnTeam || awayAbbr === espnTeam) {
                 const status = competition.status;
                 const isCompleted = status?.type?.completed || false;
                 const isLive = status?.type?.name === 'STATUS_IN_PROGRESS' || 
