@@ -69,11 +69,6 @@
             <section id="matchup-display" class="section hidden">
                 <div class="matchup-header">
                     <h2>Your Matchup</h2>
-                    <div class="update-controls">
-                        <button id="refresh-btn" onclick="refreshMatchup()">Refresh Now</button>
-                        <span id="auto-refresh-status">Auto-refresh: ON</span>
-                        <button id="toggle-refresh" onclick="toggleAutoRefresh()">Turn Off</button>
-                    </div>
                 </div>
 
                 <!-- Tab Navigation -->
@@ -123,7 +118,8 @@
         </main>
     </div>
 
-    <script src="api.js"></script>
+    <script src="api-backend.js"></script>
+    <script src="utils.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

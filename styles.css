@@ -357,7 +357,6 @@ body.dark-theme .theme-toggle-container .theme-label:last-child {
 }
 
 .section:hover {
-    transform: translateY(-2px);
     box-shadow: 0 12px 40px var(--shadow-medium);
 }
 
@@ -523,22 +522,6 @@ select:hover {
     gap: 15px;
 }
 
-.update-controls {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex-wrap: wrap;
-}
-
-.update-controls button {
-    padding: 8px 16px;
-    font-size: 14px;
-}
-
-#auto-refresh-status {
-    color: var(--text-secondary);
-    font-weight: 500;
-}
 
 .teams-container {
     display: grid;

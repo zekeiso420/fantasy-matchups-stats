@@ -28,6 +28,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Add event listeners for dropdowns
+    leagueSelect.addEventListener('change', selectLeague);
+    weekSelect.addEventListener('change', selectWeek);
+    
     // Set up week options (1-18 for regular season)
     populateWeekSelect();
     
@@ -310,36 +314,44 @@ async function loadMatchup() {
 async function displayMatchup(matchupData) {
     const { userMatchup, opponentMatchup, opponentUser, userRoster, opponentRoster, users } = matchupData;
     
-    // Ensure we have opponent user data - if not, try to find it again
-    let actualOpponentUser = opponentUser;
-    if (!actualOpponentUser && opponentRoster?.owner_id && users) {
-        actualOpponentUser = users.find(user => user.user_id === opponentRoster.owner_id);
-    }
+    // Resolve opponent user using consolidated function
+    const actualOpponentUser = resolveOpponentUser(opponentUser, opponentRoster, users);
     
-    // Update team names with better fallback logic
-    document.getElementById('user-team-name').textContent = 
-        currentUser.display_name || currentUser.username;
-    
-    const opponentName = actualOpponentUser?.display_name || 
-                        actualOpponentUser?.username || 
-                        `Team ${opponentRoster?.roster_id || 'Unknown'}`;
-    document.getElementById('opponent-team-name').textContent = opponentName;
+    // Update team names using consolidated function
+    const userTeamName = resolveUserDisplayName(currentUser);
+    const opponentTeamName = resolveUserDisplayName(actualOpponentUser, 'Team', opponentRoster?.roster_id || 'Unknown');
     
     // Update scores
     const userScore = calculateTeamScore(userMatchup);
     const opponentScore = calculateTeamScore(opponentMatchup);
     
-    document.getElementById('user-score').textContent = formatPoints(userScore);
-    document.getElementById('opponent-score').textContent = formatPoints(opponentScore);
+    // Use consolidated display update function
+    updateTeamDisplay(userTeamName, opponentTeamName, userScore, opponentScore);
     
     // Display rosters
     await displayRoster('user-roster', userMatchup, userRoster);
     await displayRoster('opponent-roster', opponentMatchup, opponentRoster);
 }
 
+// Track roster rendering to prevent duplicates
+const rosterRenderingStates = new Map();
+
 // Display team roster
-async function displayRoster(containerId, matchupData, rosterData) {
+async function displayRoster(containerId, matchupData, rosterData, forceUpdate = false) {
     const container = document.getElementById(containerId);
+    
+    // Stronger duplication protection with rendering state tracking
+    const isCurrentlyRendering = rosterRenderingStates.get(containerId);
+    const hasContent = container.children.length > 0;
+    
+    if (!forceUpdate && (isCurrentlyRendering || hasContent)) {
+        console.log(`Roster ${containerId} already rendered or rendering, skipping duplicate unless forced`);
+        return;
+    }
+    
+    // Mark as currently rendering
+    rosterRenderingStates.set(containerId, true);
+    
     container.innerHTML = '';
     
     if (!matchupData.starters || !rosterData.players) {
@@ -350,160 +362,8 @@ async function displayRoster(containerId, matchupData, rosterData) {
     // Check if this is for Team View (main roster display)
     const isTeamView = containerId === 'user-roster' || containerId === 'opponent-roster';
     
-    // Get all players with their info
-    const starters = [];
-    const bench = [];
-    
-    // Add starters first
-    for (const playerId of matchupData.starters) {
-        if (playerId && rosterData.players.includes(playerId)) {
-            const playerInfo = await getPlayerInfo(playerId, matchupData);
-            starters.push({
-                ...playerInfo,
-                id: playerId,
-                isStarted: true
-            });
-        }
-    }
-    
-    // Add bench players
-    for (const playerId of rosterData.players) {
-        if (playerId && !matchupData.starters.includes(playerId)) {
-            const playerInfo = await getPlayerInfo(playerId, matchupData);
-            bench.push({
-                ...playerInfo,
-                id: playerId,
-                isStarted: false
-            });
-        }
-    }
-    
-    // Define position priority order
-    const positionPriority = {
-        'QB': 1,
-        'RB': 2,
-        'WR': 3,
-        'TE': 4,
-        'K': 5,
-        'DEF': 6,
-        'D/ST': 6, // Alternative defense notation
-        'DST': 6   // Alternative defense notation
-    };
-    
-    // Sort function for players
-    const sortPlayers = (players) => {
-        return players.sort((a, b) => {
-            // Get position priorities (default to 99 for unknown positions)
-            const aPriority = positionPriority[a.position] || 99;
-            const bPriority = positionPriority[b.position] || 99;
-            
-            if (aPriority !== bPriority) {
-                return aPriority - bPriority;
-            }
-            
-            // If same position, sort alphabetically by name
-            return a.name.localeCompare(b.name);
-        });
-    };
-    
-    // Sort both arrays
-    sortPlayers(starters);
-    sortPlayers(bench);
-    
-    // Create player card HTML
-    const createPlayerCard = async (player) => {
-        // Get team info and player headshot
-        const playerTeamInfo = await getTeamInfo(player.team);
-        const headshot = await getPlayerHeadshot(player.name, player.team);
-        
-        // Get game info for this player's team
-        const gameInfo = await getTeamGameTime(player.team, currentWeek);
-        let gameStatus = '';
-        let gameTime = '';
-        let gameStatusClass = '';
-        
-        if (gameInfo.isLive) {
-            gameStatus = `${gameInfo.gameClock && gameInfo.gameQuarter ? `${gameInfo.gameQuarter} - ${gameInfo.gameClock}` : 'LIVE'}`;
-            const isHomeGame = player.team === gameInfo.homeTeam;
-            const opponent = isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
-            gameTime = `${isHomeGame ? 'VS' : '@'} ${opponent}`;
-        } else if (gameInfo.isCompleted) {
-            const isWin = gameInfo.winnerTeam === player.team;
-            gameStatus = `${isWin ? 'W' : 'L'} ${gameInfo.awayScore}-${gameInfo.homeScore}`;
-            const isHomeGame = player.team === gameInfo.homeTeam;
-            const opponent = isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
-            gameTime = `${isHomeGame ? 'VS' : '@'} ${opponent}`;
-            gameStatusClass = isWin ? 'game-win' : 'game-loss';
-        } else if (gameInfo.time !== 'Free Agent' && gameInfo.time !== 'No Game This Week') {
-            // Parse the time to include day and time - try multiple formats
-            let dayTimeMatch = gameInfo.time.match(/(\w+day)[,\s]+(\d{1,2}:\d{2}\s*[AP]M)/i);
-            if (!dayTimeMatch) {
-                // Try format like "Sunday 1:00 PM EST"
-                dayTimeMatch = gameInfo.time.match(/(\w+day)\s+(\d{1,2}:\d{2}\s*[AP]M)/i);
-            }
-            if (!dayTimeMatch) {
-                // Try format with numeric date "Sunday, January 12, 1:00 PM EST"
-                dayTimeMatch = gameInfo.time.match(/(\w+day)[^0-9]*(\d{1,2}:\d{2}\s*[AP]M)/i);
-            }
-            
-            if (dayTimeMatch) {
-                const dayAbbr = dayTimeMatch[1].substring(0, 3); // "Sunday" -> "Sun"
-                gameStatus = `${dayAbbr} ${dayTimeMatch[2]}`;
-            } else {
-                // Enhanced fallback - try to extract time and show with original if possible
-                const timeMatch = gameInfo.time.match(/\d{1,2}:\d{2}\s*[AP]M/i);
-                if (timeMatch) {
-                    // Try to extract day from start of string
-                    const dayMatch = gameInfo.time.match(/^(\w+day)/i);
-                    if (dayMatch) {
-                        const dayAbbr = dayMatch[1].substring(0, 3);
-                        gameStatus = `${dayAbbr} ${timeMatch[0]}`;
-                    } else {
-                        gameStatus = timeMatch[0];
-                    }
-                } else {
-                    // Show original time as fallback
-                    gameStatus = gameInfo.time;
-                }
-            }
-            const isHomeGame = player.team === gameInfo.homeTeam;
-            const opponent = isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
-            gameTime = `${isHomeGame ? 'VS' : '@'} ${opponent}`;
-        } else {
-            gameStatus = gameInfo.status;
-            gameTime = 'Yet to play';
-        }
-        
-        const playerDiv = document.createElement('div');
-        playerDiv.className = `player-card ${player.isStarted ? 'started' : 'benched'}`;
-        
-        playerDiv.innerHTML = `
-            <div class="player-avatar">
-                ${headshot ? 
-                    `<img src="${headshot}" alt="${player.name}" class="player-headshot" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                     <div class="player-initials" style="display: none;">${player.name.split(' ').map(n => n[0]).join('')}</div>` :
-                    `<div class="player-initials">${player.name.split(' ').map(n => n[0]).join('')}</div>`
-                }
-                ${playerTeamInfo?.logoSmall ? `<img src="${playerTeamInfo.logoSmall}" alt="${player.team}" class="team-logo-overlay">` : ''}
-            </div>
-            <div class="player-details">
-                <div class="player-header">
-                    <span class="player-name player-name-full">${player.name}</span>
-                    <span class="player-name player-name-short">${shortenPlayerName(player.name)}</span>
-                </div>
-                <div class="game-info">
-                    <div class="game-time ${gameStatusClass}">${gameStatus}</div>
-                    <div class="game-opponent">${gameTime}</div>
-                </div>
-            </div>
-            <div class="player-stats">
-                <div class="player-position">${player.position} - ${player.team}</div>
-                <div class="player-points">${formatPoints(player.points)}</div>
-            </div>
-        `;
-        
-        return playerDiv;
-    };
+    // Use consolidated roster processing function
+    const { starters, bench } = await processRosterPlayers(matchupData, rosterData);
     
     if (isTeamView) {
         // Create separate sections for Team View
@@ -557,101 +417,18 @@ async function displayRoster(containerId, matchupData, rosterData) {
             container.appendChild(playerDiv);
         }
     }
+    
+    // Clear rendering state when complete
+    rosterRenderingStates.set(containerId, false);
 }
 
-// Setup auto-refresh functionality
+// Setup real-time updates via SSE
 function setupAutoRefresh() {
-    // Clear existing interval
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-    }
+    if (!currentLeague || !currentWeek) return;
     
-    if (!isAutoRefreshEnabled) return;
-    
-    // Set up more frequent refresh interval for live games
-    autoRefreshInterval = setInterval(async () => {
-        try {
-            // Always clear cache to ensure fresh data on auto-refresh
-            clearCache();
-            
-            // Clear any cached NFL schedule data too
-            if (window.nflScheduleCache) {
-                delete window.nflScheduleCache;
-            }
-            
-            // Refresh the currently viewing matchup instead of always going back to user's matchup
-            await refreshCurrentMatchup();
-        } catch (error) {
-            // Silent error handling for auto-refresh
-        }
-    }, 15000); // 15 seconds for more frequent updates
-    
-    updateRefreshStatus();
-}
-
-// Toggle auto-refresh
-function toggleAutoRefresh() {
-    isAutoRefreshEnabled = !isAutoRefreshEnabled;
-    
-    if (isAutoRefreshEnabled) {
-        setupAutoRefresh();
-    } else {
-        if (autoRefreshInterval) {
-            clearInterval(autoRefreshInterval);
-            autoRefreshInterval = null;
-        }
-    }
-    
-    updateRefreshStatus();
-}
-
-// Update refresh status display
-function updateRefreshStatus() {
-    const statusSpan = document.getElementById('auto-refresh-status');
-    const toggleBtn = document.getElementById('toggle-refresh');
-    
-    if (isAutoRefreshEnabled) {
-        statusSpan.textContent = 'Auto-refresh: ON';
-        toggleBtn.textContent = 'Turn Off';
-    } else {
-        statusSpan.textContent = 'Auto-refresh: OFF';
-        toggleBtn.textContent = 'Turn On';
-    }
-}
-
-// Refresh the currently viewing matchup (for auto-refresh)
-async function refreshCurrentMatchup() {
-    if (!currentUser || !currentLeague || !currentWeek) {
-        return;
-    }
-    
-    try {
-        // If we're viewing the user's own matchup, use loadMatchup
-        if (!currentViewingMatchup || currentViewingMatchup.isUserMatchup) {
-            await loadMatchup();
-        } else {
-            // If we're viewing a different matchup, refresh that one
-            const matchupIndex = allMatchupsData.findIndex(matchup => 
-                (matchup.team1.rosterId === currentViewingMatchup.team1.rosterId && 
-                 matchup.team2.rosterId === currentViewingMatchup.team2.rosterId) ||
-                (matchup.team1.rosterId === currentViewingMatchup.team2.rosterId && 
-                 matchup.team2.rosterId === currentViewingMatchup.team1.rosterId)
-            );
-            
-            if (matchupIndex >= 0) {
-                // Reload all matchups data first to get fresh scores
-                await loadOtherMatchups();
-                // Then switch to the same matchup (which will have fresh data)
-                await switchToMatchup(matchupIndex);
-            } else {
-                // Fallback to user's matchup if we can't find the current one
-                await loadMatchup();
-            }
-        }
-    } catch (error) {
-        // Silent error handling for auto-refresh
-        console.error('Auto-refresh error:', error);
-    }
+    // Connect to SSE stream for real-time updates
+    connectToMatchupStream(currentLeague.league_id, currentWeek);
+    console.log('Connected to real-time updates');
 }
 
 // Manual refresh
@@ -705,25 +482,40 @@ async function displayGameView() {
     }
     
     try {
-        // Get current matchup data
-        const matchupData = await findUserMatchup(
-            currentLeague.league_id, 
-            currentUser.user_id, 
-            currentWeek
-        );
-        
-        // Ensure we have opponent user data with fallback logic (same as displayMatchup)
-        const { opponentUser, opponentRoster, users } = matchupData;
-        let actualOpponentUser = opponentUser;
-        if (!actualOpponentUser && opponentRoster?.owner_id && users) {
-            actualOpponentUser = users.find(user => user.user_id === opponentRoster.owner_id);
+        // Check if we're viewing a different matchup than the original user's
+        if (currentViewingMatchup && !currentViewingMatchup.isUserMatchup) {
+            // Use the currently selected matchup data
+            const { matchupData } = currentViewingMatchup;
+            const { team1, team2, roster1, roster2, user1, user2 } = matchupData;
+            
+            const displayData = {
+                userMatchup: team1,
+                opponentMatchup: team2,
+                userRoster: roster1,
+                opponentRoster: roster2,
+                opponentUser: user2,
+                users: [user1, user2]
+            };
+            
+            await displaySelectedMatchupGameView(displayData);
+        } else {
+            // Use original user's matchup (default behavior)
+            const matchupData = await findUserMatchup(
+                currentLeague.league_id, 
+                currentUser.user_id, 
+                currentWeek
+            );
+            
+            // Use consolidated opponent user resolution function
+            const { opponentUser, opponentRoster, users } = matchupData;
+            const actualOpponentUser = resolveOpponentUser(opponentUser, opponentRoster, users);
+            
+            // Group players by their NFL team's actual game time
+            const gameSlots = await groupPlayersByActualGameTime(matchupData);
+            
+            // Display the grouped games with the properly resolved opponent user
+            await displayGameSlots(gameSlots, container, actualOpponentUser);
         }
-        
-        // Group players by their NFL team's actual game time
-        const gameSlots = await groupPlayersByActualGameTime(matchupData);
-        
-        // Display the grouped games with the properly resolved opponent user
-        await displayGameSlots(gameSlots, container, actualOpponentUser);
         
     } catch (error) {
         container.innerHTML = `<p>Error loading game view: ${error.message}</p>`;
@@ -956,7 +748,7 @@ function sortGamesByPriority(gameSlots) {
 }
 
 // Display game slots in the container
-async function displayGameSlots(gameSlots, container, opponentUser) {
+async function displayGameSlots(gameSlots, container, opponentUser, userTeamName = null) {
     container.innerHTML = '';
     
     // Sort games using smart priority logic
@@ -1055,7 +847,8 @@ async function displayGameSlots(gameSlots, container, opponentUser) {
             `;
         }
         
-        // Ensure we have opponent name with better fallback logic
+        // Use the correct team names - either from current matchup context or fallback to currentUser
+        const leftTeamName = userTeamName || (currentUser.display_name || currentUser.username);
         const opponentName = opponentUser?.display_name || 
                             opponentUser?.username || 
                             'Opponent';
@@ -1064,7 +857,7 @@ async function displayGameSlots(gameSlots, container, opponentUser) {
             ${headerContent}
             <div class="game-players">
                 <div class="game-team">
-                    <div class="game-team-header">${currentUser.display_name || currentUser.username}</div>
+                    <div class="game-team-header">${leftTeamName}</div>
                     <div class="game-team-players" id="user-players-${safeId}"></div>
                 </div>
                 <div class="game-team">
@@ -1076,184 +869,22 @@ async function displayGameSlots(gameSlots, container, opponentUser) {
         
         container.appendChild(gameDiv);
         
-        // Populate user players for this game
+        // Populate user players for this game using consolidated function
         const userPlayersContainer = document.getElementById(`user-players-${safeId}`);
         if (data.userPlayers.length > 0) {
             for (const player of data.userPlayers) {
-                const playerDiv = document.createElement('div');
-                playerDiv.className = `player-card game-view ${player.isStarted ? 'started' : 'benched'}`;
-                
-                // Get team info and player headshot
-                const playerTeamInfo = await getTeamInfo(player.team);
-                const headshot = await getPlayerHeadshot(player.name, player.team);
-                
-                // Get game info for this player's team
-                const gameInfo = await getTeamGameTime(player.team, currentWeek);
-                let gameStatus = '';
-                let gameTime = '';
-                let gameStatusClass = '';
-                
-                if (gameInfo.isLive) {
-                    gameStatus = `${gameInfo.gameClock && gameInfo.gameQuarter ? `${gameInfo.gameQuarter} - ${gameInfo.gameClock}` : 'LIVE'}`;
-                    const isHomeGame = player.team === gameInfo.homeTeam;
-                    const opponent = isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
-                    gameTime = `${isHomeGame ? 'VS' : '@'} ${opponent}`;
-                } else if (gameInfo.isCompleted) {
-                    const isWin = gameInfo.winnerTeam === player.team;
-                    gameStatus = `${isWin ? 'W' : 'L'} ${gameInfo.awayScore}-${gameInfo.homeScore}`;
-                    const isHomeGame = player.team === gameInfo.homeTeam;
-                    const opponent = isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
-                    gameTime = `${isHomeGame ? 'VS' : '@'} ${opponent}`;
-                    gameStatusClass = isWin ? 'game-win' : 'game-loss';
-                } else if (gameInfo.time !== 'Free Agent' && gameInfo.time !== 'No Game This Week') {
-                    // Parse the time to include day and time - try multiple formats
-                    let dayTimeMatch = gameInfo.time.match(/(\w+day)[,\s]+(\d{1,2}:\d{2}\s*[AP]M)/i);
-                    if (!dayTimeMatch) {
-                        dayTimeMatch = gameInfo.time.match(/(\w+day)\s+(\d{1,2}:\d{2}\s*[AP]M)/i);
-                    }
-                    if (!dayTimeMatch) {
-                        dayTimeMatch = gameInfo.time.match(/(\w+day)[^0-9]*(\d{1,2}:\d{2}\s*[AP]M)/i);
-                    }
-                    
-                    if (dayTimeMatch) {
-                        const dayAbbr = dayTimeMatch[1].substring(0, 3);
-                        gameStatus = `${dayAbbr} ${dayTimeMatch[2]}`;
-                    } else {
-                        const timeMatch = gameInfo.time.match(/\d{1,2}:\d{2}\s*[AP]M/i);
-                        if (timeMatch) {
-                            const dayMatch = gameInfo.time.match(/^(\w+day)/i);
-                            if (dayMatch) {
-                                const dayAbbr = dayMatch[1].substring(0, 3);
-                                gameStatus = `${dayAbbr} ${timeMatch[0]}`;
-                            } else {
-                                gameStatus = timeMatch[0];
-                            }
-                        } else {
-                            gameStatus = gameInfo.time;
-                        }
-                    }
-                    const isHomeGame = player.team === gameInfo.homeTeam;
-                    const opponent = isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
-                    gameTime = `${isHomeGame ? 'VS' : '@'} ${opponent}`;
-                } else {
-                    gameStatus = gameInfo.status;
-                    gameTime = 'Yet to play';
-                }
-                
-                playerDiv.innerHTML = `
-                    <div class="player-avatar">
-                        ${headshot ? 
-                            `<img src="${headshot}" alt="${player.name}" class="player-headshot" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                             <div class="player-initials" style="display: none;">${player.name.split(' ').map(n => n[0]).join('')}</div>` :
-                            `<div class="player-initials">${player.name.split(' ').map(n => n[0]).join('')}</div>`
-                        }
-                        ${playerTeamInfo?.logoSmall ? `<img src="${playerTeamInfo.logoSmall}" alt="${player.team}" class="team-logo-overlay">` : ''}
-                    </div>
-                    <div class="player-details">
-                        <div class="player-header">
-                            <span class="player-name">${player.name}</span>
-                            <span class="player-position">${player.position} - ${player.team}</span>
-                        </div>
-                        <div class="game-info">
-                            <div class="game-time ${gameStatusClass}">${gameStatus}</div>
-                            <div class="game-opponent">${gameTime}</div>
-                        </div>
-                    </div>
-                    <div class="player-points">${formatPoints(player.points)}</div>
-                `;
-                
+                const playerDiv = await createPlayerCard(player, false); // false for game view
                 userPlayersContainer.appendChild(playerDiv);
             }
         } else {
             userPlayersContainer.innerHTML = '<div class="no-players">No players in this game</div>';
         }
         
-        // Populate opponent players for this game
+        // Populate opponent players for this game using consolidated function
         const opponentPlayersContainer = document.getElementById(`opponent-players-${safeId}`);
         if (data.opponentPlayers.length > 0) {
             for (const player of data.opponentPlayers) {
-                const playerDiv = document.createElement('div');
-                playerDiv.className = `player-card game-view ${player.isStarted ? 'started' : 'benched'}`;
-                
-                // Get team info and player headshot
-                const playerTeamInfo = await getTeamInfo(player.team);
-                const headshot = await getPlayerHeadshot(player.name, player.team);
-                
-                // Get game info for this player's team
-                const gameInfo = await getTeamGameTime(player.team, currentWeek);
-                let gameStatus = '';
-                let gameTime = '';
-                let gameStatusClass = '';
-                
-                if (gameInfo.isLive) {
-                    gameStatus = `${gameInfo.gameClock && gameInfo.gameQuarter ? `${gameInfo.gameQuarter} - ${gameInfo.gameClock}` : 'LIVE'}`;
-                    const isHomeGame = player.team === gameInfo.homeTeam;
-                    const opponent = isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
-                    gameTime = `${isHomeGame ? 'VS' : '@'} ${opponent}`;
-                } else if (gameInfo.isCompleted) {
-                    const isWin = gameInfo.winnerTeam === player.team;
-                    gameStatus = `${isWin ? 'W' : 'L'} ${gameInfo.awayScore}-${gameInfo.homeScore}`;
-                    const isHomeGame = player.team === gameInfo.homeTeam;
-                    const opponent = isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
-                    gameTime = `${isHomeGame ? 'VS' : '@'} ${opponent}`;
-                    gameStatusClass = isWin ? 'game-win' : 'game-loss';
-                } else if (gameInfo.time !== 'Free Agent' && gameInfo.time !== 'No Game This Week') {
-                    // Parse the time to include day and time - try multiple formats
-                    let dayTimeMatch = gameInfo.time.match(/(\w+day)[,\s]+(\d{1,2}:\d{2}\s*[AP]M)/i);
-                    if (!dayTimeMatch) {
-                        dayTimeMatch = gameInfo.time.match(/(\w+day)\s+(\d{1,2}:\d{2}\s*[AP]M)/i);
-                    }
-                    if (!dayTimeMatch) {
-                        dayTimeMatch = gameInfo.time.match(/(\w+day)[^0-9]*(\d{1,2}:\d{2}\s*[AP]M)/i);
-                    }
-                    
-                    if (dayTimeMatch) {
-                        const dayAbbr = dayTimeMatch[1].substring(0, 3);
-                        gameStatus = `${dayAbbr} ${dayTimeMatch[2]}`;
-                    } else {
-                        const timeMatch = gameInfo.time.match(/\d{1,2}:\d{2}\s*[AP]M/i);
-                        if (timeMatch) {
-                            const dayMatch = gameInfo.time.match(/^(\w+day)/i);
-                            if (dayMatch) {
-                                const dayAbbr = dayMatch[1].substring(0, 3);
-                                gameStatus = `${dayAbbr} ${timeMatch[0]}`;
-                            } else {
-                                gameStatus = timeMatch[0];
-                            }
-                        } else {
-                            gameStatus = gameInfo.time;
-                        }
-                    }
-                    const isHomeGame = player.team === gameInfo.homeTeam;
-                    const opponent = isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
-                    gameTime = `${isHomeGame ? 'VS' : '@'} ${opponent}`;
-                } else {
-                    gameStatus = gameInfo.status;
-                    gameTime = 'Yet to play';
-                }
-                
-                playerDiv.innerHTML = `
-                    <div class="player-avatar">
-                        ${headshot ? 
-                            `<img src="${headshot}" alt="${player.name}" class="player-headshot" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                             <div class="player-initials" style="display: none;">${player.name.split(' ').map(n => n[0]).join('')}</div>` :
-                            `<div class="player-initials">${player.name.split(' ').map(n => n[0]).join('')}</div>`
-                        }
-                        ${playerTeamInfo?.logoSmall ? `<img src="${playerTeamInfo.logoSmall}" alt="${player.team}" class="team-logo-overlay">` : ''}
-                    </div>
-                    <div class="player-details">
-                        <div class="player-header">
-                            <span class="player-name">${player.name}</span>
-                            <span class="player-position">${player.position} - ${player.team}</span>
-                        </div>
-                        <div class="game-info">
-                            <div class="game-time ${gameStatusClass}">${gameStatus}</div>
-                            <div class="game-opponent">${gameTime}</div>
-                        </div>
-                    </div>
-                    <div class="player-points">${formatPoints(player.points)}</div>
-                `;
-                
+                const playerDiv = await createPlayerCard(player, false); // false for game view
                 opponentPlayersContainer.appendChild(playerDiv);
             }
         } else {
@@ -1433,9 +1064,9 @@ async function switchToMatchup(matchupIndex) {
         document.getElementById('user-score').textContent = formatPoints(selectedMatchup.team1.score);
         document.getElementById('opponent-score').textContent = formatPoints(selectedMatchup.team2.score);
         
-        // Display rosters for the selected matchup
-        await displayRoster('user-roster', team1, roster1);
-        await displayRoster('opponent-roster', team2, roster2);
+        // Display rosters for the selected matchup (force update)
+        await displayRoster('user-roster', team1, roster1, true);
+        await displayRoster('opponent-roster', team2, roster2, true);
         
         // Update sidebar to highlight the active matchup
         updateSidebarActiveState();
@@ -1481,21 +1112,35 @@ async function displaySelectedMatchupGameView(matchupData) {
     
     try {
         // Get opponent user data with fallback logic
-        const { opponentUser, opponentRoster, users } = matchupData;
+        const { userMatchup, opponentUser, opponentRoster, users } = matchupData;
         let actualOpponentUser = opponentUser;
         if (!actualOpponentUser && opponentRoster?.owner_id && users) {
             actualOpponentUser = users.find(user => user.user_id === opponentRoster.owner_id);
         }
         
+        // Get the user info for the selected matchup
+        const userRoster = matchupData.userRoster;
+        const selectedUser = users?.find(user => user.user_id === userRoster?.owner_id);
+        const userTeamName = selectedUser?.display_name || selectedUser?.username || 'Team 1';
+        
         // Group players by their NFL team's actual game time
         const gameSlots = await groupPlayersByActualGameTime(matchupData);
         
-        // Display the grouped games with the properly resolved opponent user
-        await displayGameSlots(gameSlots, container, actualOpponentUser);
+        // Display the grouped games with the properly resolved opponent user and correct team name
+        await displayGameSlots(gameSlots, container, actualOpponentUser, userTeamName);
         
     } catch (error) {
         container.innerHTML = `<p>Error loading game view: ${error.message}</p>`;
     }
+}
+
+// Helper function to create pale colors for game backgrounds  
+function makePaleColor(hexColor, opacity = 0.15) {
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
 // Cleanup on page unload
