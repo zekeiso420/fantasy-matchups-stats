@@ -1,22 +1,26 @@
 {
   "name": "fantasy-matchups-stats",
-  "version": "1.0.0",
-  "description": "Fantasy football matchup stats with real-time updates",
+  "version": "2.0.0",
+  "description": "Live Sleeper fantasy football matchup tracker",
   "main": "server.js",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "node --watch server.js",
+    "mock": "node test/mock-server.mjs",
+    "preview:static": "node test/static-host.mjs"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "node-fetch": "^3.3.2"
+    "express": "^4.19.2"
   },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
-  },
-  "keywords": ["fantasy", "football", "sleeper", "real-time"],
-  "author": "",
+  "keywords": [
+    "fantasy",
+    "football",
+    "sleeper",
+    "nfl"
+  ],
   "license": "MIT"
 }

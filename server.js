@@ -1,468 +1,228 @@
 import express from 'express';
-import cors from 'cors';
-import fetch from 'node-fetch';
-import crypto from 'crypto';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { SLEEPER, ESPN, slimPlayers, scoreboardUrl, feedUrls, summarizeGames, normalizeStatFeed, scoreLeagueWeek } from './public/nfl.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static('.'));
 
-// SSE client management
+const app = express();
+app.disable('x-powered-by');
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', etag: true }));
+
+// ---------------------------------------------------------------------------
+// Cache: single in-flight promise per key, stale-on-error fallback.
+// ---------------------------------------------------------------------------
+const cache = new Map();
+
+async function cached(key, ttlMs, loader) {
+  const hit = cache.get(key);
+  const now = Date.now();
+  if (hit && hit.expires > now) return hit.value;
+  if (hit?.pending) return hit.pending;
+
+  const pending = loader()
+    .then((value) => {
+      cache.set(key, { value, expires: now + ttlMs });
+      return value;
+    })
+    .catch((err) => {
+      if (hit?.value !== undefined) {
+        console.warn(`[cache] ${key}: ${err.message} — serving stale`);
+        cache.set(key, { value: hit.value, expires: now + 5000 });
+        return hit.value;
+      }
+      cache.delete(key);
+      throw err;
+    });
+
+  cache.set(key, { ...(hit || {}), pending });
+  return pending;
+}
+
+async function getJSON(url) {
+  const res = await fetch(url, { headers: { 'user-agent': 'fantasy-matchups-stats/2.0' } });
+  if (!res.ok) {
+    const err = new Error(`${res.status} from ${new URL(url).hostname}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Sleeper helpers
+// ---------------------------------------------------------------------------
+const TTL = { state: 60_000, user: 300_000, league: 300_000, roster: 60_000, matchups: 8_000, players: 6 * 3_600_000, scoreboard: 20_000, stats: 10_000, statsIdle: 120_000, proj: 30 * 60_000 };
+
+const getState = () => cached('state', TTL.state, () => getJSON(`${SLEEPER}/state/nfl`));
+const getLeague = (id) => cached(`league:${id}`, TTL.league, () => getJSON(`${SLEEPER}/league/${id}`));
+const getRosters = (id) => cached(`rosters:${id}`, TTL.roster, () => getJSON(`${SLEEPER}/league/${id}/rosters`));
+const getUsers = (id) => cached(`users:${id}`, TTL.league, () => getJSON(`${SLEEPER}/league/${id}/users`));
+const getMatchups = (id, week) => cached(`matchups:${id}:${week}`, TTL.matchups, () => getJSON(`${SLEEPER}/league/${id}/matchups/${week}`));
+const getPlayers = () => cached('players', TTL.players, async () => slimPlayers(await getJSON(`${SLEEPER}/players/nfl`)));
+
+// ESPN scoreboard for a given season week. Sleeper weeks 19+ are ESPN postseason.
+async function getScoreboard(week) {
+  const state = await getState();
+  const url = scoreboardUrl(state, week);
+  return cached(`scoreboard:${url}`, TTL.scoreboard, async () => summarizeGames(await getJSON(url)));
+}
+
+// ---------------------------------------------------------------------------
+// Sleeper stats & projections (unofficial endpoints). Normalized to
+// { [player_id]: { stat: number } }. Falls back to the older v1 shape.
+// ---------------------------------------------------------------------------
+async function fetchFeed(kind, week) {
+  const [primary, fallback] = feedUrls(kind, await getState(), week);
+  try {
+    return normalizeStatFeed(await getJSON(primary));
+  } catch (err) {
+    console.warn(`[${kind}] primary feed failed (${err.message}); trying v1`);
+    return normalizeStatFeed(await getJSON(fallback));
+  }
+}
+
+// Stats refresh fast while any game is live, slowly otherwise.
+async function getStats(week) {
+  const games = await getScoreboard(week).catch(() => ({}));
+  const anyLive = Object.values(games).some((g) => g.state === 'live');
+  return cached(`stats:${week}`, anyLive ? TTL.stats : TTL.statsIdle, () => fetchFeed('stats', week));
+}
+const getProjections = (week) => cached(`proj:${week}`, TTL.proj, () => fetchFeed('projections', week));
+
+// ---------------------------------------------------------------------------
+// REST API
+// ---------------------------------------------------------------------------
+const route = (fn) => async (req, res) => {
+  try {
+    res.json(await fn(req));
+  } catch (err) {
+    res.status(err.status === 404 ? 404 : 502).json({ error: err.message });
+  }
+};
+
+app.get('/api/state', route(getState));
+
+app.get('/api/user/:username', route(async (req) => {
+  const data = await cached(`user:${req.params.username.toLowerCase()}`, TTL.user, () => getJSON(`${SLEEPER}/user/${encodeURIComponent(req.params.username)}`));
+  if (!data) { const e = new Error('No Sleeper user with that name'); e.status = 404; throw e; }
+  return data;
+}));
+
+app.get('/api/user/:userId/leagues', route(async (req) => {
+  const state = await getState();
+  const season = req.query.season || state.league_season || state.season;
+  const leagues = await cached(`leagues:${req.params.userId}:${season}`, TTL.user, () => getJSON(`${SLEEPER}/user/${req.params.userId}/leagues/nfl/${season}`));
+  return (leagues || []).map((l) => ({
+    league_id: l.league_id,
+    name: l.name,
+    avatar: l.avatar,
+    season: l.season,
+    total_rosters: l.total_rosters,
+    status: l.status,
+  }));
+}));
+
+// One call returns everything the matchup screen needs.
+app.get('/api/league/:leagueId/week/:week', route(async (req) => {
+  const { leagueId, week } = req.params;
+  const [league, rosters, users, matchups, games, stats, proj, players] = await Promise.all([
+    getLeague(leagueId), getRosters(leagueId), getUsers(leagueId), getMatchups(leagueId, week),
+    getScoreboard(week).catch(() => ({})),
+    getStats(week).catch((e) => { console.warn('[stats]', e.message); return null; }),
+    getProjections(week).catch(() => null),
+    getPlayers().catch(() => null),
+  ]);
+  const scored = scoreLeagueWeek({ league, matchups, rosters, stats, proj, games, players });
+  const rostered = new Set(Object.keys(scored.players));
+  const pick = (feed) => (feed ? Object.fromEntries([...rostered].filter((id) => feed[id]).map((id) => [id, feed[id]])) : null);
+  return { league, rosters, users, matchups, games, week: Number(week), scored, stats: pick(stats), proj: pick(proj), statsAvailable: !!stats };
+}));
+
+app.get('/api/players', route(getPlayers));
+
+app.get('/health', (_req, res) => res.json({ ok: true, clients: clients.size, cacheKeys: cache.size }));
+
+// ---------------------------------------------------------------------------
+// Server-sent events: one stream per league+week, pushed only on change.
+// ---------------------------------------------------------------------------
 const clients = new Set();
-let lastETag = null;
-let cache = null;
-let currentLeagueData = new Map(); // Store current league data keyed by leagueId-week
+const lastSent = new Map();
 
-// Cache for API responses
-const apiCache = new Map();
-const CACHE_DURATION = 30000; // 30 seconds
+app.get('/stream/:leagueId/:week', (req, res) => {
+  const { leagueId, week } = req.params;
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+  res.flushHeaders();
+  res.write('retry: 5000\n\n');
 
-// Helper function to get cached or fresh API data
-async function getCachedData(key, fetchFunction, duration = CACHE_DURATION) {
-    const cached = apiCache.get(key);
-    if (cached && Date.now() - cached.timestamp < duration) {
-        return cached.data;
-    }
-    
-    try {
-        const data = await fetchFunction();
-        apiCache.set(key, { data, timestamp: Date.now() });
-        return data;
-    } catch (error) {
-        // Return cached data if available, even if expired
-        if (cached) {
-            console.warn(`API error for ${key}, using cached data:`, error.message);
-            return cached.data;
-        }
-        throw error;
-    }
+  const client = { res, key: `${leagueId}:${week}`, leagueId, week };
+  clients.add(client);
+  const snapshot = lastSent.get(client.key);
+  if (snapshot) res.write(`data: ${snapshot}\n\n`);
+  else tick(); // first subscriber for this league/week: don't wait for the next poll
+
+  const heartbeat = setInterval(() => res.write(': ping\n\n'), 25_000);
+  req.on('close', () => { clearInterval(heartbeat); clients.delete(client); });
+});
+
+async function buildUpdate(leagueId, week) {
+  const [league, rosters, matchups, games, stats, proj, players] = await Promise.all([
+    getLeague(leagueId), getRosters(leagueId), getMatchups(leagueId, week),
+    getScoreboard(week).catch(() => ({})), getStats(week).catch(() => null), getProjections(week).catch(() => null), getPlayers().catch(() => null),
+  ]);
+  const scored = scoreLeagueWeek({ league, matchups, rosters, stats, proj, games, players });
+  const rostered = new Set(Object.keys(scored.players));
+  return {
+    at: new Date().toISOString(),
+    teams: matchups.map((m) => ({ roster_id: m.roster_id, matchup_id: m.matchup_id, points: m.points ?? 0, players_points: m.players_points || {}, starters: m.starters || [] })),
+    games,
+    scored,
+    stats: stats ? Object.fromEntries([...rostered].filter((id) => stats[id]).map((id) => [id, stats[id]])) : null,
+  };
 }
 
-// Fantasy API endpoints (moved from frontend)
-app.get('/api/user/:username', async (req, res) => {
-    try {
-        const { username } = req.params;
-        const data = await getCachedData(
-            `user-${username}`,
-            () => fetch(`https://api.sleeper.app/v1/user/${username}`).then(r => r.json())
-        );
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/user/:userId/leagues/:season', async (req, res) => {
-    try {
-        const { userId, season } = req.params;
-        const data = await getCachedData(
-            `leagues-${userId}-${season}`,
-            () => fetch(`https://api.sleeper.app/v1/user/${userId}/leagues/nfl/${season}`).then(r => r.json())
-        );
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/league/:leagueId', async (req, res) => {
-    try {
-        const { leagueId } = req.params;
-        const data = await getCachedData(
-            `league-${leagueId}`,
-            () => fetch(`https://api.sleeper.app/v1/league/${leagueId}`).then(r => r.json())
-        );
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/league/:leagueId/matchups/:week', async (req, res) => {
-    try {
-        const { leagueId, week } = req.params;
-        const data = await getCachedData(
-            `matchups-${leagueId}-${week}`,
-            () => fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`).then(r => r.json()),
-            10000 // 10 second cache for matchups (more frequent updates)
-        );
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/league/:leagueId/rosters', async (req, res) => {
-    try {
-        const { leagueId } = req.params;
-        const data = await getCachedData(
-            `rosters-${leagueId}`,
-            () => fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`).then(r => r.json())
-        );
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/league/:leagueId/users', async (req, res) => {
-    try {
-        const { leagueId } = req.params;
-        const data = await getCachedData(
-            `users-${leagueId}`,
-            () => fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`).then(r => r.json())
-        );
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/players/nfl', async (req, res) => {
-    try {
-        const data = await getCachedData(
-            'nfl-players',
-            () => fetch('https://api.sleeper.app/v1/players/nfl').then(r => r.json()),
-            300000 // 5 minute cache for players (rarely changes)
-        );
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ESPN API endpoints (for game data)
-app.get('/api/nfl/scoreboard/:week', async (req, res) => {
-    try {
-        const { week } = req.params;
-        const year = new Date().getFullYear();
-        const data = await getCachedData(
-            `nfl-scoreboard-${week}`,
-            () => fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${year}&seasontype=2&week=${week}`).then(r => r.json()),
-            30000 // 30 second cache for live game data
-        );
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ESPN Player ID mapping endpoint - builds comprehensive mapping from all team rosters
-app.get('/api/espn/player-mapping', async (req, res) => {
-    try {
-        const data = await getCachedData(
-            'espn-player-mapping',
-            async () => {
-                const playerMapping = {};
-                
-                // All 32 NFL team IDs (ESPN team IDs)
-                const nflTeamIds = [
-                    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-                    17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34
-                ];
-                
-                console.log('Building ESPN player mapping from all team rosters...');
-                
-                // Fetch all team rosters in parallel
-                const rosterPromises = nflTeamIds.map(async (teamId) => {
-                    try {
-                        const response = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}/roster`);
-                        if (!response.ok) return null;
-                        
-                        const rosterData = await response.json();
-                        const teamAbbr = rosterData.team?.abbreviation;
-                        
-                        if (rosterData.athletes && teamAbbr) {
-                            // Process each position group
-                            rosterData.athletes.forEach(positionGroup => {
-                                if (positionGroup.items) {
-                                    positionGroup.items.forEach(athlete => {
-                                        if (athlete.id && athlete.displayName) {
-                                            // Create mapping key from name and team
-                                            const nameKey = athlete.displayName.toLowerCase().replace(/[^a-z\s]/g, '');
-                                            const mappingKey = `${nameKey}|${teamAbbr}`;
-                                            
-                                            playerMapping[mappingKey] = {
-                                                espnId: athlete.id,
-                                                name: athlete.displayName,
-                                                team: teamAbbr,
-                                                headshot: athlete.headshot?.href
-                                            };
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                        
-                        return { teamId, teamAbbr, playerCount: rosterData.athletes?.reduce((sum, group) => sum + (group.items?.length || 0), 0) || 0 };
-                    } catch (error) {
-                        console.warn(`Failed to fetch roster for team ${teamId}:`, error.message);
-                        return null;
-                    }
-                });
-                
-                const results = await Promise.all(rosterPromises);
-                const successfulFetches = results.filter(r => r !== null);
-                
-                console.log(`Successfully built ESPN player mapping from ${successfulFetches.length}/32 teams`);
-                console.log(`Total players mapped: ${Object.keys(playerMapping).length}`);
-                
-                return {
-                    playerMapping,
-                    metadata: {
-                        totalPlayers: Object.keys(playerMapping).length,
-                        successfulTeams: successfulFetches.length,
-                        teams: successfulFetches,
-                        lastUpdated: new Date().toISOString()
-                    }
-                };
-            },
-            3600000 // 1 hour cache - player rosters don't change often
-        );
-        
-        res.json(data);
-    } catch (error) {
-        console.error('Error building ESPN player mapping:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-
-// SSE endpoint for real-time updates
-app.get('/stream/matchup/:leagueId/:week', (req, res) => {
-    const { leagueId, week } = req.params;
-    const streamKey = `${leagueId}-${week}`;
-    
-    res.set({
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Cache-Control',
-    });
-    res.flushHeaders();
-
-    const clientInfo = { res, leagueId, week, streamKey };
-    clients.add(clientInfo);
-    
-    // Send current snapshot immediately if available
-    const currentData = currentLeagueData.get(streamKey);
-    if (currentData) {
-        res.write(`data: ${JSON.stringify(currentData)}\n\n`);
-    }
-
-    req.on('close', () => {
-        clients.delete(clientInfo);
-    });
-});
-
-// Function to compute selective update payload
-async function computeMatchupUpdate(leagueId, week) {
-    try {
-        const streamKey = `${leagueId}-${week}`;
-        
-        // Fetch all required data
-        const [matchups, rosters, users, players] = await Promise.all([
-            getCachedData(
-                `matchups-${leagueId}-${week}`,
-                () => fetch(`https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`).then(r => r.json()),
-                5000 // 5 second cache for live updates
-            ),
-            getCachedData(
-                `rosters-${leagueId}`,
-                () => fetch(`https://api.sleeper.app/v1/league/${leagueId}/rosters`).then(r => r.json())
-            ),
-            getCachedData(
-                `users-${leagueId}`,
-                () => fetch(`https://api.sleeper.app/v1/league/${leagueId}/users`).then(r => r.json())
-            ),
-            getCachedData(
-                'nfl-players',
-                () => fetch('https://api.sleeper.app/v1/players/nfl').then(r => r.json())
-            )
-        ]);
-
-        // Compute minimal update payload
-        const payload = {
-            leagueId,
-            week: parseInt(week),
-            updatedAt: new Date().toISOString(),
-            matchups: []
-        };
-
-        // Group matchups by matchup_id
-        const matchupGroups = {};
-        matchups.forEach(matchup => {
-            if (!matchupGroups[matchup.matchup_id]) {
-                matchupGroups[matchup.matchup_id] = [];
-            }
-            matchupGroups[matchup.matchup_id].push(matchup);
-        });
-
-        // Process each matchup pair
-        Object.values(matchupGroups).forEach(group => {
-            if (group.length === 2) {
-                const [team1, team2] = group;
-                
-                const roster1 = rosters.find(r => r.roster_id === team1.roster_id);
-                const roster2 = rosters.find(r => r.roster_id === team2.roster_id);
-                const user1 = users.find(u => u.user_id === roster1?.owner_id);
-                const user2 = users.find(u => u.user_id === roster2?.owner_id);
-
-                // Calculate team scores
-                const team1Score = team1.starters_points?.reduce((sum, pts) => sum + (pts || 0), 0) || 0;
-                const team2Score = team2.starters_points?.reduce((sum, pts) => sum + (pts || 0), 0) || 0;
-
-                // Create player points maps
-                const team1PlayerPoints = {};
-                const team2PlayerPoints = {};
-                
-                if (team1.starters && team1.starters_points) {
-                    team1.starters.forEach((playerId, index) => {
-                        if (playerId) {
-                            team1PlayerPoints[playerId] = team1.starters_points[index] || 0;
-                        }
-                    });
-                }
-                
-                if (team2.starters && team2.starters_points) {
-                    team2.starters.forEach((playerId, index) => {
-                        if (playerId) {
-                            team2PlayerPoints[playerId] = team2.starters_points[index] || 0;
-                        }
-                    });
-                }
-
-                payload.matchups.push({
-                    matchupId: team1.matchup_id,
-                    team1: {
-                        rosterId: team1.roster_id,
-                        userId: user1?.user_id,
-                        teamName: user1?.display_name || user1?.username || `Team ${team1.roster_id}`,
-                        points: team1Score,
-                        playerPoints: team1PlayerPoints
-                    },
-                    team2: {
-                        rosterId: team2.roster_id,
-                        userId: user2?.user_id,
-                        teamName: user2?.display_name || user2?.username || `Team ${team2.roster_id}`,
-                        points: team2Score,
-                        playerPoints: team2PlayerPoints
-                    }
-                });
-            }
-        });
-
-        return payload;
-    } catch (error) {
-        console.error('Error computing matchup update:', error);
-        return null;
-    }
+let ticking = false;
+async function tick() {
+  if (ticking) return;
+  ticking = true;
+  try { await pollAll(); } finally { ticking = false; }
 }
 
-// Polling function to check for updates and broadcast to SSE clients
-async function pollAndBroadcast() {
-    const activeStreams = new Set();
-    
-    // Collect unique league-week combinations from active clients
-    clients.forEach(client => {
-        activeStreams.add(client.streamKey);
-    });
-
-    // Process each active stream
-    for (const streamKey of activeStreams) {
-        const [leagueId, week] = streamKey.split('-');
-        
-        try {
-            const newData = await computeMatchupUpdate(leagueId, week);
-            if (!newData) continue;
-
-            const currentData = currentLeagueData.get(streamKey);
-            const newDataString = JSON.stringify(newData);
-            
-            // Check if data has changed
-            if (!currentData || JSON.stringify(currentData) !== newDataString) {
-                currentLeagueData.set(streamKey, newData);
-                
-                // Broadcast to all clients subscribed to this stream
-                const message = `data: ${newDataString}\n\n`;
-                clients.forEach(client => {
-                    if (client.streamKey === streamKey) {
-                        try {
-                            client.res.write(message);
-                        } catch (error) {
-                            clients.delete(client);
-                        }
-                    }
-                });
-                
-                console.log(`Updated ${streamKey} - broadcasted to ${Array.from(clients).filter(c => c.streamKey === streamKey).length} clients`);
-            }
-        } catch (error) {
-            console.error(`Error polling ${streamKey}:`, error);
-        }
+async function pollAll() {
+  const keys = new Set([...clients].map((c) => c.key));
+  for (const key of keys) {
+    const [leagueId, week] = key.split(':');
+    try {
+      const update = await buildUpdate(leagueId, week);
+      const payload = JSON.stringify(update);
+      const prev = lastSent.get(key);
+      // Ignore the timestamp when deciding whether anything changed.
+      if (prev && prev.replace(/"at":"[^"]+"/, '') === payload.replace(/"at":"[^"]+"/, '')) continue;
+      lastSent.set(key, payload);
+      for (const c of clients) if (c.key === key) c.res.write(`data: ${payload}\n\n`);
+    } catch (err) {
+      console.warn(`[stream] ${key}: ${err.message}`);
     }
+  }
+  // Drop snapshots nobody is listening to.
+  for (const key of lastSent.keys()) if (!keys.has(key)) lastSent.delete(key);
 }
 
-// Start polling - adjust interval based on game activity
-let pollInterval;
-function startPolling() {
-    clearInterval(pollInterval);
-    
-    // More aggressive polling during potential game times
-    const currentHour = new Date().getHours();
-    const isGameDay = [0, 1, 4].includes(new Date().getDay()); // Sunday, Monday, Thursday
-    const isGameTime = isGameDay && (currentHour >= 13 && currentHour <= 23); // 1 PM - 11 PM
-    
-    const interval = isGameTime ? 3000 : 10000; // 3s during games, 10s otherwise
-    pollInterval = setInterval(pollAndBroadcast, interval);
-    
-    console.log(`Polling started with ${interval}ms interval (game time: ${isGameTime})`);
+function pollInterval() {
+  const anyLive = [...lastSent.values()].some((p) => p.includes('"state":"live"'));
+  return anyLive ? 10_000 : 20_000;
 }
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'ok', 
-        clients: clients.size,
-        cacheSize: apiCache.size,
-        activeStreams: currentLeagueData.size 
-    });
-});
+(async function loop() {
+  await tick();
+  setTimeout(loop, pollInterval());
+})();
 
-// Serve the frontend
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
+app.listen(PORT, () => console.log(`fantasy-matchups-stats → http://localhost:${PORT}`));
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`Fantasy Matchups server running on port ${PORT}`);
-    startPolling();
-    
-    // Restart polling every hour to adjust for game times
-    setInterval(startPolling, 3600000); // 1 hour
-});
-
-// Graceful shutdown
 process.on('SIGINT', () => {
-    console.log('Shutting down server...');
-    clearInterval(pollInterval);
-    clients.forEach(client => {
-        try {
-            client.res.end();
-        } catch (error) {
-            // Client already disconnected
-        }
-    });
-    process.exit(0);
+  for (const c of clients) c.res.end();
+  process.exit(0);
 });
