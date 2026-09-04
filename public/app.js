@@ -31,6 +31,7 @@ const S = {
   view: prefs.view || 'slot',
   theater: !!prefs.theater,
   laterOpen: false,
+  bgLaterOpen: false,
   viewMatchupId: null,
   liveAt: null,
   online: false,
@@ -439,7 +440,7 @@ function render({ keepVideo = false } = {}) {
           <button type="button" role="tab" data-view="slot" class="${S.view === 'slot' ? 'active' : ''}" aria-pressed="${S.view === 'slot'}">By position</button>
           <button type="button" role="tab" data-view="game" class="${S.view === 'game' ? 'active' : ''}" aria-pressed="${S.view === 'game'}">By NFL game</button>
         </div>
-        <span class="tabs-hint ${S.theater ? 'on' : ''}" id="tabs-hint">${S.theater ? 'Theater on' : 'Tap a row for the breakdown'}</span>
+        <span class="tabs-hint ${S.theater ? 'on' : ''}" id="tabs-hint">${S.theater ? 'Theater on' : ''}</span>
       </div>
       <div class="matchup-body">
         <aside class="rail"><div class="rail-head">All matchups</div><div id="rail"></div></aside>
@@ -568,9 +569,11 @@ function renderContent(p) {
   // In theater the game list moves above the compressed roster in the right
   // column. CSS cannot reparent, so the block renders here and the copy inside
   // the video column is hidden; both are patched together.
+  // In theater the third column's content is what the tab switches; the video
+  // sits in its own column and is never touched by this.
   content.innerHTML = (S.view === 'slot' ? slotViewHtml(p) : gameViewHtml(p))
     + (S.theater ? gameListHtml(p) : '')
-    + compressedStartersHtml(p);
+    + (S.view === 'slot' ? compressedStartersHtml(p) : byGameColumnHtml(p));
   bindWatchTargets(p, content);
   bindLaterToggle(p);
   renderScoreboardDynamic();
@@ -710,6 +713,56 @@ function gameListHtml(pair) {
     + `</div>`;
 }
 
+// Theater's By NFL game column: your players grouped under their game, live
+// first and biggest mover at the top. Only your side appears; the header's
+// swing already encodes the difference, and a 400px column has no room for two
+// bar columns, so the player rows carry no bar.
+function byGameColumnHtml(pair) {
+  const list = gameBuckets(pair);
+  const slotOf = new Map();
+  starterSlots().forEach((slot, i) => {
+    const id = (pair.a.m.starters || [])[i];
+    if (id && id !== '0') slotOf.set(id, SLOT_LABEL[slot] || slot);
+  });
+  const mineIn = (bk) => bk.a.filter((x) => !x.bench);
+  const swingOf = (bk) => bk.a.filter((x) => !x.bench).reduce((t, x) => t + (x.pts || 0), 0)
+    - bk.b.filter((x) => !x.bench).reduce((t, x) => t + (x.pts || 0), 0);
+
+  const withMine = list.filter((bk) => bk.game && mineIn(bk).length);
+  const live = withMine.filter((bk) => bk.game.state === 'live')
+    .sort((x, y) => Math.abs(swingOf(y)) - Math.abs(swingOf(x)));
+  const started = withMine.filter((bk) => bk.game.state === 'final');
+  const pending = withMine.filter((bk) => bk.game.state === 'pre');
+
+  const group = (bk) => {
+    const g = bk.game, d = swingOf(bk);
+    const watched = g.id === S.watchGameId;
+    const state = g.state === 'live' ? `<span class="bg-state live">${escape(g.detail || 'Live')}</span>`
+      : g.state === 'final' ? '<span class="bg-state">FINAL</span>'
+      : `<span class="bg-state">${escape(shortKick(g.kickoff))}</span>`;
+    const rows = mineIn(bk).map((x) => `<div class="bg-row">`
+      + `<span class="bg-slot">${escape(slotOf.get(x.id) || '')}</span>`
+      + `<span class="bg-name">${escape(x.pos === 'DEF' ? x.name : initialSurname(x.name))}</span>`
+      + `<span class="bg-pts" data-pts="${x.rosterId}:${x.id}">${fmt(x.pts)}</span>`
+      + `</div>`).join('');
+    return `<div class="bg-group">`
+      + `<div class="bg-head ${g.state === 'live' ? 'live' : ''} ${watched ? 'watched' : ''}" data-watch="${g.id}">`
+      + `<span class="bg-line"><span class="bg-score">${g.away} ${g.awayScore} @ ${g.home} ${g.homeScore}</span>${state}</span>`
+      + `<span class="bg-swing">${diffHtml(d, GAME_CLAMP)}</span>`
+      + `<span class="bg-bar">${swingBar(d, GAME_CLAMP)}</span>`
+      + `</div>${rows}</div>`;
+  };
+
+  const body = [...live, ...started].map(group).join('');
+  const empty = live.length ? '' : '<div class="bg-empty">None of your starters are playing right now</div>';
+  const later = pending.length
+    ? `<button type="button" class="later-toggle" data-bg-later>Not playing yet (${pending.length} game${pending.length !== 1 ? 's' : ''}) ⌄</button>`
+    : '';
+  const laterRows = S.bgLaterOpen ? pending.map(group).join('') : '';
+  return `<div class="bygame"><div class="mini-hd"><span class="mini-lbl">By game</span><span class="mini-sub">your starters</span></div>`
+    + empty + body + later + laterRows + `</div>`;
+}
+
 function compressedStartersHtml(p) {
   const slots = starterSlots();
   const A = p.a.m.starters || [], B = p.b?.m.starters || [];
@@ -729,7 +782,6 @@ function compressedStartersHtml(p) {
   return `<div class="mini">`
     + `<div class="mini-hd"><span class="mini-lbl">Starters</span><span class="mini-sub">you vs them</span></div>`
     + rows
-    + `<div class="mini-foot">› Full rows on exit</div>`
     + `</div>`;
 }
 
@@ -979,6 +1031,16 @@ function switchListHtml(withGame, watched) {
   const empty = '<div class="empty-col">No games with your players</div>';
   // Live games first; the rest sit behind a count, since a dock column has no
   // room for ten cells. The watched game always shows, wherever it sits.
+  // Theater lists the grouped roster below, so the control only needs the game
+  // being watched plus a way to reach the others.
+  if (S.theater) {
+    const rest = withGame.filter((bk) => !watched || bk.game.id !== watched.game.id);
+    const head = watched ? cell(watched) : '';
+    if (!S.laterOpen) {
+      return (head + (rest.length ? `<button type="button" class="later-toggle">${rest.length} other game${rest.length !== 1 ? 's' : ''} ⌄</button>` : '')) || empty;
+    }
+    return (head + rest.map(cell).join('')) || empty;
+  }
   const live = withGame.filter((bk) => bk.game.state === 'live');
   const later = withGame.filter((bk) => bk.game.state !== 'live');
   const watchedIsLater = later.some((bk) => watched && bk.game.id === watched.game.id);
@@ -996,7 +1058,7 @@ function setTheater(on) {
   const btn = $('[data-vid="theater"]');
   if (btn) { btn.textContent = S.theater ? 'Exit theater' : 'Theater'; btn.setAttribute('aria-pressed', String(S.theater)); }
   const hint = $('#tabs-hint');
-  if (hint) { hint.textContent = S.theater ? 'Theater on' : 'Tap a row for the breakdown'; hint.classList.toggle('on', S.theater); }
+  if (hint) { hint.textContent = S.theater ? 'Theater on' : ''; hint.classList.toggle('on', S.theater); }
   const cur = current();
   if (cur) { renderContent(cur); updateWatchAside(cur); }
   renderRail();
@@ -1176,6 +1238,7 @@ function syncRailHint() {
 
 function bindLaterToggle(p) {
   app.querySelectorAll('.later-toggle').forEach((b) => b.addEventListener('click', () => {
+    if (b.hasAttribute('data-bg-later')) { S.bgLaterOpen = true; renderContent(p); return; }
     S.laterOpen = true;
     updateWatchAside(p);
   }));
