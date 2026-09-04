@@ -30,6 +30,7 @@ const S = {
   players: null,      // slim player index
   view: prefs.view || 'slot',
   theater: !!prefs.theater,
+  laterOpen: false,
   viewMatchupId: null,
   liveAt: null,
   online: false,
@@ -438,7 +439,7 @@ function render({ keepVideo = false } = {}) {
           <button type="button" role="tab" data-view="slot" class="${S.view === 'slot' ? 'active' : ''}" aria-pressed="${S.view === 'slot'}">By position</button>
           <button type="button" role="tab" data-view="game" class="${S.view === 'game' ? 'active' : ''}" aria-pressed="${S.view === 'game'}">By NFL game</button>
         </div>
-        <span class="tabs-hint">Tap a row for the breakdown</span>
+        <span class="tabs-hint ${S.theater ? 'on' : ''}" id="tabs-hint">${S.theater ? 'Theater on' : 'Tap a row for the breakdown'}</span>
       </div>
       <div class="matchup-body">
         <aside class="rail"><div class="rail-head">All matchups</div><div id="rail"></div></aside>
@@ -556,8 +557,14 @@ function renderRail() {
 function renderContent(p) {
   const content = $('#content');
   if (!content) return;
-  content.innerHTML = (S.view === 'slot' ? slotViewHtml(p) : gameViewHtml(p)) + compressedStartersHtml(p);
+  // In theater the game list moves above the compressed roster in the right
+  // column. CSS cannot reparent, so the block renders here and the copy inside
+  // the video column is hidden; both are patched together.
+  content.innerHTML = (S.view === 'slot' ? slotViewHtml(p) : gameViewHtml(p))
+    + (S.theater ? gameListHtml(p) : '')
+    + compressedStartersHtml(p);
   bindWatchTargets(p, content);
+  bindLaterToggle(p);
   renderScoreboardDynamic();
 }
 
@@ -596,11 +603,14 @@ function updateWatchAside(p) {
     : '';
   const count = $('.sh-count');
   if (count) count.textContent = `${withGame.length} game${withGame.length !== 1 ? 's' : ''} · ${live.length} live`;
-  const sw = $('.switch-list');
-  if (sw) {
+  for (const sw of app.querySelectorAll('.switch-list')) {
     sw.innerHTML = switchListHtml(withGame, watched);
     bindWatchTargets(p, sw);
   }
+  for (const el of app.querySelectorAll('.sh-count')) {
+    el.textContent = el.closest('.games-side') ? `${live.length} live` : `${withGame.length} game${withGame.length !== 1 ? 's' : ''} \u00b7 ${live.length} live`;
+  }
+  bindLaterToggle(p);
   const clock = $('#pb-clock'), score = $('#pb-score');
   if (clock && game) clock.innerHTML = bandClock(game);
   if (score && game) score.innerHTML = scoreLineHtml(game);
@@ -647,17 +657,18 @@ function swingColor(d, clamp = SWING_CLAMP) {
   return `color-mix(in oklch, ${end} ${(t * 100).toFixed(1)}%, var(--swing-even))`;
 }
 
-// Length grows out from a centre tick rather than from the left edge, and fades
-// to transparent at its outer end so a big swing bleeds outward instead of
-// reading as a filled progress bar.
+// Length grows out from a centre tick, leaning toward whoever is winning: your
+// players sit in the left column, so being ahead tips the bar left and being
+// behind tips it right. The colour is solid at the outer tip and fades back to
+// the tick, so the brightest part is the end that shows the distance.
 function swingBar(d, clamp = SWING_CLAMP) {
   const t = Math.min(Math.abs(d) / clamp, 1);
   const w = (t * 50).toFixed(2);
   const c = swingColor(d, clamp);
   const fill = Math.abs(d) < 0.005 ? ''
     : d > 0
-      ? `<i style="left:50%;width:${w}%;background:linear-gradient(90deg,${c},transparent)"></i>`
-      : `<i style="right:50%;width:${w}%;background:linear-gradient(270deg,${c},transparent)"></i>`;
+      ? `<i style="right:50%;width:${w}%;background:linear-gradient(270deg,transparent,${c})"></i>`
+      : `<i style="left:50%;width:${w}%;background:linear-gradient(90deg,transparent,${c})"></i>`;
   return `<div class="swing"><span class="tick"></span>${fill}</div>`;
 }
 
@@ -677,6 +688,16 @@ function diffText(d) {
 // swing: re-sorting would move a player between refreshes, and the slot order
 // is how a lineup is read. The opponent's score is absent because the swing
 // already encodes it, and the full rows are one click away.
+// The switch-game block, rendered either in the video column or, in theater,
+// at the top of the right column.
+function gameListHtml(pair) {
+  const { withGame, watched, live } = watchedOf(gameBuckets(pair));
+  return `<div class="games-side">`
+    + `<div class="switch-hd"><span class="sh-lbl">Switch game</span><span class="sh-count">${live.length} live</span></div>`
+    + `<div class="switch-rail"><div class="switch-list">${switchListHtml(withGame, watched)}</div></div>`
+    + `</div>`;
+}
+
 function compressedStartersHtml(p) {
   const slots = starterSlots();
   const A = p.a.m.starters || [], B = p.b?.m.starters || [];
@@ -696,7 +717,7 @@ function compressedStartersHtml(p) {
   return `<div class="mini">`
     + `<div class="mini-hd"><span class="mini-lbl">Starters</span><span class="mini-sub">you vs them</span></div>`
     + rows
-    + `<div class="mini-foot">Full rows on exit</div>`
+    + `<div class="mini-foot">› Full rows on exit</div>`
     + `</div>`;
 }
 
@@ -941,7 +962,16 @@ function switchListHtml(withGame, watched) {
     const sub = `${active ? 'Watching · ' : ''}${count} player${count !== 1 ? 's' : ''}`;
     return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state === 'live' ? 'is-live' : ''}" data-watch="${gg.id}"><span class="si-top"><span class="si-name">${gg.away} @ ${gg.home}</span>${state}</span><span class="si-sub">${escape(sub)}</span></button>`;
   };
-  return withGame.map(cell).join('') || '<div class="empty-col">No games with your players</div>';
+  const empty = '<div class="empty-col">No games with your players</div>';
+  // Live games first; the rest sit behind a count, since a dock column has no
+  // room for ten cells. The watched game always shows, wherever it sits.
+  const live = withGame.filter((bk) => bk.game.state === 'live');
+  const later = withGame.filter((bk) => bk.game.state !== 'live');
+  const watchedIsLater = later.some((bk) => watched && bk.game.id === watched.game.id);
+  const tail = !later.length ? ''
+    : (S.laterOpen || watchedIsLater) ? later.map(cell).join('')
+    : `<button type="button" class="later-toggle">${later.length} later game${later.length !== 1 ? 's' : ''} \u2304</button>`;
+  return (live.map(cell).join('') + tail) || empty;
 }
 
 // --- Video controls ---------------------------------------------------------
@@ -951,8 +981,10 @@ function setTheater(on) {
   document.body.classList.toggle('theater', S.theater);
   const btn = $('[data-vid="theater"]');
   if (btn) { btn.textContent = S.theater ? 'Exit theater' : 'Theater'; btn.setAttribute('aria-pressed', String(S.theater)); }
+  const hint = $('#tabs-hint');
+  if (hint) { hint.textContent = S.theater ? 'Theater on' : 'Tap a row for the breakdown'; hint.classList.toggle('on', S.theater); }
   const cur = current();
-  if (cur) updateWatchAside(cur);
+  if (cur) { renderContent(cur); updateWatchAside(cur); }
   renderRail();
   syncRailHint();
 }
@@ -1101,6 +1133,13 @@ function syncRailHint() {
   const over = S.theater && track.scrollWidth > track.clientWidth + 2;
   more.hidden = !over;
   fade.hidden = !over;
+}
+
+function bindLaterToggle(p) {
+  app.querySelectorAll('.later-toggle').forEach((b) => b.addEventListener('click', () => {
+    S.laterOpen = true;
+    updateWatchAside(p);
+  }));
 }
 
 function bindVideoControls(root) {
