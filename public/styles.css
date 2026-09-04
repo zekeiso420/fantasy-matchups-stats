@@ -222,11 +222,13 @@ main { padding: 0 0 64px; max-width: 1240px; margin: 0 auto; }
 /* ==========================================================================
    Win-probability strip
    ========================================================================== */
-/* One score line, sticky under the 52px app bar. The app bar does not scroll
-   away here, so the handoff's top:0 / 66px become 54px / 100px. Both need an
-   opaque background or the rows show through as they pass under. */
+/* One score line, sticky under the app bar. That bar does not scroll away
+   here, so the handoff's top:0 / 66px become offsets measured from its bottom
+   edge: 52px, then 103px. The bar's height:52px already includes its 2px rule
+   under border-box, so 52 is the edge, not 54. Both need an opaque background
+   or the rows show through as they pass under. */
 .score-strip {
-  position: sticky; top: 54px; z-index: 4;
+  position: sticky; top: 52px; z-index: 4;
   background: var(--bg); padding: 9px var(--gutter) 0;
 }
 .ss-line { display: flex; align-items: baseline; gap: 15px; font-variant-numeric: tabular-nums; }
@@ -275,7 +277,7 @@ body.theater .rail-head { display: none; }
 /* Panel head: tabs + hint */
 .panel { min-width: 0; }
 .tabs-row {
-  position: sticky; top: 105px; z-index: 3;
+  position: sticky; top: 103px; z-index: 3;
   display: flex; align-items: flex-end; justify-content: space-between;
   background: var(--bg); border-bottom: 2px solid var(--line-strong);
   margin: 0 var(--gutter); padding: 10px 0 8px;
@@ -503,36 +505,43 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .si-sub { display: block; font-size: 11px; color: var(--faint); margin-top: 3px; }
 .switch-item.active .si-sub { color: var(--muted); }
 
-/* Theater: the aside spans the width and the rail becomes one scrolling row. */
-/* minmax(0, 1fr), not 1fr: a bare 1fr is minmax(auto, 1fr), and that auto
-   floor cannot shrink below the rail's min-content width (one cell per game,
-   186px each). The column grew past the panel, pushing the games off screen
-   and throwing the centred player off axis. The scroll container also needs
-   min-width: 0 to be allowed narrower than the cells it holds. */
-body.theater .matchup-body { grid-template-columns: minmax(0, 1fr); }
-body.theater .watch { order: -1; min-width: 0; }
-body.theater .watch-hd,
-body.theater .player,
-body.theater .video-bar,
-body.theater .switch-hd,
-body.theater .switch-rail { width: min(100%, calc(74vh * 16 / 9)); margin-inline: auto; }
-body.theater .video-box { max-height: 74vh; }
-body.theater .switch-list { min-width: 0; flex-direction: row; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-body.theater .switch-item { flex: none; width: 186px; border-bottom: 0; border-right: 1px solid var(--line); }
-body.theater .sr-fade { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 64px; background: linear-gradient(90deg, transparent, var(--bg)); pointer-events: none; }
-body.theater .sr-fade[hidden] { display: none; }
+/* Theater, layout A: rows on the left, a 420px dock on the right. A 16:9 video
+   at full page width is taller than a laptop screen, which is what pushed the
+   first player row 1,700px down, so the player is never wider than the dock. */
+body.theater.dock-side .matchup-body { grid-template-columns: minmax(0, 1fr) 420px; gap: 0; }
+body.theater.dock-side aside.rail { grid-column: 1; grid-row: 1; }
+body.theater.dock-side .panel { grid-column: 1; grid-row: 2; padding: 0 24px 24px 0; }
+/* align-self: start is required, or the grid stretches the aside and sticky
+   has no room to travel. top is the app bar, the score line and the tabs. */
+body.theater.dock-side aside.watch {
+  grid-column: 2; grid-row: 1 / span 2;
+  position: sticky; top: 150px; align-self: start;
+  border-left: 1px solid var(--line); padding: 14px 24px 24px 20px; background: var(--bg);
+}
+body.theater.dock-side .watch-hd { padding: 0 0 8px; }
+body.theater.dock-side .wh-game { font-size: 12.5px; }
+body.theater.dock-side .wh-note { margin-left: auto; font-size: 11px; color: var(--faint); }
 
-/* ==========================================================================
-   Skeleton / empty
-   ========================================================================== */
-.skel { background: var(--raised); animation: shimmer 1.2s infinite; }
-.skel-row { display: grid; grid-template-columns: 40px 1fr 56px; gap: 12px; padding: 12px 14px; align-items: center; border-bottom: 1px solid var(--line); }
-.skel-row .skel:nth-child(1) { width: 40px; height: 40px; }
-.skel-row .skel:nth-child(2) { height: 14px; }
-.skel-row .skel:nth-child(3) { height: 22px; }
-.empty-state { padding: 48px var(--gutter); text-align: center; color: var(--muted); }
-.empty-state h3 { margin: 0 0 6px; color: var(--text); font-weight: 700; }
-.empty-state p { margin: 0; }
+/* The dock is narrower, so its chrome steps down a size. */
+body.theater.dock-side .pl-band { height: 30px; padding: 0 10px; }
+body.theater.dock-side .pl-chrome { height: 38px; }
+body.theater.dock-side .pl-btn { width: 28px; height: 28px; }
+body.theater.dock-side .pl-btn svg { width: 15px; height: 15px; }
+body.theater.dock-side .video-bar { gap: 8px; padding-top: 10px; }
+body.theater.dock-side .vb-btn { height: 28px; padding: 0 10px; }
+body.theater.dock-side .src-trigger { height: 28px; padding: 0 10px; }
+body.theater.dock-side .vb-lbl { display: none; }
+
+/* Switch game is a vertical list in a dock, not the horizontal rail. */
+body.theater .switch-list { flex-direction: column; }
+body.theater.dock-side .switch-hd { padding: 16px 0 4px; }
+body.theater.dock-side .switch-item { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px; }
+body.theater.dock-side .si-sub { margin-left: auto; margin-top: 0; font-size: 11px; }
+body.theater .sr-fade, body.theater .sh-more { display: none; }
+
+/* Rows keep 56px and their headshots; only the swing column narrows. */
+body.theater.dock-side .slot-row,
+body.theater.dock-side .game-bar { grid-template-columns: minmax(0, 1fr) 130px minmax(0, 1fr); }
 
 /* ==========================================================================
    Mobile. Desktop-first per handoff; this keeps phones usable, not final.
