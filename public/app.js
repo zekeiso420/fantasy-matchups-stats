@@ -1141,9 +1141,17 @@ function onRowToggle(e) {
   if (!row) return;
   const sheet = row.closest('.slot-row')?.querySelector(`[data-sheet="${row.dataset.sheetFor}"]`);
   if (!sheet) return;
-  sheet.open = !sheet.open;
-  row.setAttribute('aria-expanded', sheet.open);
-  if (sheet.open) { const [rid, pid] = row.dataset.sheetFor.split(':'); $('.sheet-body', sheet).innerHTML = sheetBodyHtml(pid, Number(rid)); }
+  const opening = !sheet.open;
+  // One breakdown at a time. Opening a player closes whichever was open,
+  // including the opponent sharing the row.
+  for (const other of app.querySelectorAll('.stat-sheet[open]')) {
+    if (other === sheet) continue;
+    other.open = false;
+    app.querySelector(`[data-sheet-for="${other.dataset.sheet}"]`)?.setAttribute('aria-expanded', 'false');
+  }
+  sheet.open = opening;
+  row.setAttribute('aria-expanded', String(opening));
+  if (opening) { const [rid, pid] = row.dataset.sheetFor.split(':'); $('.sheet-body', sheet).innerHTML = sheetBodyHtml(pid, Number(rid)); }
 }
 
 // ---------------------------------------------------------------------------
