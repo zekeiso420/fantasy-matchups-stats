@@ -28,6 +28,7 @@ const S = {
   data: null,         // { league, rosters, users, matchups, games }
   players: null,      // slim player index
   view: prefs.view || 'slot',
+  theater: !!prefs.theater,
   viewMatchupId: null,
   liveAt: null,
   online: false,
@@ -56,6 +57,16 @@ $('#week-select').addEventListener('change', (e) => selectWeek(Number(e.target.v
 $('#week-prev').addEventListener('click', () => selectWeek(S.week - 1));
 $('#week-next').addEventListener('click', () => selectWeek(S.week + 1));
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.leagueId && S.week) connectLive(); });
+// f = fullscreen, t = theater, matching the shortcuts every video site uses.
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
+  const k = e.key.toLowerCase();
+  if (k !== 'f' && k !== 't') return;
+  if (!document.querySelector('#video-frame')) return;
+  e.preventDefault();
+  videoAction(k === 'f' ? 'fullscreen' : 'theater');
+});
 
 let playersReady = Promise.resolve();
 init();
@@ -184,7 +195,7 @@ function applyUpdate(msg) {
   if (msg.scored) S.data.scored = msg.scored;
   if (msg.stats) S.data.stats = msg.stats;
   S.liveAt = msg.at;
-  if (structureKey() !== before) render();   // a game changed state → ordering/labels change
+  if (structureKey() !== before) render({ keepVideo: true }); // a game changed state → ordering/labels change
   else patchNumbers();
 }
 
@@ -394,10 +405,18 @@ function renderLoading() {
     </div>`;
 }
 
-function render() {
+function render({ keepVideo = false } = {}) {
   if (!S.data) return;
   renderControls();
   const cur = current();
+  // A full innerHTML rebuild recreates the <iframe> and restarts the stream, so
+  // when the game view is already mounted, patch only the parts that moved.
+  if (keepVideo && cur && S.view === 'game' && $('.game-layout')) {
+    updateGameView(cur);
+    renderScoreboardDynamic();
+    renderUpdated();
+    return;
+  }
   if (!cur) {
     app.innerHTML = `<div class="empty-state"><h3>No matchups for week ${S.week}</h3><p>Sleeper hasn't published a schedule for this week yet.</p></div>`;
     return;
@@ -537,7 +556,29 @@ function renderContent(p) {
   const bench = $('#bench-toggle');
   if (bench) bench.addEventListener('click', () => { const blk = $('#bench-block'); if (blk) { blk.hidden = !blk.hidden; bench.textContent = `${blk.hidden ? '›' : '⌄'} Bench (${bench.dataset.a} vs ${bench.dataset.b})`; } });
   content.querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => { S.watchGameId = b.dataset.watch; renderContent(p); renderScoreboardDynamic(); }));
+  bindVideoControls(content);
+  document.body.classList.toggle('theater', S.view === 'game' && S.theater);
   renderScoreboardDynamic();
+}
+
+// In-place update of the game view: everything except the video box, which must
+// stay in the DOM untouched or the stream restarts.
+function updateGameView(p) {
+  const list = gameBuckets(p);
+  const { withGame, watched, game } = watchedOf(list);
+  const games = $('.games');
+  if (games) games.innerHTML = gamesColumnHtml(list);
+  const hd = $('.watch-hd .wh-game');
+  if (hd) hd.textContent = gameTitle(game);
+  const sw = $('.switch-list');
+  if (sw) sw.innerHTML = switchListHtml(withGame, watched);
+  const over = $('#video-box .video-over');
+  if (over && game) over.outerHTML = videoOverlay(game);
+  // Repoint the frame only if the watched game actually changed.
+  const frame = $('#video-frame');
+  const next = game && VIDEO_BASE ? PROVIDER.embedUrl(game) : null;
+  if (frame && next && frame.src !== next) frame.src = next;
+  $('#content').querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => { S.watchGameId = b.dataset.watch; renderContent(p); renderScoreboardDynamic(); }));
 }
 
 function renderUpdated() {
@@ -617,7 +658,7 @@ const POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
 const posRank = (p) => { const i = POS_ORDER.indexOf(p); return i < 0 ? 99 : i; };
 
 // --- By NFL game -----------------------------------------------------------
-function gameViewHtml(p) {
+function gameBuckets(p) {
   const buckets = new Map(); // gameKey → { game, team, a: [], b: [] }
   const add = (s, key) => {
     const starters = new Set((s.m.starters || []).filter((id) => id && id !== '0'));
@@ -639,6 +680,12 @@ function gameViewHtml(p) {
     const dx = new Date(x.game.kickoff) - new Date(y.game.kickoff);
     return x.game.state === 'final' ? -dx : dx;
   });
+  return list;
+}
+
+// The left column, built on its own so a re-render can replace it without
+// touching the <iframe> in the aside.
+function gamesColumnHtml(list) {
   const bySlot = (arr) => arr.sort((x, y) => x.bench - y.bench || posRank(x.pos) - posRank(y.pos) || (y.pts || 0) - (x.pts || 0));
 
   const live = list.filter((bk) => bk.game && bk.game.state === 'live');
@@ -667,7 +714,12 @@ function gameViewHtml(p) {
     ? `<div class="later-hd">Not playing yet · ${later.length} game${later.length !== 1 ? 's' : ''}</div>${later.map(laterLineHtml).join('')}`
     : '';
 
-  return `<div class="game-layout"><div class="games">${liveHtml}${laterHtml}</div>${videoAsideHtml(list)}</div>`;
+  return `${liveHtml}${laterHtml}`;
+}
+
+function gameViewHtml(p) {
+  const list = gameBuckets(p);
+  return `<div class="game-layout"><div class="games">${gamesColumnHtml(list)}</div>${videoAsideHtml(list)}</div>`;
 }
 
 // Single-line game bar: teams + score, "SWING" label, and inline fantasy totals.
@@ -737,17 +789,56 @@ const PROVIDER = {
     `${VIDEO_BASE}/${VIDEO_PATH}/${VIDEO_SPORT}/${teamSlug(g.awayName, g.away)}-vs-${teamSlug(g.homeName, g.home)}`,
 };
 
-function videoAsideHtml(list) {
+function watchedOf(list) {
   const withGame = list.filter((bk) => bk.game && (bk.a.length + bk.b.length) > 0);
   const live = withGame.filter((bk) => bk.game.state === 'live');
   const watched = withGame.find((bk) => bk.game.id === S.watchGameId) || live[0] || null;
-  const g = watched?.game || null;
-  const src = g && VIDEO_BASE ? PROVIDER.embedUrl(g) : null;
-  const title = g ? `${g.away} @ ${g.home}` : '—';
-  const box = src
-    ? `<div class="video-box live"><iframe src="${src}" allow="fullscreen; picture-in-picture" allowfullscreen frameborder="0" title="${escape(title)}"></iframe>${videoOverlay(g)}</div>`
-    : `<div class="video-box"><div class="video-empty"><div class="ve-h">Video slot</div><div class="ve-p">No live game to watch right now.</div></div></div>`;
+  return { withGame, watched, game: watched?.game || null };
+}
+const gameTitle = (g) => (g ? `${g.away} @ ${g.home}` : '—');
 
+function videoAsideHtml(list) {
+  const { withGame, watched, game } = watchedOf(list);
+  return `
+    <aside class="watch">
+      <div class="watch-hd">Watching · <span class="wh-game">${escape(gameTitle(game))}</span></div>
+      ${videoBoxHtml(game)}
+      ${videoBarHtml(game)}
+      <div class="switch-hd">Switch game</div>
+      <div class="switch-list">${switchListHtml(withGame, watched)}</div>
+    </aside>`;
+}
+
+function videoBoxHtml(g) {
+  const src = g && VIDEO_BASE ? PROVIDER.embedUrl(g) : null;
+  if (!src) {
+    return `<div class="video-box" id="video-box"><div class="video-empty"><div class="ve-h">Video slot</div><div class="ve-p">No live game to watch right now.</div></div></div>`;
+  }
+  // allow= grants the provider's own player permission to offer fullscreen and
+  // picture-in-picture from inside the frame; we cannot drive those from here.
+  return `<div class="video-box live" id="video-box"><iframe id="video-frame" src="${escape(src)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen frameborder="0" title="${escape(gameTitle(g))}"></iframe>${videoOverlay(g)}</div>`;
+}
+
+// Only controls that can actually act on a cross-origin iframe. Play, mute,
+// volume and PiP need the <video> element inside the frame, which same-origin
+// policy puts out of reach - those stay in the provider's own control bar.
+function videoBarHtml(g) {
+  if (!g || !VIDEO_BASE) return '';
+  return `
+    <div class="video-bar">
+      <button type="button" class="vb-btn" data-vid="theater" aria-pressed="${S.theater}" title="Theater mode (t)">${S.theater ? 'Exit theater' : 'Theater'}</button>
+      <button type="button" class="vb-btn" data-vid="fullscreen" title="Fullscreen (f)">Fullscreen</button>
+      <button type="button" class="vb-btn" data-vid="popout" title="Open in a floating window">Pop out</button>
+      <button type="button" class="vb-btn" data-vid="reload" title="Reload the stream">Reload</button>
+      <span class="vb-note" title="Same-origin policy: our page cannot reach the video inside the frame.">Play · mute · PiP are in the player</span>
+    </div>`;
+}
+
+function videoOverlay(g) {
+  return `<div class="video-over"><span class="vo-clock">${escape(g.detail || 'Live')}</span><span class="vo-score">${escape(`${g.away} ${g.awayScore} · ${g.home} ${g.homeScore}`)}</span></div>`;
+}
+
+function switchListHtml(withGame, watched) {
   const items = withGame.map((bk) => {
     const gg = bk.game, count = bk.a.length + bk.b.length;
     const active = watched && gg.id === watched.game.id;
@@ -756,17 +847,40 @@ function videoAsideHtml(list) {
       : `<span class="si-time">${escape(shortKick(gg.kickoff))}</span>`;
     return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state !== 'live' ? 'upcoming' : ''}" data-watch="${gg.id}"><span class="si-name">${gg.away} @ ${gg.home}</span>${tag}<span class="si-count">${count} player${count !== 1 ? 's' : ''}</span></button>`;
   }).join('');
-
-  return `
-    <aside class="watch">
-      <div class="watch-hd">Watching · ${escape(title)}</div>
-      ${box}
-      <div class="switch-hd">Switch game</div>
-      <div class="switch-list">${items || '<div class="empty-col">No games with your players</div>'}</div>
-    </aside>`;
+  return items || '<div class="empty-col">No games with your players</div>';
 }
-function videoOverlay(g) {
-  return `<div class="video-over"><span class="vo-clock">${escape(g.detail || 'Live')}</span><span class="vo-score">${g.away} ${g.awayScore} · ${g.home} ${g.homeScore}</span><span class="vo-muted">Muted</span></div>`;
+
+// --- Video controls ---------------------------------------------------------
+// Theater and fullscreen act on our own elements, so they work; both avoid
+// re-rendering, which would recreate the iframe and restart the stream.
+function setTheater(on) {
+  S.theater = !!on;
+  save({ theater: S.theater });
+  document.body.classList.toggle('theater', S.theater);
+  const btn = $('[data-vid="theater"]');
+  if (btn) { btn.textContent = S.theater ? 'Exit theater' : 'Theater'; btn.setAttribute('aria-pressed', String(S.theater)); }
+}
+
+function videoAction(kind) {
+  const box = $('#video-box'), frame = $('#video-frame');
+  if (kind === 'theater') return setTheater(!S.theater);
+  if (kind === 'fullscreen') {
+    if (document.fullscreenElement) return document.exitFullscreen?.();
+    return box?.requestFullscreen?.().catch(() => banner('Fullscreen was blocked by the browser.'));
+  }
+  if (kind === 'reload' && frame) { frame.src = frame.src; return; }
+  if (kind === 'popout' && frame) {
+    // The honest stand-in for PiP: a separate 16:9 window we do control.
+    const w = 640, h = 360 + 40;
+    const win = window.open(frame.src, 'fms-video', `popup=yes,width=${w},height=${h},left=${screen.availWidth - w - 40},top=${screen.availHeight - h - 60}`);
+    if (!win) banner('Pop-out was blocked. Allow pop-ups for this site.');
+  }
+}
+
+function bindVideoControls(root) {
+  root.querySelectorAll('[data-vid]').forEach((b) => b.addEventListener('click', () => videoAction(b.dataset.vid)));
+  const btn = root.querySelector('[data-vid="fullscreen"]');
+  if (btn) document.addEventListener('fullscreenchange', () => { btn.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen'; });
 }
 
 // --- Player side cell -------------------------------------------------------
