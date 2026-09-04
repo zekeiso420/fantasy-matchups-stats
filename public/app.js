@@ -231,11 +231,9 @@ function patchNumbers() {
     const [a, b] = el.dataset.swing.split('|').map((x) => x.split(':'));
     const d = playerPts(a[1], Number(a[0])) - playerPts(b[1], Number(b[0]));
     const span = $('.diff', el);
-    if (span) { span.textContent = diffText(d); span.className = `diff ${diffClass(d, true)}`; }
-    const w = Math.min(Math.abs(d) / 20, 1) * 100;
-    const li = $('.h.l i', el), ri = $('.h.r i', el);
-    if (li) li.style.width = `${d > 0 ? w : 0}%`;
-    if (ri) ri.style.width = `${d < 0 ? w : 0}%`;
+    if (span) span.outerHTML = diffHtml(d);
+    const bar = $('.swing', el);
+    if (bar) bar.outerHTML = swingBar(d);
   }
   for (const el of app.querySelectorAll('.stat-sheet[open]')) {
     const [rid, pid] = el.dataset.sheet.split(':');
@@ -514,7 +512,10 @@ function renderScoreboardDynamic() {
     meta.textContent = bits.join(' \u00b7 ');
   }
   const fill = $('#ss-wp-fill');
-  if (fill) fill.style.width = wp == null ? '0%' : `${Math.round(wp * 100)}%`;
+  if (fill) {
+    fill.style.width = wp == null ? '0%' : `${Math.round(wp * 100)}%`;
+    fill.style.background = swingColor(ap - bp);
+  }
 }
 
 function winProbFor(p) {
@@ -624,13 +625,46 @@ function gutterHtml(slot, a, b, ridA, ridB) {
   const has = !!(a && b);
   const d = has ? (a.pts || 0) - (b.pts || 0) : 0;
   return `<div class="gutter" ${has ? `data-swing="${ridA}:${a.id}|${ridB}:${b.id}"` : ''}>
-      <div class="gutter-top">${slot}<span class="diff ${diffClass(d, has)}">${has ? diffText(d) : ''}</span></div>
+      <div class="gutter-top">${slot}${has ? diffHtml(d) : '<span class="diff"></span>'}</div>
       ${swingBar(has ? d : 0)}
     </div>`;
 }
-function swingBar(d, scale = 20) {
-  const w = Math.min(Math.abs(d) / scale, 1) * 100;
-  return `<div class="swing"><div class="h l"><i style="width:${d > 0 ? w : 0}%"></i></div><div class="h r"><i style="width:${d < 0 ? w : 0}%"></i></div></div>`;
+// The swing reads as a temperature: yellow when close either way, climbing to
+// green as you pull ahead and falling through orange to red as you drop back.
+// Interpolated in OKLCH so the middle of the range does not muddy the way a
+// straight hex lerp would.
+//
+// The brief specified oklch(0.82 0.19 <hue>) with hue swept from the centre,
+// but that lightness and chroma leave the sRGB gamut at the ends: rasterised,
+// -20 came out a washed #ff8d77 rather than red, 120 away from the brief's own
+// reference colour. Interpolating between those reference endpoints instead
+// keeps the OKLCH path and lands the ends exactly.
+const SWING_CLAMP = 20;       // one position row
+const GAME_CLAMP = 30;        // a whole NFL game swings further
+function swingColor(d, clamp = SWING_CLAMP) {
+  const t = Math.min(Math.abs(d) / clamp, 1);
+  const end = d >= 0 ? 'var(--swing-ahead)' : 'var(--swing-behind)';
+  return `color-mix(in oklch, ${end} ${(t * 100).toFixed(1)}%, var(--swing-even))`;
+}
+
+// Length grows out from a centre tick rather than from the left edge, and fades
+// to transparent at its outer end so a big swing bleeds outward instead of
+// reading as a filled progress bar.
+function swingBar(d, clamp = SWING_CLAMP) {
+  const t = Math.min(Math.abs(d) / clamp, 1);
+  const w = (t * 50).toFixed(2);
+  const c = swingColor(d, clamp);
+  const fill = Math.abs(d) < 0.005 ? ''
+    : d > 0
+      ? `<i style="left:50%;width:${w}%;background:linear-gradient(90deg,${c},transparent)"></i>`
+      : `<i style="right:50%;width:${w}%;background:linear-gradient(270deg,${c},transparent)"></i>`;
+  return `<div class="swing"><span class="tick"></span>${fill}</div>`;
+}
+
+// The number carries the same colour as its bar, so the column scans as a strip.
+function diffHtml(d, clamp = SWING_CLAMP) {
+  if (Math.abs(d) < 0.005) return '<span class="diff even">even</span>';
+  return `<span class="diff" style="color:${swingColor(d, clamp)}">${diffText(d)}</span>`;
 }
 function diffClass(d, has) { if (!has || Math.abs(d) < 0.005) return 'even'; return d > 0 ? 'you' : 'opp'; }
 function diffText(d) {
@@ -772,7 +806,7 @@ function gameGutterHtml() {
   return '<div class="gutter game"></div>';
 }
 
-const gameSwingHtml = (d) => `<span class="diff ${diffClass(d, true)}">${diffText(d)}</span>${swingBar(d, 40)}`;
+const gameSwingHtml = (d) => `${diffHtml(d, GAME_CLAMP)}${swingBar(d, GAME_CLAMP)}`;
 
 // One collapsed line per non-live game (upcoming, final, bye, free agents).
 function laterLineHtml(bk) {

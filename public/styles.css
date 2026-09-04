@@ -17,6 +17,9 @@
   --menu: #1b2620;         /* source panel fill */
   --frame-deep: #0a0f0c;   /* the video area itself */
   --dim: #4e5a4a;          /* secondary labels inside chrome */
+  --swing-even: #f0c543;   /* the swing scale: close, ahead, behind */
+  --swing-ahead: #3ddc5f;
+  --swing-behind: #ff3b1f;
 
   /* Role tokens, resolved differently per theme. */
   --accent: #f0c543;        /* markers, tabs, rail-active, "you", your lead */
@@ -51,6 +54,9 @@
   --menu: #ffffff;
   --frame-deep: #d9d8d8;
   --dim: #8b8888;
+  --swing-even: #c8a01f;
+  --swing-ahead: #17a544;
+  --swing-behind: #d92b0f;
 
   --accent: #ec3013;
   --bar: #201e1d;
@@ -70,6 +76,7 @@
     --line-strong: color-mix(in srgb, #201e1d 40%, transparent);
     --text: #201e1d; --muted: #605d5d; --faint: #7d7979; --video: #eae9e9;
     --surface-2: #eaece4; --menu: #ffffff; --frame-deep: #d9d8d8; --dim: #8b8888;
+    --swing-even: #c8a01f; --swing-ahead: #17a544; --swing-behind: #d92b0f;
     --accent: #ec3013; --bar: #201e1d; --gap: #ae1800; --live: #ae1800;
     --live-fill: #ec3013; --accent-ink: #ffffff;
     --bar-bg: #201e1d; --bar-fg: #f3f2f2; --bar-muted: color-mix(in srgb, #f3f2f2 62%, transparent);
@@ -344,15 +351,12 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 .gutter { padding: 4px 8px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); align-self: stretch; display: flex; flex-direction: column; justify-content: center; }
 .gutter .gutter-top { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 9.5px; letter-spacing: .12em; color: var(--faint); font-weight: 700; }
 .gutter .gutter-top .diff { letter-spacing: 0; font-size: 11px; font-weight: 700; }
-.gutter .gutter-top .diff.even { color: var(--faint); }
-.gutter .gutter-top .diff.you { color: var(--accent); }
-.gutter .gutter-top .diff.opp { color: var(--live); }
-.swing { display: flex; height: 5px; margin-top: 3px; background: var(--raised); }
-.swing .h { flex: 1; display: flex; }
-.swing .h.l { justify-content: flex-end; }
-.swing .h i { display: block; }
-.swing .h.l i { background: var(--bar); }
-.swing .h.r i { background: var(--live-fill); }
+.gutter .gutter-top .diff.even { color: var(--dim); }
+/* Track plus a centre tick. The tick is always drawn, including at even, and
+   stands 2px proud of the track so the zero point stays findable. */
+.swing { position: relative; height: 4px; margin-top: 3px; background: var(--surface-2); }
+.swing .tick { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; margin-left: -0.5px; background: var(--dim); }
+.swing i { position: absolute; top: 0; bottom: 0; display: block; }
 
 .side.empty { grid-template-columns: 1fr; justify-items: center; }
 
@@ -402,10 +406,8 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .game-bar .gb-clock.pre { color: var(--faint); }
 .game-bar .gb-swing { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .game-bar .gb-swing .diff { font-size: 11px; font-weight: 700; letter-spacing: 0; }
-.game-bar .gb-swing .diff.even { color: var(--faint); }
-.game-bar .gb-swing .diff.you { color: var(--accent); }
-.game-bar .gb-swing .diff.opp { color: var(--live); }
-.game-bar .gb-swing .swing { width: 100%; margin-top: 0; }
+.game-bar .gb-swing .diff.even { color: var(--dim); }
+.game-bar .gb-swing .swing { width: 100%; height: 5px; margin-top: 0; }
 .game-bar .gb-tot { text-align: right; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .game-bar .gb-tot b { color: var(--text); font-weight: 800; font-size: 14px; }
 
