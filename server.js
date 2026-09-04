@@ -9,7 +9,11 @@ const PORT = process.env.PORT || 3000;
 
 const app = express();
 app.disable('x-powered-by');
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', etag: true }));
+// A 1h max-age means the browser won't even revalidate, so local edits stay
+// invisible until the cache expires. Keep etags (cheap 304s) but let dev
+// revalidate every time; production still gets the long cache.
+const PROD = process.env.NODE_ENV === 'production';
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: PROD ? '1h' : 0, etag: true }));
 
 // ---------------------------------------------------------------------------
 // Cache: single in-flight promise per key, stale-on-error fallback.
