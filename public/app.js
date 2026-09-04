@@ -199,16 +199,27 @@ function patchNumbers() {
   for (const el of app.querySelectorAll('[data-pts]')) {
     const [rid, pid] = el.dataset.pts.split(':');
     const next = fmt(playerPts(pid, Number(rid)));
-    if (el.textContent !== next) { el.textContent = next; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+    if (el.textContent !== next) { el.textContent = next; el.classList.remove('flash', 'pre'); void el.offsetWidth; el.classList.add('flash'); }
   }
-  for (const el of app.querySelectorAll('[data-total]')) {
+  for (const el of app.querySelectorAll('.sb-score[data-total]')) {
     const next = fmt(teamPts(Number(el.dataset.total)));
     if (el.textContent !== next) { el.textContent = next; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   }
-  for (const el of app.querySelectorAll('[data-exp]')) el.textContent = expText(Number(el.dataset.exp));
-  for (const el of app.querySelectorAll('[data-diff]')) {
-    const [a, b] = el.dataset.diff.split('|').map((x) => x.split(':'));
-    el.textContent = diffText(playerPts(a[1], Number(a[0])) - playerPts(b[1], Number(b[0])));
+  for (const el of app.querySelectorAll('.gb-tot[data-tot-a]')) {
+    const sum = (s) => (s ? s.split(',').reduce((t, x) => { const [r, pid] = x.split(':'); return t + playerPts(pid, Number(r)); }, 0) : 0);
+    const ta = $('.ta', el), tb = $('.tb', el);
+    if (ta) ta.textContent = fmt(sum(el.dataset.totA));
+    if (tb) tb.textContent = fmt(sum(el.dataset.totB));
+  }
+  for (const el of app.querySelectorAll('.gutter[data-swing]')) {
+    const [a, b] = el.dataset.swing.split('|').map((x) => x.split(':'));
+    const d = playerPts(a[1], Number(a[0])) - playerPts(b[1], Number(b[0]));
+    const span = $('.diff', el);
+    if (span) { span.textContent = diffText(d); span.className = `diff ${diffClass(d, true)}`; }
+    const w = Math.min(Math.abs(d) / 20, 1) * 100;
+    const li = $('.h.l i', el), ri = $('.h.r i', el);
+    if (li) li.style.width = `${d > 0 ? w : 0}%`;
+    if (ri) ri.style.width = `${d < 0 ? w : 0}%`;
   }
   for (const el of app.querySelectorAll('.stat-sheet[open]')) {
     const [rid, pid] = el.dataset.sheet.split(':');
@@ -216,7 +227,7 @@ function patchNumbers() {
   }
   for (const el of app.querySelectorAll('[data-game-status]')) {
     const g = S.data.games?.[el.dataset.gameStatus];
-    if (g) el.innerHTML = gameStatusHtml(g);
+    if (g) el.textContent = gameStatusText(g);
   }
   for (const el of app.querySelectorAll('[data-game-score]')) {
     const [team, side] = el.dataset.gameScore.split(':');
@@ -370,10 +381,16 @@ function renderControls() {
 
 function renderLoading() {
   app.innerHTML = `
-    <div class="layout">
-      <div class="scoreboard"><div class="team"><div class="skel" style="height:18px;width:40%"></div><div class="skel" style="height:52px;width:30%;margin-top:8px"></div></div><div class="mid"></div><div class="team away"><div class="skel" style="height:18px;width:40%;margin-left:auto"></div><div class="skel" style="height:52px;width:30%;margin:8px 0 0 auto"></div></div></div>
-      <aside class="rail"></aside>
-      <section class="panel"><div class="card">${'<div class="skel-row"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>'.repeat(8)}</div></section>
+    <div class="matchup">
+      <div class="scoreboard">
+        <div class="sb-team"><div class="skel" style="height:18px;width:60%"></div><div class="skel" style="height:56px;width:45%;margin-top:8px"></div></div>
+        <div class="sb-gap"></div>
+        <div class="sb-team away" style="justify-items:end"><div class="skel" style="height:18px;width:60%;margin-left:auto"></div><div class="skel" style="height:56px;width:45%;margin:8px 0 0 auto"></div></div>
+      </div>
+      <div class="matchup-body">
+        <aside></aside>
+        <section>${'<div class="skel-row"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>'.repeat(9)}</section>
+      </div>
     </div>`;
 }
 
@@ -386,19 +403,23 @@ function render() {
     return;
   }
   app.innerHTML = `
-    <div class="layout">
+    <div class="matchup">
+      <div class="winprob" id="winprob" hidden></div>
       ${scoreboardHtml(cur)}
-      <aside class="rail"><h2>All matchups</h2><div class="rail-list" id="rail"></div></aside>
-      <section class="panel">
-        <div class="panel-head">
-          <div class="seg" role="tablist">
-            <button type="button" role="tab" data-view="slot" aria-pressed="${S.view === 'slot'}">By position</button>
-            <button type="button" role="tab" data-view="game" aria-pressed="${S.view === 'game'}">By NFL game</button>
+      <div class="weekstrip" id="weekstrip">${weekStripHtml()}</div>
+      <div class="matchup-body ${S.view === 'game' ? 'wide' : ''}">
+        ${S.view === 'game' ? '' : '<aside class="rail"><div class="rail-head">All matchups</div><div id="rail"></div></aside>'}
+        <section class="panel">
+          <div class="tabs-row">
+            <div class="tabs" role="tablist">
+              <button type="button" role="tab" data-view="slot" class="${S.view === 'slot' ? 'active' : ''}" aria-pressed="${S.view === 'slot'}">By position</button>
+              <button type="button" role="tab" data-view="game" class="${S.view === 'game' ? 'active' : ''}" aria-pressed="${S.view === 'game'}">By NFL game</button>
+            </div>
+            <span class="tabs-hint">Tap a row for the breakdown</span>
           </div>
-          <span class="updated" id="updated"></span>
-        </div>
-        <div id="content"></div>
-      </section>
+          <div id="content"></div>
+        </section>
+      </div>
     </div>`;
   app.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { S.view = b.dataset.view; save({ view: S.view }); render(); }));
   renderRail();
@@ -410,22 +431,29 @@ function scoreboardHtml(p) {
   const a = p.a, b = p.b;
   return `
     <section class="scoreboard" aria-label="Scoreboard">
-      <div class="team home">
-        <div class="team-name" title="${escape(a.name)}">${escape(a.name)}</div>
-        <div class="team-sub">${escape(a.owner)}</div>
-        <div class="score" data-total="${a.m.roster_id}">${fmt(teamPts(a.m.roster_id))}</div>
-        <div class="proj" data-exp="${a.m.roster_id}">${expText(a.m.roster_id)}</div>
+      <div class="sb-team home">
+        <div class="sb-namerow"><span class="sb-name" title="${escape(a.name)}">${escape(a.name)}</span>${a.owner ? `<span class="sb-owner">${escape(a.owner)}</span>` : ''}</div>
+        <div class="sb-score" data-total="${a.m.roster_id}">${fmt(teamPts(a.m.roster_id))}</div>
+        <div class="sb-meta" id="meta-a">${metaHtml(a)}</div>
       </div>
-      <div class="mid">VS</div>
-      <div class="team away">
-        <div class="team-name" title="${escape(b?.name || 'Bye')}">${escape(b?.name || 'Bye')}</div>
-        <div class="team-sub">${escape(b?.owner || '')}</div>
-        <div class="score" ${b ? `data-total="${b.m.roster_id}"` : ''}>${b ? fmt(teamPts(b.m.roster_id)) : '—'}</div>
-        <div class="proj" ${b ? `data-exp="${b.m.roster_id}"` : ''}>${b ? expText(b.m.roster_id) : ''}</div>
+      <div class="sb-gap"><div class="gap-num" id="gap-num"></div><div class="gap-sub" id="gap-sub"></div></div>
+      <div class="sb-team away">
+        <div class="sb-namerow">${b?.owner ? `<span class="sb-owner">${escape(b.owner)}</span>` : ''}<span class="sb-name" title="${escape(b?.name || 'Bye')}">${escape(b?.name || 'Bye')}</span></div>
+        <div class="sb-score" ${b ? `data-total="${b.m.roster_id}"` : ''}>${b ? fmt(teamPts(b.m.roster_id)) : '—'}</div>
+        <div class="sb-meta" id="meta-b">${b ? metaHtml(b) : ''}</div>
       </div>
-      <div class="share"><i id="share-bar"></i></div>
-      <div class="meta"><span id="meta-a"></span><span id="meta-b"></span></div>
     </section>`;
+}
+
+// `proj 122.88 · 6 live · 2 to play`
+function metaHtml(sd) {
+  const s = sideSummary(sd);
+  const e = teamExp(sd.m.roster_id);
+  const parts = [];
+  if (e != null && S.data.proj) parts.push(`proj ${fmt(e)}`);
+  if (s.live) parts.push(`<span class="live">${s.live} live</span>`);
+  parts.push(s.left ? `${s.left} to play` : (s.live ? '' : 'all done'));
+  return parts.filter(Boolean).join(' · ');
 }
 
 // Parts of the scoreboard that change with live data.
@@ -433,30 +461,71 @@ function renderScoreboardDynamic() {
   const p = current();
   if (!p) return;
   const ap = teamPts(p.a.m.roster_id), bp = p.b ? teamPts(p.b.m.roster_id) : 0;
-  const bar = $('#share-bar');
-  if (bar) bar.style.width = `${ap + bp > 0 ? Math.round((ap / (ap + bp)) * 100) : 50}%`;
-  app.querySelectorAll('.scoreboard .score').forEach((el) => el.classList.remove('leading'));
-  if (p.b && ap !== bp) $(`.scoreboard [data-total="${ap > bp ? p.a.m.roster_id : p.b.m.roster_id}"]`)?.classList.add('leading');
+  app.querySelectorAll('.scoreboard .sb-score').forEach((el) => el.classList.remove('trail'));
+  if (p.b && ap !== bp) $(`.scoreboard [data-total="${ap > bp ? p.b.m.roster_id : p.a.m.roster_id}"]`)?.classList.add('trail');
+  const gn = $('#gap-num'), gs = $('#gap-sub');
+  if (gn) { const d = ap - bp; gn.textContent = `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(2)}`; }
+  if (gs) {
+    const sa = sideSummary(p.a), sb = p.b ? sideSummary(p.b) : { left: 0, total: 0 };
+    gs.textContent = `${sa.left + sb.left} of ${sa.total + sb.total} starters left`;
+  }
   const ma = $('#meta-a'), mb = $('#meta-b');
-  if (ma) ma.innerHTML = summaryHtml(sideSummary(p.a));
-  if (mb) mb.innerHTML = p.b ? summaryHtml(sideSummary(p.b)) : '';
+  if (ma) ma.innerHTML = metaHtml(p.a);
+  if (mb) mb.innerHTML = p.b ? metaHtml(p.b) : '';
+  renderWinProb(p);
 }
-function summaryHtml(s) {
-  const parts = [];
-  if (s.live) parts.push(`<span class="live-dot">${s.live} playing</span>`);
-  parts.push(s.left ? `${s.left} to play` : s.live ? '' : 'all done');
-  return parts.filter(Boolean).join(', ');
+
+// Win probability from projected finals; hidden when projections are absent.
+function renderWinProb(p) {
+  const el = $('#winprob');
+  if (!el) return;
+  const wp = winProbFor(p);
+  if (wp == null) { el.hidden = true; el.innerHTML = ''; return; }
+  const you = Math.round(wp * 100);
+  el.hidden = false;
+  el.innerHTML = `<span class="wp-label">Win probability</span><span class="wp-you">${you}%</span><div class="wp-bar"><i style="width:${you}%"></i></div><span class="wp-opp">${100 - you}%</span>`;
+}
+function winProbFor(p) {
+  if (!p.b || !S.data.proj) return null;
+  const ea = teamExp(p.a.m.roster_id), eb = teamExp(p.b.m.roster_id);
+  if (ea == null || eb == null) return null;
+  const sa = sideSummary(p.a), sb = sideSummary(p.b);
+  const remaining = sa.live + sa.left + sb.live + sb.left;
+  const sd = 8 + 3.2 * Math.sqrt(remaining + 1);   // spread widens with games left
+  return normCdf((ea - eb) / sd);
+}
+// Standard normal CDF (Abramowitz & Stegun 26.2.17).
+function normCdf(z) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989423 * Math.exp(-z * z / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return z > 0 ? 1 - p : p;
+}
+
+// Single current-week chip; a full history strip is a later round (renders
+// gracefully with just this week per the handoff).
+function weekStripHtml() {
+  const p = current();
+  const ap = teamPts(p.a.m.roster_id), bp = p.b ? teamPts(p.b.m.roster_id) : 0;
+  const games = Object.values(S.data.games || {});
+  const anyLive = games.some((g) => g.state === 'live');
+  const started = games.some((g) => g.state !== 'pre');
+  let res = '—', cls = '';
+  if (anyLive) { res = 'LIVE'; cls = 'live'; }
+  else if (started && p.b) { res = ap > bp ? 'W' : ap < bp ? 'L' : 'T'; cls = ap > bp ? 'w' : 'l'; }
+  return `<div class="wk"><span class="w">WK ${S.week}</span><span class="res ${cls}">${res}</span>${p.b ? `<span class="sc">${fmt(ap)}–${fmt(bp)}</span>` : ''}</div>`;
 }
 
 function renderRail() {
   const rail = $('#rail');
   if (!rail) return;
+  const mine = myRoster()?.roster_id;
   rail.innerHTML = pairs().map((p) => {
     const ap = teamPts(p.a.m.roster_id), bp = p.b ? teamPts(p.b.m.roster_id) : 0;
     return `
       <button type="button" class="rail-item ${p.id === S.viewMatchupId ? 'active' : ''}" data-mid="${p.id}">
-        <span class="n ${p.a.roster?.roster_id === myRoster()?.roster_id ? 'you' : ''}">${escape(p.a.name)}</span><span class="s ${ap > bp ? 'lead' : ''}">${fmt(ap)}</span>
-        <span class="n ${p.b?.roster?.roster_id === myRoster()?.roster_id ? 'you' : ''}">${escape(p.b?.name || 'Bye')}</span><span class="s ${bp > ap ? 'lead' : ''}">${p.b ? fmt(bp) : ''}</span>
+        <div class="ri-row"><span class="ri-name ${p.a.roster?.roster_id === mine ? 'you' : ''}">${escape(p.a.name)}</span><span class="ri-score ${ap > bp ? 'lead' : ''}">${fmt(ap)}</span></div>
+        <div class="ri-row"><span class="ri-name ${p.b?.roster?.roster_id === mine ? 'you' : ''}">${escape(p.b?.name || 'Bye')}</span><span class="ri-score ${bp > ap ? 'lead' : ''}">${p.b ? fmt(bp) : ''}</span></div>
       </button>`;
   }).join('');
   rail.querySelectorAll('[data-mid]').forEach((b) => b.addEventListener('click', () => { S.viewMatchupId = Number(b.dataset.mid); render(); }));
@@ -465,16 +534,41 @@ function renderRail() {
 function renderContent(p) {
   const content = $('#content');
   content.innerHTML = S.view === 'slot' ? slotViewHtml(p) : gameViewHtml(p);
+  const bench = $('#bench-toggle');
+  if (bench) bench.addEventListener('click', () => { const blk = $('#bench-block'); if (blk) { blk.hidden = !blk.hidden; bench.textContent = `${blk.hidden ? '›' : '⌄'} Bench (${bench.dataset.a} vs ${bench.dataset.b})`; } });
+  content.querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => { S.watchGameId = b.dataset.watch; renderContent(p); renderScoreboardDynamic(); }));
   renderScoreboardDynamic();
 }
 
 function renderUpdated() {
-  const el = $('#updated');
+  const el = $('#topbar-live');
   if (!el) return;
-  el.className = `updated ${S.online === true ? 'online' : ''}`;
-  el.textContent = S.online === true
-    ? `Live${S.liveAt ? `, updated ${new Date(S.liveAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
-    : S.online === 'connecting' ? 'Connecting…' : 'Reconnecting…';
+  const feedDown = S.data && S.data.statsAvailable === false;
+  if (!S.online) { el.classList.remove('on'); el.innerHTML = ''; return; }
+  el.classList.add('on');
+  const label = S.online === true
+    ? `LIVE${S.liveAt ? ` ${time(S.liveAt)}` : ''}`
+    : S.online === 'connecting' ? 'CONNECTING…' : 'RECONNECTING…';
+  el.innerHTML = `<span class="dot"></span>${label}${S.online === true && feedDown ? '<span class="feed-down">· SLEEPER POINTS, FEED DOWN</span>' : ''}`;
+}
+
+// --- Swing gutter (shared by both views) -----------------------------------
+function gutterHtml(slot, a, b, ridA, ridB) {
+  const has = !!(a && b);
+  const d = has ? (a.pts || 0) - (b.pts || 0) : 0;
+  return `<div class="gutter" ${has ? `data-swing="${ridA}:${a.id}|${ridB}:${b.id}"` : ''}>
+      <div class="gutter-top">${slot}<span class="diff ${diffClass(d, has)}">${has ? diffText(d) : ''}</span></div>
+      ${swingBar(has ? d : 0)}
+    </div>`;
+}
+function swingBar(d) {
+  const w = Math.min(Math.abs(d) / 20, 1) * 100;
+  return `<div class="swing"><div class="h l"><i style="width:${d > 0 ? w : 0}%"></i></div><div class="h r"><i style="width:${d < 0 ? w : 0}%"></i></div></div>`;
+}
+function diffClass(d, has) { if (!has || Math.abs(d) < 0.005) return 'even'; return d > 0 ? 'you' : 'opp'; }
+function diffText(d) {
+  if (Math.abs(d) < 0.005) return 'even';
+  return `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`;
 }
 
 // --- By position -----------------------------------------------------------
@@ -486,34 +580,30 @@ function slotViewHtml(p) {
     const b = p.b && B[i] && B[i] !== '0' ? player(B[i], p.b.m) : null;
     return `
       <div class="slot-row">
-        ${a ? playerHtml(a, p.a.m.roster_id, 'ltr') : emptyHtml()}
-        <div class="slot">${SLOT_LABEL[slot] || slot}<small ${a && b ? `data-diff="${p.a.m.roster_id}:${a.id}|${p.b.m.roster_id}:${b.id}"` : ''}>${slotDiff(a, b)}</small></div>
-        ${b ? playerHtml(b, p.b.m.roster_id, 'rtl') : emptyHtml()}
-        ${sheetHtml(p.a.m.roster_id, a)}${b ? sheetHtml(p.b.m.roster_id, b) : ''}
+        ${a ? sideHtml(a, p.a.m.roster_id, 'a') : emptySide('a')}
+        ${gutterHtml(SLOT_LABEL[slot] || slot, a, b, p.a.m.roster_id, p.b?.m.roster_id)}
+        ${b ? sideHtml(b, p.b.m.roster_id, 'b') : emptySide('b')}
+        ${a ? sheetHtml(p.a.m.roster_id, a) : ''}${b ? sheetHtml(p.b.m.roster_id, b) : ''}
       </div>`;
   }).join('');
 
   const benchA = benchIds(p.a), benchB = p.b ? benchIds(p.b) : [];
   const n = Math.max(benchA.length, benchB.length);
+  const leftA = sideSummary(p.a).left, leftB = p.b ? sideSummary(p.b).left : 0;
+  const foot = `
+    <div class="starter-foot">
+      ${n ? `<button type="button" id="bench-toggle" data-a="${benchA.length}" data-b="${benchB.length}">› Bench (${benchA.length} vs ${benchB.length})</button>` : ''}
+      <span class="secondary">› What's left to play (${leftA} vs ${leftB})</span>
+    </div>`;
   const benchRows = Array.from({ length: n }, (_, i) => `
       <div class="slot-row">
-        ${benchA[i] ? playerHtml(player(benchA[i], p.a.m), p.a.m.roster_id, 'ltr') : emptyHtml()}
-        <div class="slot"><small>BN</small></div>
-        ${benchB[i] ? playerHtml(player(benchB[i], p.b.m), p.b.m.roster_id, 'rtl') : emptyHtml()}
+        ${benchA[i] ? sideHtml(player(benchA[i], p.a.m), p.a.m.roster_id, 'a', { bench: true }) : emptySide('a')}
+        ${gutterHtml('BN', null, null)}
+        ${benchB[i] ? sideHtml(player(benchB[i], p.b.m), p.b.m.roster_id, 'b', { bench: true }) : emptySide('b')}
         ${benchA[i] ? sheetHtml(p.a.m.roster_id, player(benchA[i], p.a.m)) : ''}${benchB[i] ? sheetHtml(p.b.m.roster_id, player(benchB[i], p.b.m)) : ''}
       </div>`).join('');
 
-  return `<div class="card">${rows}</div>
-    ${n ? `<details class="bench"><summary>Bench (${benchA.length} vs ${benchB.length})</summary><div class="card">${benchRows}</div></details>` : ''}`;
-}
-
-function slotDiff(a, b) {
-  if (!a || !b) return '';
-  return diffText((a.pts || 0) - (b.pts || 0));
-}
-function diffText(d) {
-  if (Math.abs(d) < 0.005) return 'even';
-  return `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`;
+  return `<div class="starters">${rows}</div>${foot}${n ? `<div class="bench-block" id="bench-block" hidden>${benchRows}</div>` : ''}`;
 }
 
 function benchIds(s) {
@@ -528,7 +618,7 @@ const posRank = (p) => { const i = POS_ORDER.indexOf(p); return i < 0 ? 99 : i; 
 
 // --- By NFL game -----------------------------------------------------------
 function gameViewHtml(p) {
-  const buckets = new Map(); // gameKey → { game, a: [], b: [] }
+  const buckets = new Map(); // gameKey → { game, team, a: [], b: [] }
   const add = (s, key) => {
     const starters = new Set((s.m.starters || []).filter((id) => id && id !== '0'));
     for (const id of s.roster?.players || []) {
@@ -549,41 +639,130 @@ function gameViewHtml(p) {
     const dx = new Date(x.game.kickoff) - new Date(y.game.kickoff);
     return x.game.state === 'final' ? -dx : dx;
   });
+  const bySlot = (arr) => arr.sort((x, y) => x.bench - y.bench || posRank(x.pos) - posRank(y.pos) || (y.pts || 0) - (x.pts || 0));
 
-  const col = (players, name) => `
-    <div class="col">
-      <div class="col-head"><span>${escape(name)}</span><b>${fmt(players.filter((x) => !x.bench).reduce((t, x) => t + (x.pts || 0), 0))}</b></div>
-      ${players.length
-        ? players.sort((x, y) => x.bench - y.bench || posRank(x.pos) - posRank(y.pos)).map((x) => playerHtml(x, x.rosterId, 'ltr', x.bench) + sheetHtml(x.rosterId, x)).join('')
-        : '<div class="empty-col">No one in this game</div>'}
-    </div>`;
+  const live = list.filter((bk) => bk.game && bk.game.state === 'live');
+  const later = list.filter((bk) => !(bk.game && bk.game.state === 'live'));
 
-  return `<div class="games">${list.map((b) => `
-    <div class="card game-card ${b.game?.state || 'bye'}">
-      ${gameHeadHtml(b)}
-      <div class="game-body">${col(b.a, p.a.name)}${col(b.b, p.b?.name || 'Bye')}</div>
-    </div>`).join('')}</div>`;
+  const liveHtml = live.map((bk) => {
+    const A = bySlot(bk.a), B = bySlot(bk.b);
+    const startersA = A.filter((x) => !x.bench), startersB = B.filter((x) => !x.bench);
+    const totA = startersA.reduce((t, x) => t + (x.pts || 0), 0);
+    const totB = startersB.reduce((t, x) => t + (x.pts || 0), 0);
+    const n = Math.max(A.length, B.length);
+    const rows = Array.from({ length: n }, (_, i) => {
+      const a = A[i] || null, b = B[i] || null;
+      return `
+        <div class="slot-row game-row">
+          ${a ? sideHtml(a, a.rosterId, 'a', { bench: a.bench, compact: true }) : emptyGameSide('a')}
+          ${gameGutterHtml(a, b)}
+          ${b ? sideHtml(b, b.rosterId, 'b', { bench: b.bench, compact: true }) : emptyGameSide('b')}
+          ${a ? sheetHtml(a.rosterId, a) : ''}${b ? sheetHtml(b.rosterId, b) : ''}
+        </div>`;
+    }).join('');
+    return `<div class="game-grp">${gameBarHtml(bk, startersA, startersB, totA, totB)}${rows}</div>`;
+  }).join('');
+
+  const laterHtml = later.length
+    ? `<div class="later-hd">Not playing yet · ${later.length} game${later.length !== 1 ? 's' : ''}</div>${later.map(laterLineHtml).join('')}`
+    : '';
+
+  return `<div class="game-layout"><div class="games">${liveHtml}${laterHtml}</div>${videoAsideHtml(list)}</div>`;
 }
 
-function gameHeadHtml(b) {
-  const g = b.game;
-  if (!g) return `<div class="game-head"><div class="status">${b.team ? `${b.team} has a bye` : 'Free agents'}</div></div>`;
+// Single-line game bar: teams + score, "SWING" label, and inline fantasy totals.
+function gameBarHtml(bk, startersA, startersB, totA, totB) {
+  const g = bk.game;
+  const totKey = (arr) => arr.map((x) => `${x.rosterId}:${x.id}`).join(',');
   return `
-    <div class="game-head">
-      <div class="t away"><span class="sc ${g.state === 'pre' ? 'pre' : ''}" data-game-score="${g.away}:away">${g.state === 'pre' ? '' : g.awayScore}</span>${g.away}<img src="${logo(g.away)}" alt="" onerror="this.remove()"></div>
-      <div class="status" data-game-status="${g.home}">${gameStatusHtml(g)}</div>
-      <div class="t home"><img src="${logo(g.home)}" alt="" onerror="this.remove()">${g.home}<span class="sc ${g.state === 'pre' ? 'pre' : ''}" data-game-score="${g.home}:home">${g.state === 'pre' ? '' : g.homeScore}</span></div>
+    <div class="game-bar ${g.state === 'live' ? 'live' : ''}">
+      <div class="gb-line">
+        <img class="gb-logo" src="${logo(g.away)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.away}</span> <span class="gb-score" data-game-score="${g.away}:away">${g.awayScore}</span>
+        <span class="gb-at">at</span>
+        <img class="gb-logo" src="${logo(g.home)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.home}</span> <span class="gb-score" data-game-score="${g.home}:home">${g.homeScore}</span>
+        <span class="gb-clock ${g.state === 'live' ? '' : 'pre'}" data-game-status="${g.home}">${gameStatusText(g)}</span>
+      </div>
+      <div class="gb-swing">Swing</div>
+      <div class="gb-tot" data-tot-a="${totKey(startersA)}" data-tot-b="${totKey(startersB)}"><b class="ta">${fmt(totA)}</b> you · <b class="tb">${fmt(totB)}</b> them</div>
     </div>`;
 }
 
-function gameStatusHtml(g) {
-  if (g.state === 'live') return `<span class="l">${escape(g.detail || 'Live')}</span>`;
-  if (g.state === 'final') return `<span class="f">${escape(g.detail || 'Final')}</span>`;
-  return kickoff(g.kickoff);
+// Swing gutter for the game view: no side rules, thinner bar, nothing at all
+// when only one side has a player in the game.
+function gameGutterHtml(a, b) {
+  const has = !!(a && b);
+  const d = has ? (a.pts || 0) - (b.pts || 0) : 0;
+  const w = Math.min(Math.abs(d) / 20, 1) * 100;
+  return `<div class="gutter game" ${has ? `data-swing="${a.rosterId}:${a.id}|${b.rosterId}:${b.id}"` : ''}>
+      <div class="gutter-top"><span class="diff ${has ? diffClass(d, true) : ''}">${has ? diffText(d) : ''}</span></div>
+      <div class="swing ${has ? '' : 'empty'}"><div class="h l"><i style="width:${has && d > 0 ? w : 0}%"></i></div><div class="h r"><i style="width:${has && d < 0 ? w : 0}%"></i></div></div>
+    </div>`;
 }
 
-// --- Player row ------------------------------------------------------------
-function playerHtml(pl, rosterId, dir = 'ltr', bench = false) {
+// One collapsed line per non-live game (upcoming, final, bye, free agents).
+function laterLineHtml(bk) {
+  const g = bk.game;
+  const name = g ? `${g.away} @ ${g.home}` : (bk.team ? `${escape(bk.team)} bye` : 'Free agents');
+  const isFinal = g && g.state === 'final';
+  const time = g ? (isFinal ? 'FINAL' : shortKick(g.kickoff)) : '';
+  const who = [...bk.a, ...bk.b].map((x) => `${escape(shortName(x))}${x.pts ? ` ${fmt(x.pts)}` : ''}`).join(' · ');
+  const count = `${bk.a.length} you, ${bk.b.length} them`;
+  return `<button type="button" class="later-line" ${g ? `data-watch="${g.id}"` : ''}><span class="ll-name">${name}${time ? `<span class="ll-time ${isFinal ? 'final' : ''}">${time}</span>` : ''}</span><span class="ll-players">${who}</span><span class="ll-count">${count}</span></button>`;
+}
+
+const emptyGameSide = (sideKey) => `<div class="side ${sideKey} compact empty"></div>`;
+
+function gameStatusText(g) {
+  if (g.state === 'live') return escape(g.detail || 'Live');
+  if (g.state === 'final') return escape(g.detail || 'Final');
+  return escape(kickoff(g.kickoff));
+}
+
+// --- Video slot (provider-agnostic) -----------------------------------------
+// The embed URL is built from the two team abbreviations, matching the
+// provider's `/embed/{sport}/{away}-vs-{home}` path. Point VIDEO_BASE at a
+// service you have the right to embed; teamSlug() adjusts the team format.
+const VIDEO_BASE = 'https://streamfree.top';
+const VIDEO_SPORT = 'football';
+const teamSlug = (abbr) => (abbr || '').toLowerCase();
+const PROVIDER = { name: 'streamfree', embedUrl: (g) => `${VIDEO_BASE}/embed/${VIDEO_SPORT}/${teamSlug(g.away)}-vs-${teamSlug(g.home)}` };
+
+function videoAsideHtml(list) {
+  const withGame = list.filter((bk) => bk.game && (bk.a.length + bk.b.length) > 0);
+  const live = withGame.filter((bk) => bk.game.state === 'live');
+  const watched = withGame.find((bk) => bk.game.id === S.watchGameId) || live[0] || null;
+  const g = watched?.game || null;
+  const src = g && VIDEO_BASE ? PROVIDER.embedUrl(g) : null;
+  const title = g ? `${g.away} @ ${g.home}` : '—';
+  const box = src
+    ? `<div class="video-box live"><iframe src="${src}" allow="fullscreen; picture-in-picture" allowfullscreen frameborder="0" title="${escape(title)}"></iframe>${videoOverlay(g)}</div>`
+    : `<div class="video-box"><div class="video-empty"><div class="ve-h">Video slot</div><div class="ve-p">No live game to watch right now.</div></div></div>`;
+
+  const items = withGame.map((bk) => {
+    const gg = bk.game, count = bk.a.length + bk.b.length;
+    const active = watched && gg.id === watched.game.id;
+    const tag = gg.state === 'live' ? '<span class="si-live">LIVE</span>'
+      : gg.state === 'final' ? '<span class="si-time">FINAL</span>'
+      : `<span class="si-time">${escape(shortKick(gg.kickoff))}</span>`;
+    return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state !== 'live' ? 'upcoming' : ''}" data-watch="${gg.id}"><span class="si-name">${gg.away} @ ${gg.home}</span>${tag}<span class="si-count">${count} player${count !== 1 ? 's' : ''}</span></button>`;
+  }).join('');
+
+  return `
+    <aside class="watch">
+      <div class="watch-hd">Watching · ${escape(title)}</div>
+      ${box}
+      <div class="switch-hd">Switch game</div>
+      <div class="switch-list">${items || '<div class="empty-col">No games with your players</div>'}</div>
+    </aside>`;
+}
+function videoOverlay(g) {
+  return `<div class="video-over"><span class="vo-clock">${escape(g.detail || 'Live')}</span><span class="vo-score">${g.away} ${g.awayScore} · ${g.home} ${g.homeScore}</span><span class="vo-muted">Muted</span></div>`;
+}
+
+// --- Player side cell -------------------------------------------------------
+// compact: the By-NFL-game rows use a 20px team logo instead of the 40px
+// headshot, which leaves room for the name in the narrower column.
+function sideHtml(pl, rosterId, sideKey, { bench = false, compact = false } = {}) {
   const g = pl.game;
   let line = '', cls = '';
   if (!pl.team) line = 'Free agent';
@@ -597,25 +776,26 @@ function playerHtml(pl, rosterId, dir = 'ltr', bench = false) {
     } else line = `${kickoff(g.kickoff)} ${opp}`;
   }
   const pre = !g || g.state === 'pre';
-  const projLine = pre && pl.proj ? ` (proj ${fmt(pl.proj)})` : '';
-  return `
-    <div class="player ${dir} ${bench ? 'bench' : ''}" data-sheet-for="${rosterId}:${pl.id}" tabindex="0" role="button" aria-expanded="false">
-      <div class="avatar">${avatarHtml(pl)}${pl.team ? `<img class="logo" src="${logo(pl.team)}" alt="" onerror="this.remove()">` : ''}</div>
-      <div class="who">
-        <div class="name"><span class="full">${escape(pl.name)}</span><span class="short">${escape(shortName(pl))}</span><span class="pos">${pl.pos}${pl.team ? ` ${pl.team}` : ''}</span>${pl.injury ? `<span class="inj">${escape(injAbbr(pl.injury))}</span>` : ''}${bench ? '<span class="bench-tag">bench</span>' : ''}</div>
-        <div class="game ${cls}">${escape(line)}${escape(projLine)}</div>
-      </div>
-      <div class="pts ${pre && !pl.pts ? 'pre' : ''}" data-pts="${rosterId}:${pl.id}">${fmt(pl.pts)}</div>
-    </div>`;
+  const isLive = !!(g && g.state === 'live');
+  // Compact rows carry the game identity in the bar above, so they use a plain
+  // 24px headshot with no team-logo badge.
+  const av = compact
+    ? `<div class="p-av compact">${avatarHtml(pl)}</div>`
+    : `<div class="p-av">${avatarHtml(pl)}${pl.team && pl.pos !== 'DEF' ? `<img class="logo" src="${logo(pl.team)}" alt="" onerror="this.remove()">` : ''}</div>`;
+  const who = `<div class="p-who"><div class="p-name">${escape(pl.name)}<span class="pos">${pl.pos}${pl.team ? ` ${pl.team}` : ''}${bench ? ' · BENCH' : ''}</span>${pl.injury ? `<span class="inj">${escape(injAbbr(pl.injury))}</span>` : ''}</div><div class="p-line ${cls}">${escape(line)}</div></div>`;
+  const pts = `<div class="p-pts ${pre && !pl.pts ? 'pre' : ''}" data-pts="${rosterId}:${pl.id}">${fmt(pl.pts)}</div>`;
+  const cells = sideKey === 'a' ? [av, who, pts] : [pts, who, av];
+  return `<div class="side ${sideKey} ${compact ? 'compact' : ''} ${isLive && !compact ? 'live' : ''} ${bench ? 'bench' : ''}" data-sheet-for="${rosterId}:${pl.id}" tabindex="0" role="button" aria-expanded="false">${cells.join('')}</div>`;
 }
 
 function avatarHtml(pl) {
-  const src = pl.pos === 'DEF' && pl.team ? logo(pl.team) : pl.espn ? `https://a.espncdn.com/i/headshots/nfl/players/full/${pl.espn}.png` : null;
+  if (pl.pos === 'DEF' && pl.team) return `<img class="head def" src="${logo(pl.team)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'init',textContent:'${initials(pl.name)}'}))">`;
+  const src = pl.espn ? `https://a.espncdn.com/i/headshots/nfl/players/full/${pl.espn}.png` : null;
   const init = `<div class="init">${initials(pl.name)}</div>`;
   return src ? `<img class="head" src="${src}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'init',textContent:'${initials(pl.name)}'}))">` : init;
 }
 
-const emptyHtml = () => '<div class="player empty">—</div>';
+const emptySide = (sideKey) => `<div class="side ${sideKey} empty">—</div>`;
 const sheetHtml = (rosterId, pl) => (pl ? `<details class="stat-sheet" data-sheet="${rosterId}:${pl.id}"><summary hidden></summary><div class="sheet-body" data-name="${escape(pl.name)}"></div></details>` : '');
 
 function sheetBodyHtml(pid, rosterId) {
@@ -639,7 +819,7 @@ app.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ')
 function onRowToggle(e) {
   const row = e.target.closest('[data-sheet-for]');
   if (!row) return;
-  const sheet = row.closest('.slot-row, .col')?.querySelector(`[data-sheet="${row.dataset.sheetFor}"]`);
+  const sheet = row.closest('.slot-row')?.querySelector(`[data-sheet="${row.dataset.sheetFor}"]`);
   if (!sheet) return;
   sheet.open = !sheet.open;
   row.setAttribute('aria-expanded', sheet.open);
@@ -666,6 +846,11 @@ function kickoff(iso) {
   if (Number.isNaN(d.getTime())) return 'TBD';
   return d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 }
+function shortKick(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? 'TBD' : d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+const time = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 function banner(text, { retry } = {}) {
   const el = $('#banner');
