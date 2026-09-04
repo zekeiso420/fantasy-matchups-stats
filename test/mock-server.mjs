@@ -98,7 +98,21 @@ const projections = [
   statRow('9758', { rec: 6.5, rec_yd: 81, rec_td: 0.4 }), statRow('4984', { pass_yd: 260, pass_td: 2.1, rush_yd: 30, rush_td: 0.5 }), statRow('4046', { pass_yd: 275, pass_td: 2.2 }),
   statRow('7564', { rec: 6, rec_yd: 85, rec_td: 0.6 }), statRow('4034', { rush_yd: 80, rush_td: 0.8, rec: 4.5, rec_yd: 38 }),
 ];
-league.scoring_settings = { pass_yd: 0.04, pass_td: 4, pass_int: -1, rush_yd: 0.1, rush_td: 6, rec: 0.5, rec_yd: 0.1, rec_td: 6, bonus_rec_te: 0.5, bonus_pass_yd_300: 2, fgm_30_39: 3, fgm_40_49: 4, xpm: 1, sack: 1, int: 2, pts_allow_7_13: 3, pts_allow_21_27: 0, fum_lost: -2 };
+// Mirrors the real league: full PPR, no TE premium, no yardage bonuses.
+// def_st_* is the team defence's special teams, st_* the individual returner.
+league.scoring_settings = {
+  pass_yd: 0.04, pass_td: 4, pass_2pt: 2, pass_int: -1,
+  rush_yd: 0.1, rush_td: 6, rush_2pt: 2,
+  rec: 1, rec_yd: 0.1, rec_td: 6, rec_2pt: 2,
+  fgm_0_19: 3, fgm_20_29: 3, fgm_30_39: 3, fgm_40_49: 4, fgm_50_59: 5, fgm_60p: 6,
+  xpm: 1, fgmiss: -1, xpmiss: -1,
+  def_td: 6, sack: 1, int: 2, fum_rec: 2, safe: 2, ff: 1, blk_kick: 2,
+  pts_allow_0: 10, pts_allow_1_6: 7, pts_allow_7_13: 4, pts_allow_14_20: 1,
+  pts_allow_21_27: 0, pts_allow_28_34: -1, pts_allow_35p: -4,
+  def_st_td: 6, def_st_ff: 1, def_st_fum_rec: 1,
+  st_td: 6, st_ff: 1, st_fum_rec: 1,
+  fum_lost: -2, fum_rec_td: 6,
+};
 
 const routes = [
   [/api\.sleeper\.com\/stats\/nfl\/\d+\/\d+/, () => weekStats()],
