@@ -411,10 +411,13 @@ function render({ keepVideo = false } = {}) {
   if (!S.data) return;
   renderControls();
   const cur = current();
-  // A full innerHTML rebuild recreates the <iframe> and restarts the stream, so
-  // when the game view is already mounted, patch only the parts that moved.
-  if (keepVideo && cur && S.view === 'game' && $('.game-layout')) {
-    updateGameView(cur);
+  // The player sits in the frame, outside #content, so repainting rows or
+  // switching tabs never touches the <iframe>. Only a full rebuild does, so
+  // skip one whenever the frame is already mounted.
+  if (keepVideo && cur && $('aside.watch')) {
+    renderContent(cur);
+    updateWatchAside(cur);
+    renderRail();
     renderScoreboardDynamic();
     renderUpdated();
     return;
@@ -423,29 +426,48 @@ function render({ keepVideo = false } = {}) {
     app.innerHTML = `<div class="empty-state"><h3>No matchups for week ${S.week}</h3><p>Sleeper hasn't published a schedule for this week yet.</p></div>`;
     return;
   }
+  // The tab strip, the all-matchups rail and the player are all part of the
+  // frame. Only #content swaps between views, so the columns are identical in
+  // both and the tabs cannot shift when you switch.
   app.innerHTML = `
     <div class="matchup">
       <div class="winprob" id="winprob" hidden></div>
       ${scoreboardHtml(cur)}
       <div class="weekstrip" id="weekstrip">${weekStripHtml()}</div>
-      <div class="matchup-body ${S.view === 'game' ? 'wide' : ''}">
-        ${S.view === 'game' ? '' : '<aside class="rail"><div class="rail-head">All matchups</div><div id="rail"></div></aside>'}
-        <section class="panel">
-          <div class="tabs-row">
-            <div class="tabs" role="tablist">
-              <button type="button" role="tab" data-view="slot" class="${S.view === 'slot' ? 'active' : ''}" aria-pressed="${S.view === 'slot'}">By position</button>
-              <button type="button" role="tab" data-view="game" class="${S.view === 'game' ? 'active' : ''}" aria-pressed="${S.view === 'game'}">By NFL game</button>
-            </div>
-            <span class="tabs-hint">Tap a row for the breakdown</span>
-          </div>
-          <div id="content"></div>
-        </section>
+      <div class="tabs-row">
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" data-view="slot" class="${S.view === 'slot' ? 'active' : ''}" aria-pressed="${S.view === 'slot'}">By position</button>
+          <button type="button" role="tab" data-view="game" class="${S.view === 'game' ? 'active' : ''}" aria-pressed="${S.view === 'game'}">By NFL game</button>
+        </div>
+        <span class="tabs-hint">Tap a row for the breakdown</span>
+      </div>
+      <div class="matchup-body">
+        <aside class="rail"><div class="rail-head">All matchups</div><div id="rail"></div></aside>
+        <section class="panel"><div id="content"></div></section>
+        ${videoAsideHtml(gameBuckets(cur))}
       </div>
     </div>`;
-  app.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { S.view = b.dataset.view; save({ view: S.view }); render(); }));
+  app.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => switchView(b.dataset.view)));
+  document.body.classList.toggle('theater', S.theater);
+  bindVideoControls(app);
+  bindWatchTargets(cur, $('aside.watch'));
   renderRail();
   renderContent(cur);
+  syncStream(watchedGame);
   renderUpdated();
+}
+
+// Switching tabs repaints the rows and nothing else.
+function switchView(view) {
+  if (!view || view === S.view) return;
+  S.view = view;
+  save({ view });
+  app.querySelectorAll('[data-view]').forEach((x) => {
+    const on = x.dataset.view === view;
+    x.classList.toggle('active', on);
+    x.setAttribute('aria-pressed', String(on));
+  });
+  renderContent(current());
 }
 
 function scoreboardHtml(p) {
@@ -549,41 +571,61 @@ function renderRail() {
         <div class="ri-row"><span class="ri-name ${p.b?.roster?.roster_id === mine ? 'you' : ''}">${escape(p.b?.name || 'Bye')}</span><span class="ri-score ${bp > ap ? 'lead' : ''}">${p.b ? fmt(bp) : ''}</span></div>
       </button>`;
   }).join('');
-  rail.querySelectorAll('[data-mid]').forEach((b) => b.addEventListener('click', () => { S.viewMatchupId = Number(b.dataset.mid); render(); }));
+  rail.querySelectorAll('[data-mid]').forEach((b) => b.addEventListener('click', () => { S.viewMatchupId = Number(b.dataset.mid); render({ keepVideo: true }); }));
 }
 
 function renderContent(p) {
   const content = $('#content');
+  if (!content) return;
   content.innerHTML = S.view === 'slot' ? slotViewHtml(p) : gameViewHtml(p);
   const bench = $('#bench-toggle');
   if (bench) bench.addEventListener('click', () => { const blk = $('#bench-block'); if (blk) { blk.hidden = !blk.hidden; bench.textContent = `${blk.hidden ? '›' : '⌄'} Bench (${bench.dataset.a} vs ${bench.dataset.b})`; } });
-  content.querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => { S.watchGameId = b.dataset.watch; renderContent(p); renderScoreboardDynamic(); }));
-  bindVideoControls(content);
-  if (S.view === 'game') syncStream(watchedGame);
-  document.body.classList.toggle('theater', S.view === 'game' && S.theater);
+  bindWatchTargets(p, content);
   renderScoreboardDynamic();
 }
 
-// In-place update of the game view: everything except the video box, which must
-// stay in the DOM untouched or the stream restarts.
-function updateGameView(p) {
+// Anything that can change the watched game: a switch-game cell in the aside,
+// or a collapsed game line in the rows.
+function bindWatchTargets(p, root) {
+  if (!root) return;
+  root.querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => {
+    if (S.watchGameId === b.dataset.watch) return;
+    S.watchGameId = b.dataset.watch;
+    updateWatchAside(p);
+    renderScoreboardDynamic();
+  }));
+}
+
+// Patches the player aside without replacing the <iframe>. The one case that
+// forces a rebuild is going from no game to a game, or back, since the two
+// states are different markup.
+function updateWatchAside(p) {
   const list = gameBuckets(p);
-  const { withGame, watched, game } = watchedOf(list);
-  const games = $('.games');
-  if (games) games.innerHTML = gamesColumnHtml(list);
+  const { withGame, watched, live, game } = watchedOf(list);
+  const aside = $('aside.watch');
+  if (!aside) return;
+  if (!!(game && VIDEO_BASE) !== !!$('#video-frame')) {
+    aside.outerHTML = videoAsideHtml(list);
+    bindVideoControls(app);
+    bindWatchTargets(p, $('aside.watch'));
+    syncStream(watchedGame);
+    return;
+  }
   const hd = $('.watch-hd .wh-game');
   if (hd) hd.textContent = gameTitle(game);
+  const note = $('.watch-hd .wh-note');
+  if (note) note.textContent = watched
+    ? `${watched.a.filter((x) => !x.bench).length} of your starters · ${watched.b.filter((x) => !x.bench).length} of theirs`
+    : '';
+  const count = $('.sh-count');
+  if (count) count.textContent = `${withGame.length} game${withGame.length !== 1 ? 's' : ''} · ${live.length} live`;
   const sw = $('.switch-list');
-  if (sw) sw.innerHTML = switchListHtml(withGame, watched);
+  if (sw) { sw.innerHTML = switchListHtml(withGame, watched); bindWatchTargets(p, sw); }
   const clock = $('#pb-clock'), score = $('#pb-score');
   if (clock && game) clock.innerHTML = bandClock(game);
   if (score && game) score.innerHTML = scoreLineHtml(game);
-  // Repoint the frame only if the watched game actually changed.
-  const frame = $('#video-frame');
-  const next = game && VIDEO_BASE ? PROVIDER.embedUrl(game) : null;
-  if (frame && next && streamKey(game) !== srcState.key && frame.src !== next) frame.src = next;
   syncStream(game);
-  $('#content').querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => { S.watchGameId = b.dataset.watch; renderContent(p); renderScoreboardDynamic(); }));
+  syncRailHint();
 }
 
 function renderUpdated() {
@@ -723,8 +765,7 @@ function gamesColumnHtml(list) {
 }
 
 function gameViewHtml(p) {
-  const list = gameBuckets(p);
-  return `<div class="game-layout"><div class="games">${gamesColumnHtml(list)}</div>${videoAsideHtml(list)}</div>`;
+  return `<div class="games">${gamesColumnHtml(gameBuckets(p))}</div>`;
 }
 
 // Single-line game bar: teams + score, "SWING" label, and inline fantasy totals.
