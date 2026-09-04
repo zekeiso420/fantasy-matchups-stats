@@ -505,43 +505,38 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .si-sub { display: block; font-size: 11px; color: var(--faint); margin-top: 3px; }
 .switch-item.active .si-sub { color: var(--muted); }
 
-/* Theater, layout A: rows on the left, a 420px dock on the right. A 16:9 video
-   at full page width is taller than a laptop screen, which is what pushed the
-   first player row 1,700px down, so the player is never wider than the dock. */
-body.theater.dock-side .matchup-body { grid-template-columns: minmax(0, 1fr) 420px; gap: 0; }
-body.theater.dock-side aside.rail { grid-column: 1; grid-row: 1; }
-body.theater.dock-side .panel { grid-column: 1; grid-row: 2; padding: 0 24px 24px 0; }
-/* align-self: start is required, or the grid stretches the aside and sticky
-   has no room to travel. top is the app bar, the score line and the tabs. */
-body.theater.dock-side aside.watch {
-  grid-column: 2; grid-row: 1 / span 2;
-  position: sticky; top: 150px; align-self: start;
-  border-left: 1px solid var(--line); padding: 14px 24px 24px 20px; background: var(--bg);
+/* Theater: the player takes the full panel width and the rest stacks under it.
+   74vh * 16/9 is wider than the panel on most screens, so min() clamps it to
+   the panel and the height follows from the aspect ratio. */
+body.theater .matchup-body { grid-template-columns: minmax(0, 1fr); }
+body.theater aside.watch { order: -1; min-width: 0; }
+body.theater .watch-hd,
+body.theater .player,
+body.theater .video-bar,
+body.theater .switch-hd,
+body.theater .switch-rail { width: min(100%, calc(74vh * 16 / 9)); margin-inline: auto; }
+body.theater .video-box { max-height: 74vh; }
+
+/* Switch game is one scrolling row of cells here, never wrapped. */
+body.theater .switch-list { min-width: 0; flex-direction: row; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+body.theater .switch-item { flex: none; width: 186px; border-bottom: 0; border-right: 1px solid var(--line); }
+body.theater .sr-fade { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 64px; background: linear-gradient(90deg, transparent, var(--bg)); pointer-events: none; }
+body.theater .sr-fade[hidden] { display: none; }
+
+/* All matchups floats at the left in theater rather than taking a column or
+   stacking under the player. It opens from the collapsed count, and scrolls
+   internally if the league is long. */
+@media (min-width: 1600px) {
+  body.theater aside.rail {
+    position: fixed; z-index: 30;
+    left: 16px; right: calc(50% + 632px); width: auto; max-width: 216px;
+    top: 150px; max-height: calc(100vh - 170px); overflow-y: auto;
+    background: var(--menu); border: 1px solid var(--line-strong);
+    box-shadow: 0 16px 40px -10px rgba(0, 0, 0, .55);
+    padding: 8px 12px;
+  }
 }
-body.theater.dock-side .watch-hd { padding: 0 0 8px; }
-body.theater.dock-side .wh-game { font-size: 12.5px; }
-body.theater.dock-side .wh-note { margin-left: auto; font-size: 11px; color: var(--faint); }
-
-/* The dock is narrower, so its chrome steps down a size. */
-body.theater.dock-side .pl-band { height: 30px; padding: 0 10px; }
-body.theater.dock-side .pl-chrome { height: 38px; }
-body.theater.dock-side .pl-btn { width: 28px; height: 28px; }
-body.theater.dock-side .pl-btn svg { width: 15px; height: 15px; }
-body.theater.dock-side .video-bar { gap: 8px; padding-top: 10px; }
-body.theater.dock-side .vb-btn { height: 28px; padding: 0 10px; }
-body.theater.dock-side .src-trigger { height: 28px; padding: 0 10px; }
-body.theater.dock-side .vb-lbl { display: none; }
-
-/* Switch game is a vertical list in a dock, not the horizontal rail. */
-body.theater .switch-list { flex-direction: column; }
-body.theater.dock-side .switch-hd { padding: 16px 0 4px; }
-body.theater.dock-side .switch-item { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px; }
-body.theater.dock-side .si-sub { margin-left: auto; margin-top: 0; font-size: 11px; }
-body.theater .sr-fade, body.theater .sh-more { display: none; }
-
-/* Rows keep 56px and their headshots; only the swing column narrows. */
-body.theater.dock-side .slot-row,
-body.theater.dock-side .game-bar { grid-template-columns: minmax(0, 1fr) 130px minmax(0, 1fr); }
+body.theater .rail-collapse { padding: 2px 0; }
 
 /* ==========================================================================
    Mobile. Desktop-first per handoff; this keeps phones usable, not final.
