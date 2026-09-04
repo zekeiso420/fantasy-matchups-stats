@@ -400,7 +400,7 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .game-grp { margin-bottom: 18px; }
 
 /* Single-line game bar */
-.game-bar { display: grid; grid-template-columns: minmax(0,1fr) 150px minmax(0,1fr); align-items: center; border-bottom: 1px solid var(--line-strong); padding: 0 0 6px 10px; }
+.game-bar { display: grid; grid-template-columns: minmax(0,1fr) 150px minmax(0,1fr); align-items: center; border-bottom: 1px solid var(--line-strong); padding: 0 10px 6px; }
 .game-bar.live { border-left: 3px solid var(--live-fill); }
 .game-bar .gb-line { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; overflow: hidden; }
 .game-bar .gb-logo { width: 18px; height: 18px; object-fit: contain; }
