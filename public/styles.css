@@ -222,58 +222,24 @@ main { padding: 0 0 64px; max-width: 1240px; margin: 0 auto; }
 /* ==========================================================================
    Win-probability strip
    ========================================================================== */
-.winprob {
-  display: flex; align-items: center; gap: 14px;
-  padding: 10px var(--gutter); border-bottom: 1px solid var(--line);
+/* One score line, sticky under the 52px app bar. The app bar does not scroll
+   away here, so the handoff's top:0 / 66px become 54px / 100px. Both need an
+   opaque background or the rows show through as they pass under. */
+.score-strip {
+  position: sticky; top: 54px; z-index: 4;
+  background: var(--bg); padding: 9px var(--gutter) 0;
 }
-.winprob .wp-label { font-size: 10px; letter-spacing: .14em; color: var(--faint); font-weight: 700; }
-.winprob .wp-you { font-weight: 800; font-size: 15px; }
-.winprob .wp-bar { flex: 1; display: flex; height: 8px; background: var(--line); }
-.winprob .wp-bar i { display: block; height: 100%; background: var(--bar); transition: width .5s ease; }
-.winprob .wp-opp { font-size: 12px; color: var(--muted); }
-
-/* ==========================================================================
-   Scoreboard
-   ========================================================================== */
-.scoreboard {
-  display: grid; grid-template-columns: 1fr 200px 1fr; align-items: end;
-  padding: 24px var(--gutter) 16px; border-bottom: 2px solid var(--line-strong);
-}
-.sb-team { min-width: 0; }
-.sb-team.away { text-align: right; }
-.sb-namerow { display: flex; align-items: baseline; gap: 10px; }
-.sb-team.away .sb-namerow { justify-content: flex-end; }
-.sb-name { font-weight: 700; font-size: 19px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sb-owner { font-size: 10.5px; letter-spacing: .1em; color: var(--faint); font-weight: 700; text-transform: uppercase; white-space: nowrap; }
-.sb-score {
-  font-weight: 800; font-size: 68px; line-height: .9; letter-spacing: -.035em; margin-top: 6px;
-  transition: color .3s;
-}
-.sb-score.trail { color: var(--muted); }
-.sb-score.bump { animation: bump .45s ease-out; }
-.sb-meta { font-size: 12px; color: var(--muted); margin-top: 5px; }
-.sb-meta .live { color: var(--live); font-weight: 700; }
-
-.sb-gap { text-align: center; padding-bottom: 6px; }
-.sb-gap .gap-num { font-weight: 800; font-size: 44px; line-height: 1; letter-spacing: -.03em; color: var(--gap); }
-.sb-gap .gap-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-/* ==========================================================================
-   Week strip
-   ========================================================================== */
-.weekstrip { display: flex; align-items: stretch; border-bottom: 2px solid var(--line-strong); padding: 0 var(--gutter); overflow-x: auto; }
-.weekstrip .wk {
-  flex: none; white-space: nowrap; padding: 8px 20px 8px 0; margin-right: 20px;
-  border-right: 1px solid var(--line); font-size: 11.5px; color: var(--muted);
-}
-.weekstrip .wk:last-of-type { border-right: 0; }
-.weekstrip .wk .w { font-size: 10px; letter-spacing: .12em; font-weight: 700; color: var(--faint); }
-.weekstrip .wk .res { font-weight: 800; margin-left: 8px; }
-.weekstrip .wk .res.w { color: var(--text); }
-.weekstrip .wk .res.l { color: var(--muted); }
-.weekstrip .wk .res.live { color: var(--live); }
-.weekstrip .wk .sc { margin-left: 8px; white-space: nowrap; }
-.weekstrip .wk-season { flex: none; white-space: nowrap; padding: 8px 0; font-size: 11.5px; color: var(--faint); align-self: center; }
+.ss-line { display: flex; align-items: baseline; gap: 15px; font-variant-numeric: tabular-nums; }
+.ss-name { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-name.opp { color: var(--muted); }
+.ss-tot { font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
+.ss-tot.opp { color: var(--muted); }
+.ss-tot.trail { color: var(--muted); }
+.ss-gap { font-size: 15px; font-weight: 800; color: var(--accent); }
+.ss-gap.behind { color: var(--live); }
+.ss-meta { margin-left: auto; font-size: 11.5px; color: var(--faint); white-space: nowrap; }
+.ss-wp { height: 3px; background: var(--line); margin-top: 7px; }
+.ss-wp i { display: block; height: 100%; background: var(--bar); transition: width .5s ease; }
 
 /* ==========================================================================
    Body: rail + panel
@@ -288,6 +254,9 @@ main { padding: 0 0 64px; max-width: 1240px; margin: 0 auto; }
 .matchup-body > * { min-width: 0; }
 
 /* Rail: all matchups */
+.rail-collapse { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 6px 0; font: 700 11px/1 var(--font); letter-spacing: .08em; color: var(--dim); text-transform: uppercase; cursor: pointer; }
+.rail-collapse:hover { color: var(--text); }
+body.theater .rail-head { display: none; }
 .rail-head { font-size: 10px; letter-spacing: .14em; color: var(--faint); font-weight: 700; padding-bottom: 6px; border-bottom: 2px solid var(--line-strong); }
 .rail-item {
   display: block; width: 100%; text-align: left; background: transparent;
@@ -305,7 +274,12 @@ main { padding: 0 0 64px; max-width: 1240px; margin: 0 auto; }
 
 /* Panel head: tabs + hint */
 .panel { min-width: 0; }
-.tabs-row { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 2px solid var(--line-strong); margin: 0 var(--gutter); padding-bottom: 8px; }
+.tabs-row {
+  position: sticky; top: 105px; z-index: 3;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  background: var(--bg); border-bottom: 2px solid var(--line-strong);
+  margin: 0 var(--gutter); padding: 10px 0 8px;
+}
 .tabs { display: flex; gap: 20px; font-size: 13px; font-weight: 700; }
 .tabs button { background: transparent; border: 0; padding: 0 0 5px; color: var(--faint); font-weight: 600; }
 .tabs button.active { color: var(--text); font-weight: 700; border-bottom: 3px solid var(--accent); display: inline-block; }

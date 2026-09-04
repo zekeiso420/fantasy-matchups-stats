@@ -214,7 +214,7 @@ function patchNumbers() {
     const next = fmt(playerPts(pid, Number(rid)));
     if (el.textContent !== next) { el.textContent = next; el.classList.remove('flash', 'pre'); void el.offsetWidth; el.classList.add('flash'); }
   }
-  for (const el of app.querySelectorAll('.sb-score[data-total]')) {
+  for (const el of app.querySelectorAll('.ss-tot[data-total]')) {
     const next = fmt(teamPts(Number(el.dataset.total)));
     if (el.textContent !== next) { el.textContent = next; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   }
@@ -431,9 +431,7 @@ function render({ keepVideo = false } = {}) {
   // both and the tabs cannot shift when you switch.
   app.innerHTML = `
     <div class="matchup">
-      <div class="winprob" id="winprob" hidden></div>
-      ${scoreboardHtml(cur)}
-      <div class="weekstrip" id="weekstrip">${weekStripHtml()}</div>
+      ${scoreStripHtml(cur)}
       <div class="tabs-row">
         <div class="tabs" role="tablist">
           <button type="button" role="tab" data-view="slot" class="${S.view === 'slot' ? 'active' : ''}" aria-pressed="${S.view === 'slot'}">By position</button>
@@ -470,33 +468,24 @@ function switchView(view) {
   renderContent(current());
 }
 
-function scoreboardHtml(p) {
+// One score readout for the screen. The hero block, the win-probability row
+// and the week strip all restated the same numbers in about 260px, and the
+// hero and the strip could disagree by a point. This is one line plus a 3px
+// rule, about 46px.
+function scoreStripHtml(p) {
   const a = p.a, b = p.b;
   return `
-    <section class="scoreboard" aria-label="Scoreboard">
-      <div class="sb-team home">
-        <div class="sb-namerow"><span class="sb-name" title="${escape(a.name)}">${escape(a.name)}</span>${a.owner ? `<span class="sb-owner">${escape(a.owner)}</span>` : ''}</div>
-        <div class="sb-score" data-total="${a.m.roster_id}">${fmt(teamPts(a.m.roster_id))}</div>
-        <div class="sb-meta" id="meta-a">${metaHtml(a)}</div>
+    <div class="score-strip" id="score-strip">
+      <div class="ss-line">
+        <span class="ss-name" title="${escape(a.name)}">${escape(a.name)}</span>
+        <span class="ss-tot" data-total="${a.m.roster_id}">${fmt(teamPts(a.m.roster_id))}</span>
+        <span class="ss-gap" id="ss-gap"></span>
+        <span class="ss-tot opp" ${b ? `data-total="${b.m.roster_id}"` : ''}>${b ? fmt(teamPts(b.m.roster_id)) : '\u2013'}</span>
+        <span class="ss-name opp" title="${escape(b?.name || 'Bye')}">${escape(b?.name || 'Bye')}</span>
+        <span class="ss-meta" id="ss-meta"></span>
       </div>
-      <div class="sb-gap"><div class="gap-num" id="gap-num"></div><div class="gap-sub" id="gap-sub"></div></div>
-      <div class="sb-team away">
-        <div class="sb-namerow">${b?.owner ? `<span class="sb-owner">${escape(b.owner)}</span>` : ''}<span class="sb-name" title="${escape(b?.name || 'Bye')}">${escape(b?.name || 'Bye')}</span></div>
-        <div class="sb-score" ${b ? `data-total="${b.m.roster_id}"` : ''}>${b ? fmt(teamPts(b.m.roster_id)) : '–'}</div>
-        <div class="sb-meta" id="meta-b">${b ? metaHtml(b) : ''}</div>
-      </div>
-    </section>`;
-}
-
-// `proj 122.88 · 6 live · 2 to play`
-function metaHtml(sd) {
-  const s = sideSummary(sd);
-  const e = teamExp(sd.m.roster_id);
-  const parts = [];
-  if (e != null && S.data.proj) parts.push(`proj ${fmt(e)}`);
-  if (s.live) parts.push(`<span class="live">${s.live} live</span>`);
-  parts.push(s.left ? `${s.left} to play` : (s.live ? '' : 'all done'));
-  return parts.filter(Boolean).join(' · ');
+      <div class="ss-wp"><i id="ss-wp-fill"></i></div>
+    </div>`;
 }
 
 // Parts of the scoreboard that change with live data.
@@ -504,30 +493,27 @@ function renderScoreboardDynamic() {
   const p = current();
   if (!p) return;
   const ap = teamPts(p.a.m.roster_id), bp = p.b ? teamPts(p.b.m.roster_id) : 0;
-  app.querySelectorAll('.scoreboard .sb-score').forEach((el) => el.classList.remove('trail'));
-  if (p.b && ap !== bp) $(`.scoreboard [data-total="${ap > bp ? p.b.m.roster_id : p.a.m.roster_id}"]`)?.classList.add('trail');
-  const gn = $('#gap-num'), gs = $('#gap-sub');
-  if (gn) { const d = ap - bp; gn.textContent = `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(2)}`; }
-  if (gs) {
-    const sa = sideSummary(p.a), sb = p.b ? sideSummary(p.b) : { left: 0, total: 0 };
-    gs.textContent = `${sa.left + sb.left} of ${sa.total + sb.total} starters left`;
+  app.querySelectorAll('.ss-tot[data-total]').forEach((el) => el.classList.remove('trail'));
+  if (p.b && ap !== bp) $(`.ss-tot[data-total="${ap > bp ? p.b.m.roster_id : p.a.m.roster_id}"]`)?.classList.add('trail');
+  const gap = $('#ss-gap');
+  if (gap) {
+    const d = ap - bp;
+    gap.textContent = p.b ? `${d >= 0 ? '+' : '\u2212'}${Math.abs(d).toFixed(2)}` : '';
+    gap.classList.toggle('behind', d < 0);
   }
-  const ma = $('#meta-a'), mb = $('#meta-b');
-  if (ma) ma.innerHTML = metaHtml(p.a);
-  if (mb) mb.innerHTML = p.b ? metaHtml(p.b) : '';
-  renderWinProb(p);
+  const wp = winProbFor(p);
+  const meta = $('#ss-meta');
+  if (meta) {
+    const sa = sideSummary(p.a), sb = p.b ? sideSummary(p.b) : { left: 0, total: 0 };
+    const bits = [];
+    if (wp != null) bits.push(`win prob ${Math.round(wp * 100)}%`);
+    bits.push(`${sa.left + sb.left} of ${sa.total + sb.total} starters left`);
+    meta.textContent = bits.join(' \u00b7 ');
+  }
+  const fill = $('#ss-wp-fill');
+  if (fill) fill.style.width = wp == null ? '0%' : `${Math.round(wp * 100)}%`;
 }
 
-// Win probability from projected finals; hidden when projections are absent.
-function renderWinProb(p) {
-  const el = $('#winprob');
-  if (!el) return;
-  const wp = winProbFor(p);
-  if (wp == null) { el.hidden = true; el.innerHTML = ''; return; }
-  const you = Math.round(wp * 100);
-  el.hidden = false;
-  el.innerHTML = `<span class="wp-label">Win probability</span><span class="wp-you">${you}%</span><div class="wp-bar"><i style="width:${you}%"></i></div><span class="wp-opp">${100 - you}%</span>`;
-}
 function winProbFor(p) {
   if (!p.b || !S.data.proj) return null;
   const ea = teamExp(p.a.m.roster_id), eb = teamExp(p.b.m.roster_id);
@@ -547,23 +533,23 @@ function normCdf(z) {
 
 // Single current-week chip; a full history strip is a later round (renders
 // gracefully with just this week per the handoff).
-function weekStripHtml() {
-  const p = current();
-  const ap = teamPts(p.a.m.roster_id), bp = p.b ? teamPts(p.b.m.roster_id) : 0;
-  const games = Object.values(S.data.games || {});
-  const anyLive = games.some((g) => g.state === 'live');
-  const started = games.some((g) => g.state !== 'pre');
-  let res = '–', cls = '';
-  if (anyLive) { res = 'LIVE'; cls = 'live'; }
-  else if (started && p.b) { res = ap > bp ? 'W' : ap < bp ? 'L' : 'T'; cls = ap > bp ? 'w' : 'l'; }
-  return `<div class="wk"><span class="w">WK ${S.week}</span><span class="res ${cls}">${res}</span>${p.b ? `<span class="sc">${fmt(ap)}–${fmt(bp)}</span>` : ''}</div>`;
-}
 
 function renderRail() {
   const rail = $('#rail');
   if (!rail) return;
+  // In theater the full list is six lines of other people's zeroes, so it
+  // collapses to a count and the rows are not built until it is opened.
+  if (S.theater && !S.railOpen) {
+    const n = pairs().length;
+    rail.innerHTML = `<button type="button" class="rail-collapse" id="rail-toggle" aria-expanded="false">${n} league matchup${n !== 1 ? 's' : ''} \u2304</button>`;
+    $('#rail-toggle').addEventListener('click', () => { S.railOpen = true; renderRail(); });
+    return;
+  }
   const mine = myRoster()?.roster_id;
-  rail.innerHTML = pairs().map((p) => {
+  const collapse = S.theater
+    ? `<button type="button" class="rail-collapse" id="rail-toggle" aria-expanded="true">Hide matchups \u2303</button>`
+    : '';
+  rail.innerHTML = collapse + pairs().map((p) => {
     const ap = teamPts(p.a.m.roster_id), bp = p.b ? teamPts(p.b.m.roster_id) : 0;
     return `
       <button type="button" class="rail-item ${p.id === S.viewMatchupId ? 'active' : ''}" data-mid="${p.id}">
@@ -572,6 +558,7 @@ function renderRail() {
       </button>`;
   }).join('');
   rail.querySelectorAll('[data-mid]').forEach((b) => b.addEventListener('click', () => { S.viewMatchupId = Number(b.dataset.mid); render({ keepVideo: true }); }));
+  $('#rail-toggle')?.addEventListener('click', () => { S.railOpen = false; renderRail(); });
 }
 
 function renderContent(p) {
@@ -913,6 +900,7 @@ function setTheater(on) {
   document.body.classList.toggle('theater', S.theater);
   const btn = $('[data-vid="theater"]');
   if (btn) { btn.textContent = S.theater ? 'Exit theater' : 'Theater'; btn.setAttribute('aria-pressed', String(S.theater)); }
+  renderRail();
   syncRailHint();
 }
 window.addEventListener('resize', syncRailHint);
