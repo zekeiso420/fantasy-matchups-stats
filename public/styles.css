@@ -256,9 +256,6 @@ main { padding: 0 0 64px; max-width: 1240px; margin: 0 auto; }
 .matchup-body > * { min-width: 0; }
 
 /* Rail: all matchups */
-.rail-collapse { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 6px 0; font: 700 11px/1 var(--font); letter-spacing: .08em; color: var(--dim); text-transform: uppercase; cursor: pointer; }
-.rail-collapse:hover { color: var(--text); }
-body.theater .rail-head { display: none; }
 .rail-head { font-size: 10px; letter-spacing: .14em; color: var(--faint); font-weight: 700; padding-bottom: 6px; border-bottom: 2px solid var(--line-strong); }
 .rail-item {
   display: block; width: 100%; text-align: left; background: transparent;
@@ -536,7 +533,6 @@ body.theater .sr-fade[hidden] { display: none; }
     padding: 8px 12px;
   }
 }
-body.theater .rail-collapse { padding: 2px 0; }
 
 /* ==========================================================================
    Mobile. Desktop-first per handoff; this keeps phones usable, not final.

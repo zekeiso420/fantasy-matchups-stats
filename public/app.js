@@ -30,7 +30,6 @@ const S = {
   players: null,      // slim player index
   view: prefs.view || 'slot',
   theater: !!prefs.theater,
-  railOpen: false,
   viewMatchupId: null,
   liveAt: null,
   online: false,
@@ -538,19 +537,8 @@ function normCdf(z) {
 function renderRail() {
   const rail = $('#rail');
   if (!rail) return;
-  // In theater the full list is six lines of other people's zeroes, so it
-  // collapses to a count and the rows are not built until it is opened.
-  if (S.theater && !S.railOpen) {
-    const n = pairs().length;
-    rail.innerHTML = `<button type="button" class="rail-collapse" id="rail-toggle" aria-expanded="false">${n} league matchup${n !== 1 ? 's' : ''} \u2304</button>`;
-    $('#rail-toggle').addEventListener('click', () => { S.railOpen = true; renderRail(); });
-    return;
-  }
   const mine = myRoster()?.roster_id;
-  const collapse = S.theater
-    ? `<button type="button" class="rail-collapse" id="rail-toggle" aria-expanded="true">Hide matchups \u2303</button>`
-    : '';
-  rail.innerHTML = collapse + pairs().map((p) => {
+  rail.innerHTML = pairs().map((p) => {
     const ap = teamPts(p.a.m.roster_id), bp = p.b ? teamPts(p.b.m.roster_id) : 0;
     return `
       <button type="button" class="rail-item ${p.id === S.viewMatchupId ? 'active' : ''}" data-mid="${p.id}">
@@ -559,7 +547,6 @@ function renderRail() {
       </button>`;
   }).join('');
   rail.querySelectorAll('[data-mid]').forEach((b) => b.addEventListener('click', () => { S.viewMatchupId = Number(b.dataset.mid); render({ keepVideo: true }); }));
-  $('#rail-toggle')?.addEventListener('click', () => { S.railOpen = false; renderRail(); });
 }
 
 function renderContent(p) {
