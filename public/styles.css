@@ -13,6 +13,10 @@
   --muted: #9b9797;
   --faint: #7d7979;
   --video: #0f1712;
+  --surface-2: #243026;    /* raised chrome: menu trigger, current row, hover */
+  --menu: #1b2620;         /* source panel fill */
+  --frame-deep: #0a0f0c;   /* the video area itself */
+  --dim: #4e5a4a;          /* secondary labels inside chrome */
 
   /* Role tokens, resolved differently per theme. */
   --accent: #f0c543;        /* markers, tabs, rail-active, "you", your lead */
@@ -43,6 +47,10 @@
   --muted: #605d5d;
   --faint: #7d7979;
   --video: #eae9e9;
+  --surface-2: #eaece4;
+  --menu: #ffffff;
+  --frame-deep: #d9d8d8;
+  --dim: #8b8888;
 
   --accent: #ec3013;
   --bar: #201e1d;
@@ -61,6 +69,7 @@
     --bg: #f3f2f2; --surface: #ffffff; --raised: #eaece4; --line: #d7d3d3;
     --line-strong: color-mix(in srgb, #201e1d 40%, transparent);
     --text: #201e1d; --muted: #605d5d; --faint: #7d7979; --video: #eae9e9;
+    --surface-2: #eaece4; --menu: #ffffff; --frame-deep: #d9d8d8; --dim: #8b8888;
     --accent: #ec3013; --bar: #201e1d; --gap: #ae1800; --live: #ae1800;
     --live-fill: #ec3013; --accent-ink: #ffffff;
     --bar-bg: #201e1d; --bar-fg: #f3f2f2; --bar-muted: color-mix(in srgb, #f3f2f2 62%, transparent);
@@ -425,51 +434,114 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .later-line .ll-count { color: var(--faint); font-size: 11px; white-space: nowrap; }
 
 /* Video column */
-.watch .watch-hd { font-size: 10px; letter-spacing: .14em; color: var(--faint); font-weight: 700; padding-bottom: 6px; border-bottom: 2px solid var(--line-strong); text-transform: uppercase; }
-.video-box { position: relative; aspect-ratio: 16 / 9; background: var(--video); border: 1px solid var(--line); display: grid; place-items: center; }
+/* Watching line: label, game, roster note on one baseline. */
+.watch .watch-hd { display: flex; align-items: baseline; gap: 10px; padding: 14px 0 6px; }
+.wh-lbl { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
+.wh-game { font-size: 13px; font-weight: 700; color: var(--text); }
+.wh-note { font-size: 11.5px; color: var(--muted); }
+
+/* The player is one bordered block: scoreboard band, frame, chrome bar. The
+   score used to float over the picture, where a bright play washed it out and
+   it covered the provider's own controls along the bottom edge. */
+.player { border: 1px solid var(--line-strong); background: var(--video); font-variant-numeric: tabular-nums; }
+.pl-band { display: flex; align-items: center; height: 34px; padding: 0 14px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.pb-clock { font-size: 10.5px; letter-spacing: .1em; font-weight: 700; color: var(--live); }
+.pb-score { margin-left: auto; display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; }
+.ps-t { font-weight: 600; color: var(--muted); }
+.ps-n { font-weight: 800; font-size: 14px; color: var(--text); }
+.ps-x { color: var(--faint); margin: 0 2px; }
+
+.video-box { position: relative; aspect-ratio: 16 / 9; background: var(--frame-deep); display: grid; place-items: center; }
 .video-box iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.video-empty { text-align: center; padding: 0 20px; }
-.video-empty .ve-h { font-size: 10px; letter-spacing: .14em; color: var(--faint); font-weight: 700; text-transform: uppercase; }
-.video-empty .ve-p { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
-/* Pinned to the top: the provider's own controls sit along the bottom edge,
-   and pointer-events:none keeps the overlay from ever swallowing a click. */
-.video-over { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: linear-gradient(rgba(0,0,0,.72), transparent); color: #eaefe6; pointer-events: none; }
-.video-over .vo-clock { font-size: 10.5px; font-weight: 700; color: #ff563c; letter-spacing: .08em; }
-.video-over .vo-score { font-size: 11.5px; }
-.video-over .vo-score { margin-left: auto; }
 
-/* Control bar. Only theater/fullscreen/pop-out/reload are here: play, mute and
-   PiP need the <video> inside the cross-origin frame, which we cannot reach. */
-.video-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px 0 2px; }
-.vb-btn { font: inherit; font-size: 11px; font-weight: 600; line-height: 1; padding: 6px 9px; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 3px; cursor: pointer; text-decoration: none; }
-.vb-btn:hover { border-color: var(--line-strong); }
-.vb-btn:focus-visible { outline: 2px solid var(--accent, #4a7); outline-offset: 1px; }
-.vb-btn[aria-pressed="true"] { background: var(--line-strong); border-color: var(--line-strong); }
-.vb-quality { display: inline-flex; align-items: center; }
-.vb-sel { display: inline-flex; align-items: center; gap: 5px; }
-.vb-sel-lbl { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
-.vb-sel select { font: inherit; font-size: 11px; font-weight: 600; padding: 5px 6px; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 3px; cursor: pointer; }
-.vb-sel select:hover { border-color: var(--line-strong); }
-.vb-off { font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--faint); text-transform: uppercase; }
-.vb-note { margin-left: auto; font-size: 10px; letter-spacing: .04em; color: var(--faint); cursor: help; }
+/* Connecting and error states. A bare spinner reads as broken, so both carry
+   a label. We cannot see a mid-stream stall inside a cross-origin frame, so
+   this covers loading and "no stream exists" only. */
+.pl-state { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: var(--frame-deep); }
+.pl-state.on { display: flex; }
+.pl-state svg { width: 26px; height: 26px; color: var(--live); }
+.pl-ring { width: 26px; height: 26px; border: 2px solid var(--line); border-top-color: var(--muted); border-radius: 50%; animation: pl-spin 1s linear infinite; }
+.pl-state-lbl { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--dim); text-transform: uppercase; }
+@keyframes pl-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pl-ring { animation-duration: 3s; } }
 
-/* Theater: the aside spans the full width and the video takes the viewport. */
+/* Chrome bar. Only controls we can actually drive live here: the live pill is
+   ours because we hold game state, and Reload re-points the frame. Stop,
+   volume, cast, PiP and fullscreen belong to the player inside the frame,
+   which same-origin policy puts out of reach. */
+.pl-chrome { display: flex; align-items: center; height: 44px; padding: 0 8px; background: var(--bg); border-top: 1px solid var(--line); }
+.pl-live { display: flex; align-items: center; gap: 7px; margin-left: 8px; font-size: 10px; letter-spacing: .12em; font-weight: 700; color: var(--live); text-transform: uppercase; }
+.pl-dot { width: 6px; height: 6px; background: var(--live-fill); border-radius: 50%; }
+.pl-off { margin-left: 8px; font-size: 10px; letter-spacing: .12em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
+.pl-right { margin-left: auto; display: flex; gap: 2px; }
+.pl-btn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; background: none; border: 0; color: var(--muted); cursor: pointer; }
+.pl-btn svg { width: 17px; height: 17px; }
+.pl-btn:hover { background: var(--surface-2); color: var(--text); }
+.pl-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Toolbar under the player. */
+.video-bar { position: relative; display: flex; align-items: center; gap: 14px; padding-top: 12px; }
+.vb-btn { flex: none; white-space: nowrap; height: 32px; padding: 0 14px; background: none; border: 1px solid var(--line-strong); color: var(--text); font: 700 10.5px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+.vb-btn:hover { border-color: var(--live); color: var(--live); }
+.vb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vb-lbl { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
+
+/* Source menu, drawn rather than a native select: a select's popup escapes
+   the layout and paints its own OS highlight. */
+.src { position: relative; }
+.src-trigger { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 12px; background: var(--surface-2); border: 1px solid var(--accent); color: var(--text); font: 700 12px/1 var(--font); cursor: pointer; }
+.src-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.src-chev { display: grid; place-items: center; }
+.src-chev svg { width: 12px; height: 12px; color: var(--accent); }
+.src-panel { position: absolute; top: 36px; left: 0; width: 172px; background: var(--menu); border: 1px solid var(--line-strong); box-shadow: 0 12px 32px -8px rgba(0, 0, 0, .7); z-index: 2; }
+.src-panel.up { top: auto; bottom: 36px; }
+.src-row { display: flex; align-items: center; height: 34px; padding: 0 12px; border-bottom: 1px solid var(--line); border-left: 2px solid transparent; font-size: 12px; color: var(--muted); cursor: pointer; }
+.src-row:last-child { border-bottom: 0; }
+.src-row:hover, .src-row:focus { background: var(--surface-2); color: var(--text); outline: none; }
+.src-row.on { font-weight: 700; color: var(--text); background: var(--surface-2); border-left-color: var(--accent); }
+.src-tag { margin-left: auto; font-size: 9.5px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
+.src-check { margin-left: auto; display: grid; place-items: center; }
+.src-tag + .src-check { margin-left: 8px; }
+.src-check svg { width: 13px; height: 13px; color: var(--accent); }
+
+/* Switch game. */
+.switch-hd { display: flex; align-items: baseline; gap: 10px; padding: 22px 0 6px; border-bottom: 2px solid var(--line-strong); }
+.sh-lbl { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
+.sh-count { font-size: 11px; color: var(--dim); }
+.sh-more { margin-left: auto; font-size: 10px; letter-spacing: .1em; font-weight: 700; color: var(--dim); text-transform: uppercase; }
+
+.switch-rail { position: relative; }
+.switch-list { display: flex; flex-direction: column; }
+.sr-fade { display: none; }
+
+/* Three weights per cell keep LIVE and the player count from reading as
+   equals: game name, then state, then the count. */
+.switch-item { display: block; width: 100%; text-align: left; padding: 10px 14px 11px; background: transparent; border: 0; border-bottom: 1px solid var(--line); border-left: 3px solid var(--line); cursor: pointer; }
+.switch-item.is-live { border-left-color: var(--live-fill); }
+.switch-item:hover { background: var(--surface-2); }
+.switch-item.active { background: var(--menu); }
+.si-top { display: flex; align-items: baseline; gap: 8px; }
+.si-name { font-size: 13px; font-weight: 700; color: var(--muted); }
+.switch-item.is-live .si-name { color: var(--text); }
+.switch-item.active .si-name { font-weight: 800; color: var(--text); }
+.si-state { font-size: 9.5px; letter-spacing: .1em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
+.si-state.live { color: var(--live); }
+.si-sub { display: block; font-size: 11px; color: var(--faint); margin-top: 3px; }
+.switch-item.active .si-sub { color: var(--muted); }
+
+/* Theater: the aside spans the width and the rail becomes one scrolling row. */
 body.theater .game-layout { grid-template-columns: 1fr; }
 body.theater .watch { order: -1; }
-body.theater .video-box { width: min(100%, calc(74vh * 16 / 9)); max-height: 74vh; margin-inline: auto; }
-body.theater .video-bar { width: min(100%, calc(74vh * 16 / 9)); margin-inline: auto; }
-body.theater .switch-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px; }
-
-
-.switch-hd { font-size: 10px; letter-spacing: .14em; color: var(--faint); font-weight: 700; padding: 16px 0 6px; border-bottom: 2px solid var(--line-strong); text-transform: uppercase; }
-.switch-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: transparent; border: 0; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; padding: 8px 0 8px 10px; font-size: 12.5px; color: var(--muted); }
-.switch-item:hover { background: color-mix(in srgb, var(--raised) 40%, transparent); }
-.switch-item.active { border-left-color: var(--live-fill); color: var(--text); }
-.switch-item .si-name { font-weight: 700; color: var(--text); }
-.switch-item.upcoming .si-name { font-weight: 600; color: var(--muted); }
-.switch-item .si-live { color: var(--live); font-size: 10px; letter-spacing: .08em; font-weight: 700; }
-.switch-item .si-time { font-size: 10px; letter-spacing: .08em; }
-.switch-item .si-count { margin-left: auto; color: var(--muted); }
+body.theater .watch-hd,
+body.theater .player,
+body.theater .video-bar,
+body.theater .switch-hd,
+body.theater .switch-rail { width: min(100%, calc(var(--theater-vid, 60vh) * 16 / 9)); margin-inline: auto; }
+body.theater .video-box { max-height: var(--theater-vid, 60vh); }
+body.theater .switch-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+body.theater .switch-item { flex: none; width: 186px; border-bottom: 0; border-right: 1px solid var(--line); }
+body.theater .sr-fade { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 64px; background: linear-gradient(90deg, transparent, var(--bg)); pointer-events: none; }
+body.theater .sr-fade[hidden] { display: none; }
 
 /* ==========================================================================
    Skeleton / empty

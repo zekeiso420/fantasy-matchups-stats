@@ -575,8 +575,9 @@ function updateGameView(p) {
   if (hd) hd.textContent = gameTitle(game);
   const sw = $('.switch-list');
   if (sw) sw.innerHTML = switchListHtml(withGame, watched);
-  const over = $('#video-box .video-over');
-  if (over && game) over.outerHTML = videoOverlay(game);
+  const clock = $('#pb-clock'), score = $('#pb-score');
+  if (clock && game) clock.innerHTML = bandClock(game);
+  if (score && game) score.innerHTML = scoreLineHtml(game);
   // Repoint the frame only if the watched game actually changed.
   const frame = $('#video-frame');
   const next = game && VIDEO_BASE ? PROVIDER.embedUrl(game) : null;
@@ -775,79 +776,120 @@ function gameStatusText(g) {
 }
 
 // --- Video slot ------------------------------------------------------------
+let watchedGame = null;   // the game the video box is currently pointed at
+let srcState = { key: null, options: [], idx: 0, live: null, open: false, auto: null };
+
 function watchedOf(list) {
   const withGame = list.filter((bk) => bk.game && (bk.a.length + bk.b.length) > 0);
   const live = withGame.filter((bk) => bk.game.state === 'live');
   const watched = withGame.find((bk) => bk.game.id === S.watchGameId) || live[0] || null;
-  return { withGame, watched, game: watched?.game || null };
+  return { withGame, watched, live, game: watched?.game || null };
 }
 const gameTitle = (g) => (g ? `${g.away} @ ${g.home}` : '–');
 
-let watchedGame = null;          // the game the video box is currently pointed at
-let srcState = { key: null, list: [], idx: 0, live: null };
+// "3rd 11:02" reads as "3RD · 11:02" in the scoreboard band.
+function bandClock(g) {
+  if (!g) return '';
+  if (g.state === 'final') return escape((g.detail || 'Final').toUpperCase());
+  if (g.state !== 'live') return escape(kickoff(g.kickoff).toUpperCase());
+  const d = (g.detail || 'Live').trim();
+  const m = d.match(/^(\S+)\s+(.+)$/);
+  return escape((m ? `${m[1]} · ${m[2]}` : d).toUpperCase());
+}
+
+const ICON = {
+  chevron: (up) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="${up ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'}"/></svg>`,
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  reload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>',
+  alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+};
 
 function videoAsideHtml(list) {
-  const { withGame, watched, game } = watchedOf(list);
+  const { withGame, watched, live, game } = watchedOf(list);
   watchedGame = game;
+  const mine = watched ? watched.a.filter((x) => !x.bench).length : 0;
+  const theirs = watched ? watched.b.filter((x) => !x.bench).length : 0;
+  const note = watched ? `${mine} of your starters · ${theirs} of theirs` : '';
+  const hint = `${withGame.length} game${withGame.length !== 1 ? 's' : ''} · ${live.length} live`;
   return `
     <aside class="watch">
-      <div class="watch-hd">Watching · <span class="wh-game">${escape(gameTitle(game))}</span></div>
-      ${videoBoxHtml(game)}
-      ${videoBarHtml(game)}
-      <div class="switch-hd">Switch game</div>
-      <div class="switch-list">${switchListHtml(withGame, watched)}</div>
+      <div class="watch-hd"><span class="wh-lbl">Watching</span><span class="wh-game">${escape(gameTitle(game))}</span><span class="wh-note">${escape(note)}</span></div>
+      ${playerHtml(game)}
+      <div class="video-bar">
+        <button type="button" class="vb-btn" data-vid="theater" aria-pressed="${S.theater}" title="Theater mode (t)">${S.theater ? 'Exit theater' : 'Theater'}</button>
+        <span class="vb-lbl">Source</span>
+        <div class="src" id="src-menu"></div>
+      </div>
+      <div class="switch-hd"><span class="sh-lbl">Switch game</span><span class="sh-count">${escape(hint)}</span><span class="sh-more" hidden>Scroll for more →</span></div>
+      <div class="switch-rail"><div class="switch-list">${switchListHtml(withGame, watched)}</div><span class="sr-fade" hidden></span></div>
     </aside>`;
 }
 
-function videoBoxHtml(g) {
+// The player is one bordered block: scoreboard band, frame, chrome bar.
+function playerHtml(g) {
   const src = g && VIDEO_BASE ? PROVIDER.embedUrl(g) : null;
   if (!src) {
-    return `<div class="video-box" id="video-box"><div class="video-empty"><div class="ve-h">Video slot</div><div class="ve-p">No live game to watch right now.</div></div></div>`;
+    return `<div class="player"><div class="video-box" id="video-box"><div class="pl-state on err">${ICON.alert}<span class="pl-state-lbl">No live game to watch</span></div></div></div>`;
   }
-  // allow= grants the provider's own player permission to offer fullscreen and
-  // picture-in-picture from inside the frame; we cannot drive those from here.
-  return `<div class="video-box live" id="video-box"><iframe id="video-frame" src="${escape(src)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen frameborder="0" title="${escape(gameTitle(g))}"></iframe>${videoOverlay(g)}</div>`;
-}
-
-// Only controls that can actually act on a cross-origin iframe. Play, mute,
-// volume and PiP need the <video> element inside the frame, which same-origin
-// policy puts out of reach - those stay in the provider's own control bar.
-function videoBarHtml(g) {
-  if (!g || !VIDEO_BASE) return '';
   return `
-    <div class="video-bar">
-      <button type="button" class="vb-btn" data-vid="theater" aria-pressed="${S.theater}" title="Theater mode (t)">${S.theater ? 'Exit theater' : 'Theater'}</button>
-      <button type="button" class="vb-btn" data-vid="reload" title="Reload this source (r) - use when the stream hangs">Reload</button>
-      <span class="vb-quality"></span>
+    <div class="player">
+      <div class="pl-band">
+        <span class="pb-clock" id="pb-clock">${bandClock(g)}</span>
+        <span class="pb-score" id="pb-score">${scoreLineHtml(g)}</span>
+      </div>
+      <div class="video-box" id="video-box">
+        <iframe id="video-frame" src="${escape(src)}" allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen frameborder="0" title="${escape(gameTitle(g))}"></iframe>
+        <div class="pl-state on" id="pl-state"><span class="pl-ring"></span><span class="pl-state-lbl">Buffering</span></div>
+      </div>
+      <div class="pl-chrome">
+        ${g.state === 'live' ? '<span class="pl-live"><span class="pl-dot"></span>Live</span>' : `<span class="pl-off">${escape(g.state === 'final' ? 'Final' : 'Not started')}</span>`}
+        <div class="pl-right">
+          <button type="button" class="pl-btn" data-vid="reload" title="Reload this source (r)" aria-label="Reload this source">${ICON.reload}</button>
+        </div>
+      </div>
     </div>`;
 }
 
-function videoOverlay(g) {
-  return `<div class="video-over"><span class="vo-clock">${escape(g.detail || 'Live')}</span><span class="vo-score">${escape(`${g.away} ${g.awayScore} · ${g.home} ${g.homeScore}`)}</span></div>`;
-}
+const scoreLineHtml = (g) => `<span class="ps-t">${g.away}</span><span class="ps-n">${g.awayScore}</span><span class="ps-x">·</span><span class="ps-t">${g.home}</span><span class="ps-n">${g.homeScore}</span>`;
 
 function switchListHtml(withGame, watched) {
   const items = withGame.map((bk) => {
     const gg = bk.game, count = bk.a.length + bk.b.length;
     const active = watched && gg.id === watched.game.id;
-    const tag = gg.state === 'live' ? '<span class="si-live">LIVE</span>'
-      : gg.state === 'final' ? '<span class="si-time">FINAL</span>'
-      : `<span class="si-time">${escape(shortKick(gg.kickoff))}</span>`;
-    return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state !== 'live' ? 'upcoming' : ''}" data-watch="${gg.id}"><span class="si-name">${gg.away} @ ${gg.home}</span>${tag}<span class="si-count">${count} player${count !== 1 ? 's' : ''}</span></button>`;
+    const state = gg.state === 'live' ? '<span class="si-state live">LIVE</span>'
+      : gg.state === 'final' ? '<span class="si-state">FINAL</span>'
+      : `<span class="si-state">${escape(shortKick(gg.kickoff))}</span>`;
+    const sub = `${active ? 'Watching · ' : ''}${count} player${count !== 1 ? 's' : ''}`;
+    return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state === 'live' ? 'is-live' : ''}" data-watch="${gg.id}"><span class="si-top"><span class="si-name">${gg.away} @ ${gg.home}</span>${state}</span><span class="si-sub">${escape(sub)}</span></button>`;
   }).join('');
   return items || '<div class="empty-col">No games with your players</div>';
 }
 
 // --- Video controls ---------------------------------------------------------
-// Theater and fullscreen act on our own elements, so they work; both avoid
-// re-rendering, which would recreate the iframe and restart the stream.
 function setTheater(on) {
   S.theater = !!on;
   save({ theater: S.theater });
   document.body.classList.toggle('theater', S.theater);
   const btn = $('[data-vid="theater"]');
   if (btn) { btn.textContent = S.theater ? 'Exit theater' : 'Theater'; btn.setAttribute('aria-pressed', String(S.theater)); }
+  sizeTheater();
+  syncRailHint();
 }
+
+// A flat 74vh video ignores the ~390px of scoreboard, week strip and tabs above
+// it, which pushed the toolbar below the fold: in theater you could not reach
+// Exit theater or the source menu without scrolling. Measure what is actually
+// left instead, and publish it as a custom property the layout reads.
+function sizeTheater() {
+  const root = document.documentElement;
+  const player = $('.player');
+  if (!S.theater || !player) { root.style.removeProperty('--theater-vid'); return; }
+  const top = player.getBoundingClientRect().top + window.scrollY;
+  const BAND = 34, CHROME = 44, TOOLBAR = 44, BREATH = 28;
+  const avail = Math.max(200, window.innerHeight - top - BAND - CHROME - TOOLBAR - BREATH);
+  root.style.setProperty('--theater-vid', `${Math.round(avail)}px`);
+}
+window.addEventListener('resize', () => { sizeTheater(); syncRailHint(); });
 
 function videoAction(kind) {
   if (kind === 'theater') return setTheater(!S.theater);
@@ -856,79 +898,151 @@ function videoAction(kind) {
 
 // A hung stream needs the frame torn down, not just re-pointed: assigning the
 // same src is a no-op in some browsers, and the provider's player would resume
-// the same stalled session anyway. Committing about:blank first guarantees a
-// cold start. Re-selecting the current option in the dropdown fires no change
-// event, so this is the only way back from a stall on the same source.
+// the same stalled session anyway. Committing about:blank first forces a cold
+// start. Re-picking the current row selects nothing new, so this is the only
+// way back from a stall on the same source.
 function reloadSource() {
   const frame = $('#video-frame');
   if (!frame) return;
-  const src = srcState.list[srcState.idx] || frame.src;
+  const src = srcState.options[srcState.idx]?.url || frame.src;
   if (!src || src === 'about:blank') return;
-  const btn = $('[data-vid="reload"]');
-  if (btn) { btn.disabled = true; btn.textContent = 'Reloading…'; }
+  setPlayerState('buffering');
   frame.src = 'about:blank';
-  setTimeout(() => {
-    frame.src = src;
-    if (btn) { btn.disabled = false; btn.textContent = 'Reload'; }
-  }, 60);
+  setTimeout(() => { frame.src = src; }, 60);
 }
 
-// The provider's sources API lists the live quality variants for a stream key.
-// Until it answers we show the constructed embed URL, which is what the player
-// itself resolves to, so nothing blocks on the network.
+// We cannot see inside a cross-origin frame, so this covers only what we can
+// know: the frame has not finished loading, or there is no stream to load. A
+// mid-stream stall is invisible from here, which is what Reload is for.
+function setPlayerState(kind, label) {
+  const el = $('#pl-state');
+  if (!el) return;
+  if (!kind) { el.classList.remove('on'); return; }
+  el.classList.add('on');
+  el.classList.toggle('err', kind === 'error');
+  el.innerHTML = (kind === 'error' ? ICON.alert : '<span class="pl-ring"></span>')
+    + `<span class="pl-state-lbl">${escape(label || (kind === 'error' ? 'Stream unavailable' : 'Buffering'))}</span>`;
+}
+
+// --- Source menu ------------------------------------------------------------
+// The provider's sources API lists the live variants for a stream key. "Auto"
+// is the bare embed URL, which is what the player resolves on its own.
 async function syncStream(g) {
   const key = g ? streamKey(g) : null;
-  if (!key) { srcState = { key: null, list: [], idx: 0, live: null }; return renderQuality(); }
-  if (srcState.key === key) return renderQuality();
-  srcState = { key, list: [], idx: 0, live: null };
+  if (!key) { srcState = { key: null, options: [], idx: 0, live: null, open: false }; return renderSource(); }
+  if (srcState.key === key) return renderSource();
+  srcState = { key, options: [], idx: 0, live: null, open: false, auto: g ? PROVIDER.embedUrl(g) : null };
   let data = null;
   try { data = await backend.getStream(key); } catch { /* keep the constructed URL */ }
   if (srcState.key !== key) return;               // switched games while in flight
   if (data) {
-    srcState.list = data.sources || [];
+    srcState.options = buildOptions(data.sources || [], srcState.auto);
     srcState.live = data.live;
-    srcState.idx = bestSourceIdx(srcState.list);
+    srcState.idx = bestOptionIdx(srcState.options);
+    if (!data.live && !(data.sources || []).length) setPlayerState('error', 'Stream not up yet');
+    else applySource();
   }
-  applySource();
-  renderQuality();
+  renderSource();
 }
 
-// Highest resolution wins; ties keep the provider's own ordering.
-function bestSourceIdx(list) {
+// Lowest rung first, Auto last, matching the handoff's order.
+function buildOptions(list, auto) {
+  const res = (label) => Number(label.match(/^(\d{3,4})p/)?.[1] || 0);
+  const variants = list
+    .map((u, i) => ({ label: sourceLabel(u, i), url: u }))
+    .sort((a, b) => res(a.label) - res(b.label));
+  if (variants.length && res(variants[0].label)) variants[0].tag = 'Data saver';
+  return auto ? [...variants, { label: 'Auto', url: auto }] : variants;
+}
+
+// Highest explicit resolution, never Auto: Auto is the origin that stalls.
+function bestOptionIdx(options) {
   let best = 0, bestRes = -1;
-  list.forEach((u, i) => {
-    const res = Number(sourceLabel(u, i).match(/^(\d{3,4})p/)?.[1] || 0);
-    if (res > bestRes) { bestRes = res; best = i; }
+  options.forEach((o, i) => {
+    const r = Number(o.label.match(/^(\d{3,4})p/)?.[1] || 0);
+    if (r > bestRes) { bestRes = r; best = i; }
   });
   return best;
 }
 
 function applySource() {
-  const frame = $('#video-frame'), src = srcState.list[srcState.idx];
-  if (frame && src && frame.src !== src) frame.src = src;
+  const frame = $('#video-frame'), src = srcState.options[srcState.idx]?.url;
+  if (frame && src && frame.src !== src) { setPlayerState('buffering'); frame.src = src; }
 }
 
-function renderQuality() {
-  const host = $('.vb-quality');
+function renderSource() {
+  const host = $('#src-menu');
   if (!host) return;
-  if (srcState.live === false && !srcState.list.length) {
-    host.innerHTML = '<span class="vb-off">Stream not up yet</span>';
-    return;
-  }
-  if (!srcState.list.length) { host.innerHTML = ''; return; }
-  const opts = srcState.list
-    .map((u, i) => `<option value="${i}"${i === srcState.idx ? ' selected' : ''}>${escape(sourceLabel(u, i))}</option>`)
-    .join('');
-  host.innerHTML = `<label class="vb-sel"><span class="vb-sel-lbl">Source</span><select aria-label="Stream quality and source">${opts}</select></label>`;
-  // Re-rendering on change would drop focus mid-interaction, so only the frame moves.
-  host.querySelector('select').addEventListener('change', (e) => {
-    srcState.idx = Number(e.target.value);
-    applySource();
+  if (!srcState.options.length) { host.innerHTML = ''; host.hidden = true; return; }
+  host.hidden = false;
+  const cur = srcState.options[srcState.idx];
+  const rows = srcState.options.map((o, i) => {
+    const on = i === srcState.idx;
+    return `<div class="src-row ${on ? 'on' : ''}" role="option" aria-selected="${on}" data-src="${i}" tabindex="-1">${escape(o.label)}${o.tag ? `<span class="src-tag">${escape(o.tag)}</span>` : ''}${on ? `<span class="src-check">${ICON.check}</span>` : ''}</div>`;
+  }).join('');
+  host.innerHTML = `
+    <button type="button" class="src-trigger" aria-haspopup="listbox" aria-expanded="${srcState.open}">${escape(cur.label)}<span class="src-chev">${ICON.chevron(srcState.open)}</span></button>
+    <div class="src-panel" role="listbox" ${srcState.open ? '' : 'hidden'}>${rows}</div>`;
+  host.querySelector('.src-trigger').addEventListener('click', (e) => { e.stopPropagation(); toggleSource(!srcState.open); });
+  host.querySelectorAll('[data-src]').forEach((r) => {
+    r.addEventListener('click', () => pickSource(Number(r.dataset.src)));
+    r.addEventListener('mouseenter', () => r.focus({ preventScroll: true }));
   });
+  // Near the bottom of the viewport the panel would open off-screen, so flip it
+  // above the trigger when there is not room below.
+  const panel = host.querySelector('.src-panel');
+  if (srcState.open && panel) {
+    const t = host.getBoundingClientRect();
+    panel.classList.toggle('up', t.bottom + 4 + panel.offsetHeight > window.innerHeight);
+    host.querySelector('.src-row.on')?.focus({ preventScroll: true });
+  }
+}
+
+function pickSource(i) {
+  srcState.idx = i;
+  srcState.open = false;
+  applySource();
+  renderSource();
+  $('.src-trigger')?.focus();
+}
+
+function toggleSource(open) {
+  srcState.open = open;
+  renderSource();
+}
+
+// Arrow keys move, Enter selects, Escape closes, outside click closes.
+function onSourceKey(e) {
+  if (!srcState.open) return;
+  const rows = [...document.querySelectorAll('.src-row')];
+  const at = rows.indexOf(document.activeElement);
+  if (e.key === 'Escape') { e.preventDefault(); toggleSource(false); $('.src-trigger')?.focus(); return; }
+  if (e.key === 'Enter' || e.key === ' ') { if (at >= 0) { e.preventDefault(); pickSource(at); } return; }
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  e.preventDefault();
+  const next = e.key === 'ArrowDown' ? Math.min(rows.length - 1, at + 1) : Math.max(0, at - 1);
+  rows[next < 0 ? 0 : next]?.focus({ preventScroll: true });
+}
+document.addEventListener('keydown', onSourceKey);
+document.addEventListener('click', () => { if (srcState.open) toggleSource(false); });
+
+// The scroll hint and the right-edge fade only earn their place when the rail
+// actually overflows.
+function syncRailHint() {
+  const track = $('.switch-rail .switch-list'), more = $('.sh-more'), fade = $('.sr-fade');
+  if (!track || !more || !fade) return;
+  const over = S.theater && track.scrollWidth > track.clientWidth + 2;
+  more.hidden = !over;
+  fade.hidden = !over;
 }
 
 function bindVideoControls(root) {
   root.querySelectorAll('[data-vid]').forEach((b) => b.addEventListener('click', () => videoAction(b.dataset.vid)));
+  const frame = root.querySelector('#video-frame');
+  // about:blank commits during a reload; only a real source means "loaded".
+  if (frame) frame.addEventListener('load', () => { if (frame.src !== 'about:blank') setPlayerState(null); });
+  root.querySelector('.switch-rail .switch-list')?.addEventListener('scroll', syncRailHint);
+  requestAnimationFrame(() => { sizeTheater(); syncRailHint(); });
 }
 
 // --- Player side cell -------------------------------------------------------
