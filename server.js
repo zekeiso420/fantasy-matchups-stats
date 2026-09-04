@@ -33,7 +33,7 @@ async function cached(key, ttlMs, loader) {
     })
     .catch((err) => {
       if (hit?.value !== undefined) {
-        console.warn(`[cache] ${key}: ${err.message} — serving stale`);
+        console.warn(`[cache] ${key}: ${err.message}, serving stale`);
         cache.set(key, { value: hit.value, expires: now + 5000 });
         return hit.value;
       }

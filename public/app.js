@@ -1,4 +1,4 @@
-// Matchup — Sleeper fantasy matchup tracker
+// Matchup: a Sleeper fantasy matchup tracker
 // Data flows one way: fetch → state → render(). Live updates patch state and
 // either re-render or touch only the numbers, depending on what changed.
 
@@ -355,7 +355,7 @@ function renderSetup({ busy = false, username = prefs.username || '', error = nu
   app.innerHTML = `
     <section class="setup">
       <h1>Who are you on Sleeper?</h1>
-      <p>Sleeper's league data is public, so you only need your username — no password.</p>
+      <p>Sleeper's league data is public, so you only need your username. No password.</p>
       <form id="setup-form">
         <input type="text" name="username" placeholder="Sleeper username" autocomplete="username" autocapitalize="off" spellcheck="false" value="${escape(username)}" ${busy ? 'disabled' : ''} required>
         <label class="check"><input type="checkbox" name="remember" ${prefs.remember === false ? '' : 'checked'}> Remember me on this device</label>
@@ -460,7 +460,7 @@ function scoreboardHtml(p) {
       <div class="sb-gap"><div class="gap-num" id="gap-num"></div><div class="gap-sub" id="gap-sub"></div></div>
       <div class="sb-team away">
         <div class="sb-namerow">${b?.owner ? `<span class="sb-owner">${escape(b.owner)}</span>` : ''}<span class="sb-name" title="${escape(b?.name || 'Bye')}">${escape(b?.name || 'Bye')}</span></div>
-        <div class="sb-score" ${b ? `data-total="${b.m.roster_id}"` : ''}>${b ? fmt(teamPts(b.m.roster_id)) : '—'}</div>
+        <div class="sb-score" ${b ? `data-total="${b.m.roster_id}"` : ''}>${b ? fmt(teamPts(b.m.roster_id)) : '–'}</div>
         <div class="sb-meta" id="meta-b">${b ? metaHtml(b) : ''}</div>
       </div>
     </section>`;
@@ -531,7 +531,7 @@ function weekStripHtml() {
   const games = Object.values(S.data.games || {});
   const anyLive = games.some((g) => g.state === 'live');
   const started = games.some((g) => g.state !== 'pre');
-  let res = '—', cls = '';
+  let res = '–', cls = '';
   if (anyLive) { res = 'LIVE'; cls = 'live'; }
   else if (started && p.b) { res = ap > bp ? 'W' : ap < bp ? 'L' : 'T'; cls = ap > bp ? 'w' : 'l'; }
   return `<div class="wk"><span class="w">WK ${S.week}</span><span class="res ${cls}">${res}</span>${p.b ? `<span class="sc">${fmt(ap)}–${fmt(bp)}</span>` : ''}</div>`;
@@ -781,7 +781,7 @@ function watchedOf(list) {
   const watched = withGame.find((bk) => bk.game.id === S.watchGameId) || live[0] || null;
   return { withGame, watched, game: watched?.game || null };
 }
-const gameTitle = (g) => (g ? `${g.away} @ ${g.home}` : '—');
+const gameTitle = (g) => (g ? `${g.away} @ ${g.home}` : '–');
 
 let watchedGame = null;          // the game the video box is currently pointed at
 let srcState = { key: null, list: [], idx: 0, live: null };
@@ -967,7 +967,7 @@ function avatarHtml(pl) {
   return src ? `<img class="head" src="${src}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'init',textContent:'${initials(pl.name)}'}))">` : init;
 }
 
-const emptySide = (sideKey) => `<div class="side ${sideKey} empty">—</div>`;
+const emptySide = (sideKey) => `<div class="side ${sideKey} empty">–</div>`;
 const sheetHtml = (rosterId, pl) => (pl ? `<details class="stat-sheet" data-sheet="${rosterId}:${pl.id}"><summary hidden></summary><div class="sheet-body" data-name="${escape(pl.name)}"></div></details>` : '');
 
 function sheetBodyHtml(pid, rosterId) {

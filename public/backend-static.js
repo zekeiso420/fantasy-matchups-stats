@@ -1,6 +1,6 @@
 // Backend: fetches Sleeper and ESPN directly from the browser, with no
 // server in between. Used automatically when /api isn't reachable (e.g. on
-// GitHub Pages) — see backend.js. Both Sleeper's and ESPN's public read
+// GitHub Pages). See backend.js. Both Sleeper's and ESPN's public read
 // endpoints send permissive CORS headers, so this works without a proxy.
 //
 // Requests here deliberately carry no custom headers: a cross-origin GET
@@ -46,8 +46,8 @@ async function getScoreboard(week) {
   return memo(`scoreboard:${url}`, TTL.scoreboard, async () => summarizeGames(await getJSON(url)));
 }
 
-// Sleeper's stats endpoint is unofficial and undocumented; if it — or its
-// CORS headers — ever disappear, everything degrades to Sleeper's own
+// Sleeper's stats endpoint is unofficial and undocumented. If it, or its
+// CORS headers, ever disappear, everything degrades to Sleeper's own
 // players_points instead of breaking (see scoreLeagueWeek's fallback).
 async function fetchFeed(kind, week) {
   const [primary, fallback] = feedUrls(kind, await getState(), week);
@@ -82,7 +82,7 @@ export async function getWeekData(leagueId, week) {
   return { league, rosters, users, matchups, games, week: Number(week), scored, stats: trimToRostered(stats, rostered), proj: trimToRostered(proj, rostered), statsAvailable: !!stats };
 }
 
-// No server to push updates, so poll — faster while any game is live.
+// No server to push updates, so poll. Faster while any game is live.
 export function subscribeLive(leagueId, week, onMessage, onStatus) {
   let stopped = false, timer = null, lastKey = null;
   onStatus('connecting');

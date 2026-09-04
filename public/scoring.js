@@ -1,7 +1,7 @@
 // Scoring engine shared by server.js (Node ESM) and app.js (browser ESM).
 // Sleeper's league.scoring_settings and its per-player stat objects use the
 // same key vocabulary (pass_yd, rec, rush_td, bonus_rec_te, pts_allow_0_6,
-// idp_tkl, …), so a league's points are simply Σ weight × stat.
+// idp_tkl, ...), so a league's points are Σ weight × stat.
 
 export function scorePlayer(stats, scoring) {
   if (!stats || !scoring) return 0;

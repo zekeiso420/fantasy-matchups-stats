@@ -1,5 +1,5 @@
 // Backend: talks to server.js over same-origin /api and /stream routes.
-// Used automatically whenever those routes actually answer — see backend.js.
+// Used automatically whenever those routes actually answer. See backend.js.
 
 async function api(path) {
   const res = await fetch(path);

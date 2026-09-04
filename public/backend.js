@@ -11,7 +11,7 @@ export async function detect() {
   try {
     const res = await fetch('/api/state');
     if (res.ok) { impl = server; mode = 'server'; return mode; }
-  } catch { /* no server at this origin — fall through to static */ }
+  } catch { /* no server at this origin, fall through to static */ }
   impl = staticBackend;
   mode = 'static';
   return mode;

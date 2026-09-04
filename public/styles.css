@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Tokens — v3 "am I winning right now?" refresh
+   Tokens: v3 "am I winning right now?" refresh
    One family (Archivo), weight + size do the work. No radius on the matchup
    screen; structure comes from rules (2px sections, 1px rows, 3px markers).
    ========================================================================== */
@@ -14,7 +14,7 @@
   --faint: #7d7979;
   --video: #0f1712;
 
-  /* Role tokens — resolve differently per theme. */
+  /* Role tokens, resolved differently per theme. */
   --accent: #f0c543;        /* markers, tabs, rail-active, "you", your lead */
   --bar: #f0c543;           /* win-prob fill + your swing half */
   --gap: #f0c543;           /* the big gap display number */
@@ -93,7 +93,7 @@ img { display: block; }
 @keyframes shimmer { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 
 /* ==========================================================================
-   Top bar — 52px, 2px rule. Light theme inverts to ink.
+   Top bar: 52px, 2px rule. Light theme inverts to ink.
    ========================================================================== */
 .topbar {
   position: sticky; top: 0; z-index: 20;
@@ -303,7 +303,7 @@ main { padding: 0 0 64px; max-width: 1240px; margin: 0 auto; }
 .tabs-hint.online::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--live-fill); margin-right: 6px; vertical-align: 1px; animation: pulse 1.6s infinite; }
 
 /* ==========================================================================
-   Starters table (By position) — 56px rows, headshots, swing gutter
+   Starters table (By position): 56px rows, headshots, swing gutter
    ========================================================================== */
 .slot-row { display: grid; grid-template-columns: minmax(0,1fr) 150px minmax(0,1fr); align-items: center; border-bottom: 1px solid var(--line); min-height: 56px; }
 
@@ -321,7 +321,7 @@ main { padding: 0 0 64px; max-width: 1240px; margin: 0 auto; }
 .p-av img.logo { position: absolute; right: -4px; bottom: -3px; width: 16px; height: 16px; }
 .p-av img.head.def { object-fit: contain; padding: 5px; background: var(--raised); }
 
-/* Compact avatar — By NFL game rows use a 24px headshot, no logo badge. */
+/* Compact avatar: By NFL game rows use a 24px headshot, no logo badge. */
 .side.a.compact { grid-template-columns: 24px minmax(0,1fr) 56px; }
 .side.b.compact { grid-template-columns: 56px minmax(0,1fr) 24px; }
 .p-av.compact { width: 24px; height: 24px; }
@@ -484,7 +484,7 @@ body.theater .switch-list { display: grid; grid-template-columns: repeat(auto-fi
 .empty-state p { margin: 0; }
 
 /* ==========================================================================
-   Mobile — desktop-first per handoff; this keeps phones usable, not final.
+   Mobile. Desktop-first per handoff; this keeps phones usable, not final.
    ========================================================================== */
 @media (max-width: 900px) {
   .matchup-body { grid-template-columns: 1fr; }
