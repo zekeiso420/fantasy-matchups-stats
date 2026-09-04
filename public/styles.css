@@ -603,6 +603,25 @@ body.theater .video-box { max-height: 74vh; }
 /* A rule on the right edge only: no border box, no shadow, no own background.
    This replaces the floating card. */
 aside.rail { border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 6px; }
+
+/* Wide enough to have a margin: the widget leaves the column entirely and
+   pins to the top left of the viewport, so the player starts at the top of the
+   column instead of below it. Its right edge is pinned clear of the content
+   box's padded edge, so the width follows the margin and it never covers a
+   row. 1960px is where a usable width first exists. */
+@media (min-width: 1960px) {
+  aside.rail {
+    position: fixed; z-index: 30;
+    top: 62px; left: 8px; right: calc(50% + 768px); width: auto; max-width: 240px;
+    max-height: calc(100vh - 80px); overflow-y: auto;
+    background: var(--menu); border: 1px solid var(--line-strong);
+    box-shadow: 0 16px 40px -10px rgba(0, 0, 0, .55);
+    padding: 8px 12px; margin-bottom: 0;
+  }
+  .matchup-body { grid-template-rows: auto; }
+  .matchup-body > aside.watch { grid-row: 1; }
+  .matchup-body > .panel { grid-row: 1; }
+}
 .rail-item { min-height: 24px; padding: 8px 0; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; padding-left: 9px; }
 .rail-item.mine { border-left-width: 3px; }
 .rail-item .ri-row { font-size: 12px; line-height: 1.25; }
