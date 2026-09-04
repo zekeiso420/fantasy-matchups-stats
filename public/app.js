@@ -572,7 +572,7 @@ function renderContent(p) {
   // In theater the third column's content is what the tab switches; the video
   // sits in its own column and is never touched by this.
   content.innerHTML = (S.view === 'slot' ? slotViewHtml(p) : gameViewHtml(p))
-    + (S.theater ? gameListHtml(p) : '')
+    + (S.theater && S.view === 'slot' ? gameListHtml(p) : '')
     + (S.view === 'slot' ? compressedStartersHtml(p) : byGameColumnHtml(p));
   bindWatchTargets(p, content);
   bindLaterToggle(p);
@@ -587,6 +587,7 @@ function bindWatchTargets(p, root) {
     if (S.watchGameId === b.dataset.watch) return;
     S.watchGameId = b.dataset.watch;
     updateWatchAside(p);
+    if (S.theater && S.view === 'game') renderContent(p);
     renderScoreboardDynamic();
   }));
 }
@@ -724,6 +725,7 @@ function byGameColumnHtml(pair) {
     const id = (pair.a.m.starters || [])[i];
     if (id && id !== '0') slotOf.set(id, SLOT_LABEL[slot] || slot);
   });
+  const watchedId = watchedOf(list).game?.id;
   const mineIn = (bk) => bk.a.filter((x) => !x.bench);
   const swingOf = (bk) => bk.a.filter((x) => !x.bench).reduce((t, x) => t + (x.pts || 0), 0)
     - bk.b.filter((x) => !x.bench).reduce((t, x) => t + (x.pts || 0), 0);
@@ -736,7 +738,7 @@ function byGameColumnHtml(pair) {
 
   const group = (bk) => {
     const g = bk.game, d = swingOf(bk);
-    const watched = g.id === S.watchGameId;
+    const watched = g.id === watchedId;
     const state = g.state === 'live' ? `<span class="bg-state live">${escape(g.detail || 'Live')}</span>`
       : g.state === 'final' ? '<span class="bg-state">FINAL</span>'
       : `<span class="bg-state">${escape(shortKick(g.kickoff))}</span>`;
@@ -746,19 +748,22 @@ function byGameColumnHtml(pair) {
       + `<span class="bg-pts" data-pts="${x.rosterId}:${x.id}">${fmt(x.pts)}</span>`
       + `</div>`).join('');
     return `<div class="bg-group">`
-      + `<div class="bg-head ${g.state === 'live' ? 'live' : ''} ${watched ? 'watched' : ''}" data-watch="${g.id}">`
+      + `<button type="button" class="bg-head ${g.state === 'live' ? 'live' : ''} ${watched ? 'watched' : ''}" data-watch="${g.id}" aria-pressed="${watched}">`
       + `<span class="bg-line"><span class="bg-score">${g.away} ${g.awayScore} @ ${g.home} ${g.homeScore}</span>${state}</span>`
-      + `<span class="bg-swing">${diffHtml(d, GAME_CLAMP)}</span>`
-      + `<span class="bg-bar">${swingBar(d, GAME_CLAMP)}</span>`
-      + `</div>${rows}</div>`;
+      + `<span class="bg-swing">${mineIn(bk).length ? diffHtml(d, GAME_CLAMP) : ''}</span>`
+      + `<span class="bg-bar">${mineIn(bk).length ? swingBar(d, GAME_CLAMP) : ''}</span>`
+      + `</button>${rows}</div>`;
   };
 
-  const body = [...live, ...started].map(group).join('');
+  const shown = [...live, ...started];
+  const body = shown.map(group).join('');
   const empty = live.length ? '' : '<div class="bg-empty">None of your starters are playing right now</div>';
-  const later = pending.length
-    ? `<button type="button" class="later-toggle" data-bg-later>Not playing yet (${pending.length} game${pending.length !== 1 ? 's' : ''}) ⌄</button>`
+  const seen = new Set(shown.map((bk) => bk.game.id));
+  const rest = list.filter((bk) => bk.game && !seen.has(bk.game.id));
+  const later = rest.length
+    ? `<button type="button" class="later-toggle" data-bg-later>Other games (${rest.length}) ⌄</button>`
     : '';
-  const laterRows = S.bgLaterOpen ? pending.map(group).join('') : '';
+  const laterRows = S.bgLaterOpen ? rest.map(group).join('') : '';
   return `<div class="bygame"><div class="mini-hd"><span class="mini-lbl">By game</span><span class="mini-sub">your starters</span></div>`
     + empty + body + later + laterRows + `</div>`;
 }
