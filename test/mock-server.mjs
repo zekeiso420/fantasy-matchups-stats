@@ -80,6 +80,20 @@ const scoreboard = { events: [
   game('9', '2026-09-20T17:00Z', 'IND', 'CHI', 20, 20, 'post', 'Final/OT'),
 ] };
 
+// MOCK_GAMES=pre or =final rewrites every fixture's state, so the no-live and
+// all-done paths can be seen locally. The default mixed fixture always has
+// games in progress, which is why the top bar always reads LIVE against it.
+if (process.env.MOCK_GAMES) {
+  const want = process.env.MOCK_GAMES === 'final' ? 'post' : 'pre';
+  for (const ev of scoreboard.events) {
+    const t = ev.competitions[0].status.type;
+    t.state = want;
+    t.completed = want === 'post';
+    t.shortDetail = want === 'post' ? 'Final' : 'Sun 4:25 PM';
+  }
+  console.log(`[mock] every game forced to ${want}`);
+}
+
 const statRow = (id, st) => ({ player_id: id, stats: st });
 function weekStats() {
   return [
