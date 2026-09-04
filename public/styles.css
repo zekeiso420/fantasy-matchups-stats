@@ -234,9 +234,9 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
    or the rows show through as they pass under. */
 .score-strip {
   position: sticky; top: 52px; z-index: 4;
-  background: var(--bg); padding: 9px var(--gutter) 0;
+  background: var(--bg); padding: 8px var(--gutter) 6px;
 }
-.ss-line { display: flex; align-items: baseline; gap: 15px; font-variant-numeric: tabular-nums; }
+.ss-line { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
 .ss-name { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ss-name.opp { color: var(--muted); }
 .ss-tot { font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
@@ -245,7 +245,7 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 .ss-gap { font-size: 15px; font-weight: 800; color: var(--accent); }
 .ss-gap.behind { color: var(--live); }
 .ss-meta { margin-left: auto; font-size: 11.5px; color: var(--faint); white-space: nowrap; }
-.ss-wp { height: 3px; background: var(--line); margin-top: 7px; }
+.ss-wp { height: 3px; background: var(--line); margin-top: 6px; }
 .ss-wp i { display: block; height: 100%; background: var(--bar); transition: width .5s ease; }
 
 /* ==========================================================================
@@ -254,11 +254,14 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 /* One frame for both views: rail, rows, player. Identical in each, so the tab
    strip above never shifts when you switch. */
 .matchup-body {
-  display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr) 380px;
+  display: grid; grid-template-columns: var(--rail-w) minmax(0, 880px) 1fr 380px;
   gap: var(--col-gap); align-items: start;
-  padding: 18px var(--gutter) 0;
+  padding: 12px var(--gutter) 0;
 }
 .matchup-body > * { min-width: 0; }
+/* Column 3 is deliberately empty: it takes the slack so the rows stay 880px
+   and a name never sits 700px from its own score. */
+.matchup-body > aside.watch { grid-column: 4; }
 
 /* Rail: all matchups */
 .rail-head { font-size: 10px; letter-spacing: .14em; color: var(--faint); font-weight: 700; padding-bottom: 6px; border-bottom: 2px solid var(--line-strong); }
@@ -279,10 +282,10 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 /* Panel head: tabs + hint */
 .panel { min-width: 0; }
 .tabs-row {
-  position: sticky; top: 103px; z-index: 3;
+  position: sticky; top: 107px; z-index: 3;
   display: flex; align-items: flex-end; justify-content: space-between;
   background: var(--bg); border-bottom: 2px solid var(--line-strong);
-  margin: 0 var(--gutter); padding: 10px 0 8px;
+  margin: 0 var(--gutter); padding: 6px 0;
 }
 .tabs { display: flex; gap: 20px; font-size: 13px; font-weight: 700; }
 .tabs button { background: transparent; border: 0; padding: 0 0 5px; color: var(--faint); font-weight: 600; }
@@ -293,19 +296,19 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 /* ==========================================================================
    Starters table (By position): 56px rows, headshots, swing gutter
    ========================================================================== */
-.slot-row { display: grid; grid-template-columns: minmax(0,1fr) 150px minmax(0,1fr); align-items: center; border-bottom: 1px solid var(--line); min-height: 56px; }
+.slot-row { display: grid; grid-template-columns: minmax(0,1fr) 132px minmax(0,1fr); align-items: center; border-bottom: 1px solid var(--line); min-height: 52px; padding: 5px 0; }
 
-.side { container-type: inline-size; display: grid; align-items: center; gap: 8px; padding: 6px 14px 6px 10px; border-left: 3px solid transparent; }
+.side { container-type: inline-size; display: grid; align-items: center; gap: 8px; padding: 2px 14px 2px 10px; border-left: 3px solid transparent; }
 .side.a { grid-template-columns: 36px minmax(0,1fr) 54px; }
-.side.b { grid-template-columns: 54px minmax(0,1fr) 36px; padding: 6px 10px 6px 14px; border-left: 0; border-right: 3px solid transparent; }
+.side.b { grid-template-columns: 54px minmax(0,1fr) 36px; padding: 2px 10px 2px 14px; border-left: 0; border-right: 3px solid transparent; }
 .side.a.live { border-left-color: var(--live-fill); }
 .side.b.live { border-right-color: var(--live-fill); }
 .side.empty { color: var(--faint); }
 .side.b .p-who { text-align: right; }
 
-.p-av { position: relative; width: 40px; height: 40px; }
-.p-av img.head { width: 40px; height: 40px; object-fit: cover; object-position: center top; background: var(--raised); }
-.p-av .init { width: 40px; height: 40px; background: var(--raised); color: var(--muted); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.p-av { position: relative; width: 36px; height: 36px; }
+.p-av img.head { width: 36px; height: 36px; object-fit: cover; object-position: center top; background: var(--raised); }
+.p-av .init { width: 36px; height: 36px; background: var(--raised); color: var(--muted); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
 .p-av img.logo { position: absolute; right: -4px; bottom: -3px; width: 16px; height: 16px; }
 .p-av img.head.def { object-fit: contain; padding: 5px; background: var(--raised); }
 
@@ -328,7 +331,7 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 }
 .p-pos { color: var(--faint); font-weight: 500; letter-spacing: .07em; }
 .p-name .inj { color: var(--live); font-weight: 700; font-size: 10px; margin-left: 6px; }
-.p-line { font-size: 11px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.p-line { font-size: 11px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
 .p-state.live { color: var(--live); animation: pulse 1.6s infinite; }
 .p-state.final { color: var(--faint); }
 .p-pts { font-weight: 800; font-size: 17px; text-align: right; white-space: nowrap; }
@@ -385,7 +388,7 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .game-grp { margin-bottom: 18px; }
 
 /* Single-line game bar */
-.game-bar { display: grid; grid-template-columns: minmax(0,1fr) 150px minmax(0,1fr); align-items: center; border-bottom: 1px solid var(--line-strong); padding: 0 10px 6px; }
+.game-bar { display: grid; grid-template-columns: minmax(0,1fr) 132px minmax(0,1fr); align-items: center; border-bottom: 1px solid var(--line-strong); padding: 0 10px 6px; }
 .game-bar.live { border-left: 3px solid var(--live-fill); }
 .game-bar .gb-line { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; }
 .game-bar .gb-abbr, .game-bar .gb-score { flex: none; }
@@ -466,7 +469,7 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .pl-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* Toolbar under the player. */
-.video-bar { position: relative; display: flex; align-items: center; gap: 14px; padding-top: 12px; }
+.video-bar { position: relative; display: flex; align-items: center; gap: 8px; padding-top: 10px; }
 .vb-btn { flex: none; white-space: nowrap; height: 32px; padding: 0 14px; background: none; border: 1px solid var(--line-strong); color: var(--text); font: 700 10.5px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
 .vb-btn:hover { border-color: var(--live); color: var(--live); }
 .vb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -491,7 +494,7 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .src-check svg { width: 13px; height: 13px; color: var(--accent); }
 
 /* Switch game. */
-.switch-hd { display: flex; align-items: baseline; gap: 10px; padding: 22px 0 6px; border-bottom: 2px solid var(--line-strong); }
+.switch-hd { display: flex; align-items: baseline; gap: 8px; padding: 14px 0 6px; border-bottom: 2px solid var(--line-strong); }
 .sh-lbl { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
 .sh-count { font-size: 11px; color: var(--dim); }
 .sh-more { margin-left: auto; font-size: 10px; letter-spacing: .1em; font-weight: 700; color: var(--dim); text-transform: uppercase; }
@@ -506,13 +509,13 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .switch-item.is-live { border-left-color: var(--live-fill); }
 .switch-item:hover { background: var(--surface-2); }
 .switch-item.active { background: var(--menu); }
-.si-top { display: flex; align-items: baseline; gap: 8px; }
+.si-top { display: flex; align-items: baseline; gap: 7px; }
 .si-name { font-size: 13px; font-weight: 700; color: var(--muted); }
 .switch-item.is-live .si-name { color: var(--text); }
 .switch-item.active .si-name { font-weight: 800; color: var(--text); }
 .si-state { font-size: 9.5px; letter-spacing: .1em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
 .si-state.live { color: var(--live); }
-.si-sub { display: block; font-size: 11px; color: var(--faint); margin-top: 3px; }
+.si-sub { display: block; font-size: 11px; color: var(--faint); margin-top: 2px; }
 .switch-item.active .si-sub { color: var(--muted); }
 
 /* Theater: the player takes the full panel width and the rest stacks under it.
@@ -540,7 +543,7 @@ body.theater .sr-fade[hidden] { display: none; }
   body.theater aside.rail {
     position: fixed; z-index: 30;
     left: 16px; right: calc(50% + 792px); width: auto; max-width: 216px;
-    top: 150px; max-height: calc(100vh - 170px); overflow-y: auto;
+    top: 148px; max-height: calc(100vh - 168px); overflow-y: auto;
     background: var(--menu); border: 1px solid var(--line-strong);
     box-shadow: 0 16px 40px -10px rgba(0, 0, 0, .55);
     padding: 8px 12px;
