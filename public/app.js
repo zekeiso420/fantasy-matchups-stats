@@ -220,9 +220,12 @@ function patchNumbers() {
   }
   for (const el of app.querySelectorAll('.gb-tot[data-tot-a]')) {
     const sum = (s) => (s ? s.split(',').reduce((t, x) => { const [r, pid] = x.split(':'); return t + playerPts(pid, Number(r)); }, 0) : 0);
+    const a = sum(el.dataset.totA), b = sum(el.dataset.totB);
     const ta = $('.ta', el), tb = $('.tb', el);
-    if (ta) ta.textContent = fmt(sum(el.dataset.totA));
-    if (tb) tb.textContent = fmt(sum(el.dataset.totB));
+    if (ta) ta.textContent = fmt(a);
+    if (tb) tb.textContent = fmt(b);
+    const sw = $('.gb-swing[data-gswing]', el.parentElement);
+    if (sw) sw.innerHTML = gameSwingHtml(a - b);
   }
   for (const el of app.querySelectorAll('.gutter[data-swing]')) {
     const [a, b] = el.dataset.swing.split('|').map((x) => x.split(':'));
@@ -625,8 +628,8 @@ function gutterHtml(slot, a, b, ridA, ridB) {
       ${swingBar(has ? d : 0)}
     </div>`;
 }
-function swingBar(d) {
-  const w = Math.min(Math.abs(d) / 20, 1) * 100;
+function swingBar(d, scale = 20) {
+  const w = Math.min(Math.abs(d) / scale, 1) * 100;
   return `<div class="swing"><div class="h l"><i style="width:${d > 0 ? w : 0}%"></i></div><div class="h r"><i style="width:${d < 0 ? w : 0}%"></i></div></div>`;
 }
 function diffClass(d, has) { if (!has || Math.abs(d) < 0.005) return 'even'; return d > 0 ? 'you' : 'opp'; }
@@ -724,7 +727,7 @@ function gamesColumnHtml(list) {
       return `
         <div class="slot-row game-row">
           ${a ? sideHtml(a, a.rosterId, 'a', { bench: a.bench, compact: true }) : emptyGameSide('a')}
-          ${gameGutterHtml(a, b)}
+          ${gameGutterHtml()}
           ${b ? sideHtml(b, b.rosterId, 'b', { bench: b.bench, compact: true }) : emptyGameSide('b')}
           ${a ? sheetHtml(a.rosterId, a) : ''}${b ? sheetHtml(b.rosterId, b) : ''}
         </div>`;
@@ -743,7 +746,7 @@ function gameViewHtml(p) {
   return `<div class="games">${gamesColumnHtml(gameBuckets(p))}</div>`;
 }
 
-// Single-line game bar: teams + score, "SWING" label, and inline fantasy totals.
+// Single-line game bar: teams + score, the game's swing, and inline totals.
 function gameBarHtml(bk, startersA, startersB, totA, totB) {
   const g = bk.game;
   const totKey = (arr) => arr.map((x) => `${x.rosterId}:${x.id}`).join(',');
@@ -755,22 +758,21 @@ function gameBarHtml(bk, startersA, startersB, totA, totB) {
         <img class="gb-logo" src="${logo(g.home)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.home}</span> <span class="gb-score" data-game-score="${g.home}:home">${g.homeScore}</span>
         <span class="gb-clock ${g.state === 'live' ? '' : 'pre'}" data-game-status="${g.home}">${gameStatusText(g)}</span>
       </div>
-      <div class="gb-swing">Swing</div>
+      <div class="gb-swing" data-gswing="${totKey(startersA)}|${totKey(startersB)}">${gameSwingHtml(totA - totB)}</div>
       <div class="gb-tot" data-tot-a="${totKey(startersA)}" data-tot-b="${totKey(startersB)}"><b class="ta">${fmt(totA)}</b> you · <b class="tb">${fmt(totB)}</b> them</div>
     </div>`;
 }
 
 // Swing gutter for the game view: no side rules, thinner bar, nothing at all
 // when only one side has a player in the game.
-function gameGutterHtml(a, b) {
-  const has = !!(a && b);
-  const d = has ? (a.pts || 0) - (b.pts || 0) : 0;
-  const w = Math.min(Math.abs(d) / 20, 1) * 100;
-  return `<div class="gutter game" ${has ? `data-swing="${a.rosterId}:${a.id}|${b.rosterId}:${b.id}"` : ''}>
-      <div class="gutter-top"><span class="diff ${has ? diffClass(d, true) : ''}">${has ? diffText(d) : ''}</span></div>
-      <div class="swing ${has ? '' : 'empty'}"><div class="h l"><i style="width:${has && d > 0 ? w : 0}%"></i></div><div class="h r"><i style="width:${has && d < 0 ? w : 0}%"></i></div></div>
-    </div>`;
+// No per-row swing here. Rows in this view pair whatever sorts into the same
+// index, so a QB could sit opposite a kicker and the difference between them
+// would mean nothing. The swing that matters is the game's, in the bar above.
+function gameGutterHtml() {
+  return '<div class="gutter game"></div>';
 }
+
+const gameSwingHtml = (d) => `<span class="diff ${diffClass(d, true)}">${diffText(d)}</span>${swingBar(d, 40)}`;
 
 // One collapsed line per non-live game (upcoming, final, bye, free agents).
 function laterLineHtml(bk) {
