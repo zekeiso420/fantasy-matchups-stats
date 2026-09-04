@@ -719,13 +719,23 @@ function gameStatusText(g) {
 }
 
 // --- Video slot (provider-agnostic) -----------------------------------------
-// The embed URL is built from the two team abbreviations, matching the
-// provider's `/embed/{sport}/{away}-vs-{home}` path. Point VIDEO_BASE at a
-// service you have the right to embed; teamSlug() adjusts the team format.
-const VIDEO_BASE = 'https://streamfree.top';
+// The provider's embed path is `/{path}/{sport}/{away}-vs-{home}`, where each
+// team is its full name slugified: "kansas-city-chiefs", not "kc". ESPN gives
+// us those names on the scoreboard, so teamSlug() prefers the name and falls
+// back to the abbreviation when one is missing. Point VIDEO_BASE / VIDEO_PATH
+// at any provider you have the right to embed.
+const VIDEO_BASE = 'https://strmfree.st';
+const VIDEO_PATH = 'player';
 const VIDEO_SPORT = 'football';
-const teamSlug = (abbr) => (abbr || '').toLowerCase();
-const PROVIDER = { name: 'streamfree', embedUrl: (g) => `${VIDEO_BASE}/embed/${VIDEO_SPORT}/${teamSlug(g.away)}-vs-${teamSlug(g.home)}` };
+const teamSlug = (name, abbr) => (name || abbr || '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '');
+const PROVIDER = {
+  name: 'strmfree',
+  embedUrl: (g) =>
+    `${VIDEO_BASE}/${VIDEO_PATH}/${VIDEO_SPORT}/${teamSlug(g.awayName, g.away)}-vs-${teamSlug(g.homeName, g.home)}`,
+};
 
 function videoAsideHtml(list) {
   const withGame = list.filter((bk) => bk.game && (bk.a.length + bk.b.length) > 0);

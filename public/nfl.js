@@ -55,6 +55,8 @@ export function summarizeGames(scoreboard) {
       kickoff: ev.date,
       home: norm(home.team?.abbreviation),
       away: norm(away.team?.abbreviation),
+      homeName: home.team?.displayName || '',
+      awayName: away.team?.displayName || '',
       homeScore: Number(home.score ?? 0),
       awayScore: Number(away.score ?? 0),
       state: st.state === 'in' ? 'live' : st.completed ? 'final' : 'pre', // pre | live | final

@@ -49,9 +49,18 @@ function matchups() {
   ];
 }
 
+// ESPN sends a full displayName per team; the video slot slugifies it.
+const TEAM_NAMES = {
+  BUF: 'Buffalo Bills', MIA: 'Miami Dolphins', ATL: 'Atlanta Falcons', KC: 'Kansas City Chiefs',
+  NYJ: 'New York Jets', NE: 'New England Patriots', CIN: 'Cincinnati Bengals', BAL: 'Baltimore Ravens',
+  DET: 'Detroit Lions', SEA: 'Seattle Seahawks', MIN: 'Minnesota Vikings', WSH: 'Washington Commanders',
+  DAL: 'Dallas Cowboys', SF: 'San Francisco 49ers', LAR: 'Los Angeles Rams', LAC: 'Los Angeles Chargers',
+  IND: 'Indianapolis Colts', CHI: 'Chicago Bears',
+};
+const team = (abbr) => ({ abbreviation: abbr, displayName: TEAM_NAMES[abbr] || abbr });
 const game = (id, date, away, home, as, hs, state, detail, clock, period) => ({
   id, date, competitions: [{ status: { displayClock: clock, period, type: { state, completed: state === 'post', shortDetail: detail } }, competitors: [
-    { homeAway: 'home', team: { abbreviation: home }, score: String(hs) }, { homeAway: 'away', team: { abbreviation: away }, score: String(as) },
+    { homeAway: 'home', team: team(home), score: String(hs) }, { homeAway: 'away', team: team(away), score: String(as) },
   ] }],
 });
 const scoreboard = { events: [
