@@ -227,7 +227,7 @@ function patchNumbers() {
     const sw = $('.gb-swing[data-gswing]', el.parentElement);
     if (sw) sw.innerHTML = gameSwingHtml(a - b);
   }
-  for (const el of app.querySelectorAll('.gutter[data-swing]')) {
+  for (const el of app.querySelectorAll('[data-swing]')) {
     const [a, b] = el.dataset.swing.split('|').map((x) => x.split(':'));
     const d = playerPts(a[1], Number(a[0])) - playerPts(b[1], Number(b[0]));
     const span = $('.diff', el);
@@ -556,7 +556,7 @@ function renderRail() {
 function renderContent(p) {
   const content = $('#content');
   if (!content) return;
-  content.innerHTML = S.view === 'slot' ? slotViewHtml(p) : gameViewHtml(p);
+  content.innerHTML = (S.view === 'slot' ? slotViewHtml(p) : gameViewHtml(p)) + compressedStartersHtml(p);
   bindWatchTargets(p, content);
   renderScoreboardDynamic();
 }
@@ -673,6 +673,33 @@ function diffText(d) {
 }
 
 // --- By position -----------------------------------------------------------
+// Theater's compressed roster. Lineup-slot order always, never sorted by
+// swing: re-sorting would move a player between refreshes, and the slot order
+// is how a lineup is read. The opponent's score is absent because the swing
+// already encodes it, and the full rows are one click away.
+function compressedStartersHtml(p) {
+  const slots = starterSlots();
+  const A = p.a.m.starters || [], B = p.b?.m.starters || [];
+  const rows = slots.map((slot, i) => {
+    const a = A[i] && A[i] !== '0' ? player(A[i], p.a.m) : null;
+    const b = p.b && B[i] && B[i] !== '0' ? player(B[i], p.b.m) : null;
+    const has = !!(a && b);
+    const d = has ? (a.pts || 0) - (b.pts || 0) : 0;
+    const name = a ? (a.pos === 'DEF' ? a.name : initialSurname(a.name)) : '\u2013';
+    return `<div class="mini-row"${has ? ` data-swing="${p.a.m.roster_id}:${a.id}|${p.b.m.roster_id}:${b.id}"` : ''}>`
+      + `<span class="mini-slot">${escape(SLOT_LABEL[slot] || slot)}</span>`
+      + `<span class="mini-name ${a && !a.pts ? 'zero' : ''}">${escape(name)}</span>`
+      + `<span class="mini-swing">${has ? diffHtml(d) : ''}</span>`
+      + `<span class="mini-bar">${swingBar(has ? d : 0)}</span>`
+      + `</div>`;
+  }).join('');
+  return `<div class="mini">`
+    + `<div class="mini-hd"><span class="mini-lbl">Starters</span><span class="mini-sub">you vs them</span></div>`
+    + rows
+    + `<div class="mini-foot">Full rows on exit</div>`
+    + `</div>`;
+}
+
 function slotViewHtml(p) {
   const slots = starterSlots();
   const A = p.a.m.starters || [], B = p.b?.m.starters || [];

@@ -36,7 +36,7 @@
 
   --font: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
   --gutter: 24px;
-  --rail-w: 216px;
+  --rail-w: 240px;
   --col-gap: 28px;
 }
 
@@ -258,19 +258,18 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 /* ==========================================================================
    Body: rail + panel
    ========================================================================== */
-/* One frame for both views: rail, rows, player. Identical in each, so the tab
-   strip above never shifts when you switch. */
+/* Three columns in both modes, so the tab strip above never shifts: matchups,
+   video, roster. Theater swaps which of the last two is wide. */
 .matchup-body {
-  display: grid; grid-template-columns: var(--rail-w) minmax(0, 880px) 1fr 380px;
+  display: grid; grid-template-columns: var(--rail-w) 420px minmax(0, 880px);
   gap: var(--col-gap); align-items: start;
   padding: 12px var(--gutter) 0;
 }
+.matchup-body > aside.rail { grid-column: 1; grid-row: 1; }
+.matchup-body > aside.watch { grid-column: 2; grid-row: 1; }
+.matchup-body > .panel { grid-column: 3; grid-row: 1; }
 .matchup-body > * { min-width: 0; }
-/* Column 3 is deliberately empty: it takes the slack so the rows stay 880px
-   and a name never sits 700px from its own score. Every rule below that
-   changes the column count must re-place the aside, or it lands in an implicit
-   column and collapses the real ones to zero width. */
-.matchup-body > aside.watch { grid-column: 4; }
+
 
 /* Rail: all matchups */
 .rail-head { font-size: 10px; letter-spacing: .14em; color: var(--faint); font-weight: 700; padding-bottom: 6px; border-bottom: 2px solid var(--line-strong); }
@@ -449,6 +448,12 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .ps-n { font-weight: 800; font-size: 14px; color: var(--text); }
 .ps-x { color: var(--faint); margin: 0 2px; }
 
+body:not(.theater) .pl-band { height: 30px; padding: 0 10px; }
+body:not(.theater) .pl-chrome { height: 38px; }
+body:not(.theater) .pl-btn { width: 28px; height: 28px; }
+body:not(.theater) .pl-btn svg { width: 15px; height: 15px; }
+body:not(.theater) .vb-lbl { display: none; }
+body:not(.theater) .vb-btn, body:not(.theater) .src-trigger { height: 28px; padding: 0 10px; }
 .video-box { position: relative; aspect-ratio: 16 / 9; background: var(--frame-deep); display: grid; place-items: center; }
 .video-box iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
@@ -527,55 +532,71 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .si-sub { display: block; font-size: 11px; color: var(--faint); margin-top: 2px; }
 .switch-item.active .si-sub { color: var(--muted); }
 
+/* Theater shows the compressed roster; the full rows come back on exit. */
+.mini { display: none; }
+body.theater .mini { display: block; }
+body.theater .starters,
+body.theater .bench-hd,
+body.theater .bench-block,
+body.theater .starter-foot,
+body.theater .games { display: none; }
+.mini-hd { display: flex; align-items: baseline; gap: 8px; padding: 0 0 6px; border-bottom: 2px solid var(--line-strong); }
+.mini-lbl { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
+.mini-sub { margin-left: auto; font-size: 11px; color: var(--dim); }
+.mini-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 44px 40px; gap: 8px; align-items: center; min-height: 30px; border-bottom: 1px solid var(--line); }
+.mini-slot { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; color: var(--dim); }
+.mini-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-name.zero { color: var(--muted); }
+.mini-swing { text-align: right; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mini-swing .diff { font-size: 11.5px; }
+.mini-bar .swing { margin-top: 0; }
+.mini-foot { padding: 8px 0 0; font-size: 10.5px; font-weight: 700; color: var(--dim); }
+
 /* Theater: the player takes the full panel width and the rest stacks under it.
    74vh * 16/9 is wider than the panel on most screens, so min() clamps it to
    the panel and the height follows from the aspect ratio. */
-body.theater .matchup-body { grid-template-columns: minmax(0, 880px); justify-content: center; }
-body.theater .matchup-body > aside.watch { grid-column: 1; }
-body.theater aside.watch { order: -1; min-width: 0; }
-body.theater .watch-hd,
-body.theater .player,
-body.theater .video-bar,
-body.theater .switch-hd,
-body.theater .switch-rail { width: min(100%, calc(74vh * 16 / 9)); margin-inline: auto; }
+body.theater .matchup-body { grid-template-columns: var(--rail-w) minmax(0, 1fr) 400px; justify-content: start; }
+body.theater aside.watch { min-width: 0; }
 body.theater .video-box { max-height: 74vh; }
 
-/* Switch game is one scrolling row of cells here, never wrapped. */
-body.theater .switch-list { min-width: 0; flex-direction: row; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-body.theater .switch-item { flex: none; width: 186px; border-bottom: 0; border-right: 1px solid var(--line); }
-body.theater .sr-fade { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 64px; background: linear-gradient(90deg, transparent, var(--bg)); pointer-events: none; }
-body.theater .sr-fade[hidden] { display: none; }
+/* The game list is a vertical list in every layout. The horizontal strip is
+   gone: it sat between the video and the rows and pushed them off screen. */
+.switch-item { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px; }
+.si-sub { margin-left: auto; margin-top: 0; }
+.sr-fade, .sh-more { display: none; }
 
 /* All matchups floats at the left in theater rather than taking a column or
    stacking under the player. It opens from the collapsed count, and scrolls
    internally if the league is long. */
-@media (min-width: 1920px) {
-  body.theater aside.rail {
-    position: fixed; z-index: 30;
-    left: 16px; right: calc(50% + 792px); width: auto; max-width: 216px;
-    top: 148px; max-height: calc(100vh - 168px); overflow-y: auto;
-    background: var(--menu); border: 1px solid var(--line-strong);
-    box-shadow: 0 16px 40px -10px rgba(0, 0, 0, .55);
-    padding: 8px 12px;
-  }
-}
+/* A rule on the right edge only: no border box, no shadow, no own background.
+   This replaces the floating card. */
+aside.rail { border-right: 1px solid var(--line); padding-right: 20px; }
+.rail-item { min-height: 24px; padding: 3px 0; }
+.rail-item .ri-row { font-size: 12px; line-height: 1.2; }
+.rail-item .ri-name { font-weight: 500; }
+.rail-item .ri-score { width: 52px; text-align: right; font-weight: 700; }
 
 /* ==========================================================================
    Mobile. Desktop-first per handoff; this keeps phones usable, not final.
    ========================================================================== */
 /* Three columns need roughly 1400px. Below that the all-matchups column is the
    one to give up: the rows and the player are what the screen is for. */
-@media (max-width: 1400px) {
-  .matchup-body { grid-template-columns: minmax(0, 880px) 1fr 380px; }
+/* The rail goes first when the width runs out, then the columns stack. */
+@media (max-width: 1280px) {
+  .matchup-body { grid-template-columns: 420px minmax(0, 880px); }
   .matchup-body > aside.rail { display: none; }
-  .matchup-body > aside.watch { grid-column: 3; }
+  .matchup-body > aside.watch { grid-column: 1; grid-row: 1; }
+  .matchup-body > .panel { grid-column: 2; grid-row: 1; }
+  body.theater .matchup-body { grid-template-columns: minmax(0, 1fr) 400px; }
 }
 
 /* Two columns need roughly 1100px. Below that the player stacks above the rows
    so the names get the full width rather than a 100px cell. */
 @media (max-width: 1100px) {
-  .matchup-body { grid-template-columns: minmax(0, 880px); justify-content: center; }
-  .matchup-body > aside.watch { grid-column: 1; order: -1; min-width: 0; }
+  .matchup-body,
+  body.theater .matchup-body { grid-template-columns: minmax(0, 880px); justify-content: center; }
+  .matchup-body > aside.watch { grid-column: 1; grid-row: 1; min-width: 0; }
+  .matchup-body > .panel { grid-column: 1; grid-row: 2; }
 }
 @media (max-width: 900px) {
   .matchup-body { grid-template-columns: 1fr; }
