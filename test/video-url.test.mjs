@@ -1,7 +1,8 @@
 // The provider URL is only correct if the *whole* path is: ESPN's scoreboard
 // payload -> summarizeGames() -> PROVIDER.embedUrl(). So these tests feed team
 // display names in as ESPN sends them rather than asserting on a string helper,
-// and pin the result against a URL known to resolve on the provider.
+// and pin the result against the provider's frameable /embed/ path (its
+// /player/ path serves the full website, which renders as a page in an iframe).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { summarizeGames, TEAM_ALIAS } from '../public/nfl.js';
@@ -33,12 +34,13 @@ const urlFor = (away, home) => {
 };
 
 test('college names produce a URL known to resolve on the provider', () => {
+  // Same fixture that was confirmed live, on the frameable path.
   assert.equal(
     urlFor(
       { abbreviation: 'COLO', displayName: 'Colorado Buffaloes' },
       { abbreviation: 'GT', displayName: 'Georgia Tech Yellow Jackets' },
     ),
-    'https://strmfree.st/player/football/colorado-buffaloes-vs-georgia-tech-yellow-jackets',
+    'https://strmfree.st/embed/football/colorado-buffaloes-vs-georgia-tech-yellow-jackets',
   );
 });
 
@@ -48,7 +50,7 @@ test('NFL names go through the identical path', () => {
       { abbreviation: 'BAL', displayName: 'Baltimore Ravens' },
       { abbreviation: 'PIT', displayName: 'Pittsburgh Steelers' },
     ),
-    'https://strmfree.st/player/football/baltimore-ravens-vs-pittsburgh-steelers',
+    'https://strmfree.st/embed/football/baltimore-ravens-vs-pittsburgh-steelers',
   );
 });
 
@@ -56,7 +58,7 @@ test('away-vs-home order is not symmetric', () => {
   const a = { abbreviation: 'BAL', displayName: 'Baltimore Ravens' };
   const b = { abbreviation: 'PIT', displayName: 'Pittsburgh Steelers' };
   assert.notEqual(urlFor(a, b), urlFor(b, a));
-  assert.equal(urlFor(b, a), 'https://strmfree.st/player/football/pittsburgh-steelers-vs-baltimore-ravens');
+  assert.equal(urlFor(b, a), 'https://strmfree.st/embed/football/pittsburgh-steelers-vs-baltimore-ravens');
 });
 
 test('digits in a team name survive slugification', () => {
@@ -65,7 +67,7 @@ test('digits in a team name survive slugification', () => {
       { abbreviation: 'SF', displayName: 'San Francisco 49ers' },
       { abbreviation: 'LAR', displayName: 'Los Angeles Rams' },
     ),
-    'https://strmfree.st/player/football/san-francisco-49ers-vs-los-angeles-rams',
+    'https://strmfree.st/embed/football/san-francisco-49ers-vs-los-angeles-rams',
   );
 });
 
@@ -76,14 +78,14 @@ test('the WSH -> WAS abbreviation alias never reaches the slug', () => {
     { abbreviation: 'WSH', displayName: 'Washington Commanders' },
     { abbreviation: 'MIN', displayName: 'Minnesota Vikings' },
   );
-  assert.equal(url, 'https://strmfree.st/player/football/washington-commanders-vs-minnesota-vikings');
+  assert.equal(url, 'https://strmfree.st/embed/football/washington-commanders-vs-minnesota-vikings');
   assert.ok(!url.includes('wsh') && !url.includes('was-'), url);
 });
 
 test('a missing display name falls back to the abbreviation', () => {
   assert.equal(
     urlFor({ abbreviation: 'BAL' }, { abbreviation: 'PIT' }),
-    'https://strmfree.st/player/football/bal-vs-pit',
+    'https://strmfree.st/embed/football/bal-vs-pit',
   );
 });
 
@@ -93,6 +95,6 @@ test('punctuation and stray whitespace collapse to single hyphens', () => {
       { abbreviation: 'TAM', displayName: '  Tampa Bay  Buccaneers ' },
       { abbreviation: 'NO', displayName: "New Orleans Saints" },
     ),
-    'https://strmfree.st/player/football/tampa-bay-buccaneers-vs-new-orleans-saints',
+    'https://strmfree.st/embed/football/tampa-bay-buccaneers-vs-new-orleans-saints',
   );
 });

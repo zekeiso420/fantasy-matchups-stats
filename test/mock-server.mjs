@@ -14,10 +14,13 @@ const players = Object.fromEntries([
   ['SF', { first_name: 'San Francisco', last_name: '49ers', position: 'DEF', team: 'SF' }],
   P('11566', 'Rome Odunze', 'WR', 'CHI', 4431299), P('7526', 'Trey Lance', 'QB', null, 4383351),
   P('8150', 'Kenneth Walker', 'RB', 'SEA', 4567048), P('6813', 'Jonathan Taylor', 'RB', 'IND', 4242335),
+  // Fictional players on a real college fixture, so the video slot can be
+  // pointed at a provider URL that actually resolves.
+  P('90001', 'Alex Rivera', 'WR', 'COLO', null), P('90002', 'Jordan Pike', 'RB', 'GT', null),
 ]);
 
-const rosterA = { roster_id: 1, owner_id: 'u1', players: ['4984', '9509', '8138', '6794', '7564', '5849', '9226', '4199', 'BAL', '11566', '7526', '8150'] };
-const rosterB = { roster_id: 2, owner_id: 'u2', players: ['4046', '4034', '6813', '6801', '8146', '1466', '9758', '7839', 'SF'] };
+const rosterA = { roster_id: 1, owner_id: 'u1', players: ['4984', '9509', '8138', '6794', '7564', '5849', '9226', '4199', 'BAL', '11566', '7526', '8150', '90001'] };
+const rosterB = { roster_id: 2, owner_id: 'u2', players: ['4046', '4034', '6813', '6801', '8146', '1466', '9758', '7839', 'SF', '90002'] };
 const others = [3, 4, 5, 6, 7, 8].map((i) => ({ roster_id: i, owner_id: `u${i}`, players: [] }));
 
 const state = { week: 3, display_week: 3, season: '2026', league_season: '2026', season_type: 'regular' };
@@ -56,6 +59,7 @@ const TEAM_NAMES = {
   DET: 'Detroit Lions', SEA: 'Seattle Seahawks', MIN: 'Minnesota Vikings', WSH: 'Washington Commanders',
   DAL: 'Dallas Cowboys', SF: 'San Francisco 49ers', LAR: 'Los Angeles Rams', LAC: 'Los Angeles Chargers',
   IND: 'Indianapolis Colts', CHI: 'Chicago Bears',
+  COLO: 'Colorado Buffaloes', GT: 'Georgia Tech Yellow Jackets',
 };
 const team = (abbr) => ({ abbreviation: abbr, displayName: TEAM_NAMES[abbr] || abbr });
 const game = (id, date, away, home, as, hs, state, detail, clock, period) => ({
@@ -65,6 +69,7 @@ const game = (id, date, away, home, as, hs, state, detail, clock, period) => ({
 });
 const scoreboard = { events: [
   game('1', '2026-09-17T00:15Z', 'BUF', 'MIA', 31, 10, 'post', 'Final'),
+  game('10', '2026-09-20T16:30Z', 'COLO', 'GT', 21, 17, 'in', '3rd 11:02', '11:02', 3),
   game('2', '2026-09-20T17:00Z', 'ATL', 'KC', 14, 17, 'in', '3rd 8:41', '8:41', 3),
   game('3', '2026-09-20T17:00Z', 'NYJ', 'NE', 3, 6, 'in', '2nd 0:52', '0:52', 2),
   game('4', '2026-09-20T17:00Z', 'CIN', 'BAL', 27, 24, 'in', '4th 2:00', '2:00', 4),
