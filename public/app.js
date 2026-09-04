@@ -754,7 +754,7 @@ function gameBarHtml(bk, startersA, startersB, totA, totB) {
     <div class="game-bar ${g.state === 'live' ? 'live' : ''}">
       <div class="gb-line">
         <img class="gb-logo" src="${logo(g.away)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.away}</span> <span class="gb-score" data-game-score="${g.away}:away">${g.awayScore}</span>
-        <span class="gb-at">at</span>
+        <span class="gb-at">@</span>
         <img class="gb-logo" src="${logo(g.home)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.home}</span> <span class="gb-score" data-game-score="${g.home}:home">${g.homeScore}</span>
         <span class="gb-clock ${g.state === 'live' ? '' : 'pre'}" data-game-status="${g.home}">${gameStatusText(g)}</span>
       </div>
@@ -1055,18 +1055,37 @@ function bindVideoControls(root) {
 // --- Player side cell -------------------------------------------------------
 // compact: the By-NFL-game rows use a 20px team logo instead of the 40px
 // headshot, which leaves room for the name in the narrower column.
+// "Josh Allen" -> "J. Allen". The surname stays whole, because that is the part
+// that identifies the player; a four-character truncation identifies nobody.
+// Particles belong to the surname ("A. St. Brown", not "A. Brown"), and a
+// suffix rides along after it.
+const NAME_PARTICLE = /^(st\.?|van|von|de|del|della|di|da|dos|la|le|mac|o')$/i;
+const NAME_SUFFIX = /^(Jr\.?|Sr\.?|I{2,3}|IV|V)$/i;
+function initialSurname(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts[0] || '';
+  let end = parts.length - 1;
+  let suffix = '';
+  if (NAME_SUFFIX.test(parts[end]) && end > 1) { suffix = ` ${parts[end]}`; end -= 1; }
+  let start = end;
+  while (start > 1 && NAME_PARTICLE.test(parts[start - 1])) start -= 1;
+  return `${parts[0][0]}. ${parts.slice(start, end + 1).join(' ')}${suffix}`;
+}
+
 function sideHtml(pl, rosterId, sideKey, { bench = false, compact = false } = {}) {
   const g = pl.game;
   let line = '', cls = '';
   if (!pl.team) line = 'Free agent';
   else if (!g) line = 'Bye';
   else {
-    const opp = g.home === pl.team ? `vs ${g.away}` : `@ ${g.home}`;
-    if (g.state === 'live') { line = `${g.detail} ${opp}`; cls = 'live'; }
+    // Two tokens at most. The opponent is dropped: the position label already
+    // carries the team, the game bar carries the fixture, and keeping it here
+    // was what pushed the line into an ellipsis.
+    if (g.state === 'live') { line = g.detail || 'Live'; cls = 'live'; }
     else if (g.state === 'final') {
       const mine = g.home === pl.team ? g.homeScore : g.awayScore, theirs = g.home === pl.team ? g.awayScore : g.homeScore;
-      line = `${mine > theirs ? 'W' : mine < theirs ? 'L' : 'T'} ${mine}–${theirs} ${opp}`; cls = 'final';
-    } else line = `${kickoff(g.kickoff)} ${opp}`;
+      line = `${mine > theirs ? 'W' : mine < theirs ? 'L' : 'T'} ${mine}–${theirs}`; cls = 'final';
+    } else line = kickoff(g.kickoff);
   }
   const pre = !g || g.state === 'pre';
   const isLive = !!(g && g.state === 'live');
@@ -1075,7 +1094,15 @@ function sideHtml(pl, rosterId, sideKey, { bench = false, compact = false } = {}
   const av = compact
     ? `<div class="p-av compact">${avatarHtml(pl)}</div>`
     : `<div class="p-av">${avatarHtml(pl)}${pl.team && pl.pos !== 'DEF' ? `<img class="logo" src="${logo(pl.team)}" alt="" onerror="this.remove()">` : ''}</div>`;
-  const who = `<div class="p-who"><div class="p-name">${escape(pl.name)}<span class="pos">${pl.pos}${pl.team ? ` ${pl.team}` : ''}${bench ? ' · BENCH' : ''}</span>${pl.injury ? `<span class="inj">${escape(injAbbr(pl.injury))}</span>` : ''}</div><div class="p-line ${cls}">${escape(line)}</div></div>`;
+  // Both spellings ship and a container query picks one, so a narrow column
+  // shows "J. Allen" rather than "Josh...". No width has to be guessed in JS.
+  const shortLabel = pl.pos === 'DEF' ? pl.name : initialSurname(pl.name);
+  const nameCell = `<span class="p-full">${escape(pl.name)}</span><span class="p-abbr">${escape(shortLabel)}</span>`;
+  const posLabel = `${pl.pos}${pl.team ? ` ${pl.team}` : ''}${bench ? ' · BENCH' : ''}`;
+  const who = `<div class="p-who">`
+    + `<div class="p-name">${nameCell}${pl.injury ? `<span class="inj">${escape(injAbbr(pl.injury))}</span>` : ''}</div>`
+    + `<div class="p-line"><span class="p-pos">${escape(posLabel)}</span>${line ? ` · <span class="p-state ${cls}">${escape(line)}</span>` : ''}</div>`
+    + `</div>`;
   const pts = `<div class="p-pts ${pre && !pl.pts ? 'pre' : ''}" data-pts="${rosterId}:${pl.id}">${fmt(pl.pts)}</div>`;
   const cells = sideKey === 'a' ? [av, who, pts] : [pts, who, av];
   return `<div class="side ${sideKey} ${compact ? 'compact' : ''} ${isLive && !compact ? 'live' : ''} ${bench ? 'bench' : ''}" data-sheet-for="${rosterId}:${pl.id}" tabindex="0" role="button" aria-expanded="false">${cells.join('')}</div>`;
