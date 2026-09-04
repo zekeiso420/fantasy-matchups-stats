@@ -872,24 +872,9 @@ function setTheater(on) {
   document.body.classList.toggle('theater', S.theater);
   const btn = $('[data-vid="theater"]');
   if (btn) { btn.textContent = S.theater ? 'Exit theater' : 'Theater'; btn.setAttribute('aria-pressed', String(S.theater)); }
-  sizeTheater();
   syncRailHint();
 }
-
-// A flat 74vh video ignores the ~390px of scoreboard, week strip and tabs above
-// it, which pushed the toolbar below the fold: in theater you could not reach
-// Exit theater or the source menu without scrolling. Measure what is actually
-// left instead, and publish it as a custom property the layout reads.
-function sizeTheater() {
-  const root = document.documentElement;
-  const player = $('.player');
-  if (!S.theater || !player) { root.style.removeProperty('--theater-vid'); return; }
-  const top = player.getBoundingClientRect().top + window.scrollY;
-  const BAND = 34, CHROME = 44, TOOLBAR = 44, BREATH = 28;
-  const avail = Math.max(200, window.innerHeight - top - BAND - CHROME - TOOLBAR - BREATH);
-  root.style.setProperty('--theater-vid', `${Math.round(avail)}px`);
-}
-window.addEventListener('resize', () => { sizeTheater(); syncRailHint(); });
+window.addEventListener('resize', syncRailHint);
 
 function videoAction(kind) {
   if (kind === 'theater') return setTheater(!S.theater);
@@ -1042,7 +1027,7 @@ function bindVideoControls(root) {
   // about:blank commits during a reload; only a real source means "loaded".
   if (frame) frame.addEventListener('load', () => { if (frame.src !== 'about:blank') setPlayerState(null); });
   root.querySelector('.switch-rail .switch-list')?.addEventListener('scroll', syncRailHint);
-  requestAnimationFrame(() => { sizeTheater(); syncRailHint(); });
+  requestAnimationFrame(syncRailHint);
 }
 
 // --- Player side cell -------------------------------------------------------
