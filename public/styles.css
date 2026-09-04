@@ -356,10 +356,10 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 
 .side.empty { grid-template-columns: 1fr; justify-items: center; }
 
-.starter-foot { display: flex; gap: 20px; padding: 12px 14px; font-size: 11px; letter-spacing: .1em; font-weight: 700; text-transform: uppercase; }
-.starter-foot button { background: transparent; border: 0; color: var(--muted); padding: 0; font: inherit; letter-spacing: inherit; }
-.starter-foot button:hover { color: var(--text); }
-.starter-foot .secondary { color: var(--faint); }
+.starter-foot { display: flex; gap: 20px; padding: 10px 14px 0; font-size: 11px; letter-spacing: .1em; font-weight: 700; text-transform: uppercase; }
+.starter-foot .secondary { color: var(--dim); }
+/* A section label now, not a control: the bench is always on screen. */
+.bench-hd { font-size: 10px; letter-spacing: .14em; color: var(--faint); font-weight: 700; text-transform: uppercase; padding: 14px 0 6px; border-bottom: 2px solid var(--line-strong); }
 
 /* Bench (revealed) */
 .bench-block { border-top: 1px solid var(--line); }

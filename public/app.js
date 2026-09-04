@@ -553,8 +553,6 @@ function renderContent(p) {
   const content = $('#content');
   if (!content) return;
   content.innerHTML = S.view === 'slot' ? slotViewHtml(p) : gameViewHtml(p);
-  const bench = $('#bench-toggle');
-  if (bench) bench.addEventListener('click', () => { const blk = $('#bench-block'); if (blk) { blk.hidden = !blk.hidden; bench.textContent = `${blk.hidden ? '›' : '⌄'} Bench (${bench.dataset.a} vs ${bench.dataset.b})`; } });
   bindWatchTargets(p, content);
   renderScoreboardDynamic();
 }
@@ -656,11 +654,7 @@ function slotViewHtml(p) {
   const benchA = benchIds(p.a), benchB = p.b ? benchIds(p.b) : [];
   const n = Math.max(benchA.length, benchB.length);
   const leftA = sideSummary(p.a).left, leftB = p.b ? sideSummary(p.b).left : 0;
-  const foot = `
-    <div class="starter-foot">
-      ${n ? `<button type="button" id="bench-toggle" data-a="${benchA.length}" data-b="${benchB.length}">› Bench (${benchA.length} vs ${benchB.length})</button>` : ''}
-      <span class="secondary">› What's left to play (${leftA} vs ${leftB})</span>
-    </div>`;
+  const foot = `<div class="starter-foot"><span class="secondary">What's left to play (${leftA} vs ${leftB})</span></div>`;
   const benchRows = Array.from({ length: n }, (_, i) => `
       <div class="slot-row">
         ${benchA[i] ? sideHtml(player(benchA[i], p.a.m), p.a.m.roster_id, 'a', { bench: true }) : emptySide('a')}
@@ -669,7 +663,10 @@ function slotViewHtml(p) {
         ${benchA[i] ? sheetHtml(p.a.m.roster_id, player(benchA[i], p.a.m)) : ''}${benchB[i] ? sheetHtml(p.b.m.roster_id, player(benchB[i], p.b.m)) : ''}
       </div>`).join('');
 
-  return `<div class="starters">${rows}</div>${foot}${n ? `<div class="bench-block" id="bench-block" hidden>${benchRows}</div>` : ''}`;
+  const benchBlock = n
+    ? `<div class="bench-hd">Bench (${benchA.length} vs ${benchB.length})</div><div class="bench-block">${benchRows}</div>`
+    : '';
+  return `<div class="starters">${rows}</div>${benchBlock}${foot}`;
 }
 
 function benchIds(s) {
