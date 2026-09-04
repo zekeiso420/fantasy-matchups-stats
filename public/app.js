@@ -634,16 +634,38 @@ function updateWatchAside(p) {
   syncRailHint();
 }
 
+// What the top-right chip reports is whether football is being played, not
+// whether our data socket happens to be open. With nothing on the field it
+// names the next kickoff instead. Games are keyed per team, so dedupe by id.
+function nflStatus() {
+  const byId = new Map();
+  for (const g of Object.values(S.data?.games || {})) if (g && g.id) byId.set(g.id, g);
+  const all = [...byId.values()];
+  if (all.some((g) => g.state === 'live')) return { live: true, next: null };
+  const pre = all.filter((g) => g.state === 'pre')
+    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+  return { live: false, next: pre[0] || null };
+}
+
 function renderUpdated() {
   const el = $('#topbar-live');
   if (!el) return;
   const feedDown = S.data && S.data.statsAvailable === false;
-  if (!S.online) { el.classList.remove('on'); el.innerHTML = ''; return; }
+  if (!S.online) { el.classList.remove('on', 'quiet'); el.innerHTML = ''; return; }
   el.classList.add('on');
-  const label = S.online === true
-    ? `LIVE${S.liveAt ? ` ${time(S.liveAt)}` : ''}`
-    : S.online === 'connecting' ? 'CONNECTING…' : 'RECONNECTING…';
-  el.innerHTML = `<span class="dot"></span>${label}${S.online === true && feedDown ? '<span class="feed-down">· SLEEPER POINTS, FEED DOWN</span>' : ''}`;
+  if (S.online !== true) {
+    el.classList.remove('quiet');
+    el.innerHTML = `<span class="dot"></span>${S.online === 'connecting' ? 'CONNECTING…' : 'RECONNECTING…'}`;
+    return;
+  }
+  const st = nflStatus();
+  el.classList.toggle('quiet', !st.live);
+  const body = st.live
+    ? `<span class="dot"></span>LIVE${S.liveAt ? ` ${time(S.liveAt)}` : ''}`
+    : st.next
+      ? `NEXT ${escape(st.next.away)} @ ${escape(st.next.home)} · ${escape(kickoff(st.next.kickoff))}`
+      : 'ALL GAMES FINAL';
+  el.innerHTML = `${body}${feedDown ? '<span class="feed-down">· SLEEPER POINTS, FEED DOWN</span>' : ''}`;
 }
 
 // --- Swing gutter (shared by both views) -----------------------------------

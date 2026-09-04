@@ -164,6 +164,7 @@ select#week-select {
 .topbar-live.on { display: inline-flex; }
 .topbar-live .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live-fill); animation: pulse 1.6s infinite; }
 .topbar-live .feed-down { color: var(--faint); font-weight: 600; letter-spacing: .04em; }
+.topbar-live.quiet { color: var(--bar-muted); font-weight: 600; }
 
 .user-chip {
   display: inline-flex; align-items: center; gap: 8px;
