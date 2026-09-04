@@ -58,7 +58,11 @@ async function getJSON(url) {
 // ---------------------------------------------------------------------------
 // Sleeper helpers
 // ---------------------------------------------------------------------------
-const TTL = { state: 60_000, user: 300_000, league: 300_000, roster: 60_000, matchups: 8_000, players: 6 * 3_600_000, scoreboard: 20_000, stats: 10_000, statsIdle: 120_000, proj: 30 * 60_000 };
+// The provider asks us not to poll per page load, so sources are cached; a
+// stream appears shortly before kickoff and disappears after the event, so
+// the window is short enough that a minute is the right order of magnitude.
+const STREAMFREE = 'https://streamfree.top';
+const TTL = { state: 60_000, user: 300_000, league: 300_000, roster: 60_000, matchups: 8_000, players: 6 * 3_600_000, scoreboard: 20_000, stats: 10_000, statsIdle: 120_000, proj: 30 * 60_000, streams: 60_000 };
 
 const getState = () => cached('state', TTL.state, () => getJSON(`${SLEEPER}/state/nfl`));
 const getLeague = (id) => cached(`league:${id}`, TTL.league, () => getJSON(`${SLEEPER}/league/${id}`));
@@ -146,6 +150,19 @@ app.get('/api/league/:leagueId/week/:week', route(async (req) => {
 }));
 
 app.get('/api/players', route(getPlayers));
+
+// Live variants for one stream key. An empty list means nothing is up yet; the
+// provider 404s an unknown key, which is not an error worth surfacing as 502.
+app.get('/api/stream/:key', route(async (req) => {
+  const key = req.params.key;
+  try {
+    const data = await cached(`sources:${key}`, TTL.streams, () => getJSON(`${STREAMFREE}/api/v1/sources/${encodeURIComponent(key)}`));
+    return { key, live: (data.sources || []).length > 0, sources: data.sources || [] };
+  } catch (err) {
+    if (err.status === 404) return { key, live: false, sources: [] };
+    throw err;
+  }
+}));
 
 app.get('/health', (_req, res) => res.json({ ok: true, clients: clients.size, cacheKeys: cache.size }));
 

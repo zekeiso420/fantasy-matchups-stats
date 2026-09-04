@@ -114,3 +114,18 @@ export function subscribeLive(leagueId, week, onMessage, onStatus) {
   tick();
   return () => { stopped = true; clearTimeout(timer); };
 }
+
+// No server to cache for us here, so memo() keeps the provider's request rate
+// down. A plain fetch stays a "simple request" and avoids preflight; if the
+// provider sends no CORS headers this rejects and the caller falls back to the
+// constructed embed URL.
+const STREAMFREE = 'https://streamfree.top';
+export const getStream = (key) => memo(`sources:${key}`, 60_000, async () => {
+  try {
+    const data = await getJSON(`${STREAMFREE}/api/v1/sources/${encodeURIComponent(key)}`);
+    return { key, live: (data.sources || []).length > 0, sources: data.sources || [] };
+  } catch (e) {
+    if (e.status === 404) return { key, live: false, sources: [] };
+    throw e;
+  }
+});

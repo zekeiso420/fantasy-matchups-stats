@@ -113,6 +113,11 @@ const routes = [
   [/\/league\/L\d\/matchups\/\d+$/, () => matchups()],
   [/\/players\/nfl$/, () => players],
   [/\/scoreboard\?/, () => scoreboard],
+  // Provider sources API: four quality variants, matching the documented shape.
+  [/\/api\/v1\/sources\//, (u) => {
+    const key = decodeURIComponent(u.split('/api/v1/sources/')[1] || '');
+    return { stream_key: key, sources: ['540p', '720p', '1080p', '720p2'].map((q) => `https://strmfree.st/embed/embed/${key}${q}`) };
+  }],
 ];
 
 globalThis.fetch = async (url) => {

@@ -16,8 +16,15 @@ export const teamSlug = (name, abbr) => (name || abbr || '')
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/^-+|-+$/g, '');
 
+// The provider keys a stream by the same `{away}-vs-{home}` slug, so one
+// helper serves both the embed path and the sources API.
+export const streamKey = (g) => `${teamSlug(g.awayName, g.away)}-vs-${teamSlug(g.homeName, g.home)}`;
+
+// "…-vs-…1080p" / "…720p2" -> a label for the quality picker.
+export const sourceLabel = (url, i) => (url.match(/(\d{3,4}p\d*)$/)?.[1] || `Source ${i + 1}`);
+
 export const PROVIDER = {
   name: 'strmfree',
   embedUrl: (g) =>
-    `${VIDEO_BASE}/${VIDEO_PATH}/${VIDEO_SPORT}/${teamSlug(g.awayName, g.away)}-vs-${teamSlug(g.homeName, g.home)}`,
+    `${VIDEO_BASE}/${VIDEO_PATH}/${VIDEO_SPORT}/${streamKey(g)}`,
 };

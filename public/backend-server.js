@@ -23,3 +23,6 @@ export function subscribeLive(leagueId, week, onMessage, onStatus) {
   es.onmessage = (ev) => { try { onMessage(JSON.parse(ev.data)); } catch { /* ignore malformed frame */ } };
   return () => es.close();
 }
+
+// Live variants for a stream key; the server caches these on our behalf.
+export const getStream = (key) => api(`/api/stream/${encodeURIComponent(key)}`);

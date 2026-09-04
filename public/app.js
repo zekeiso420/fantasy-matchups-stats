@@ -4,7 +4,7 @@
 
 import { breakdown } from './scoring.js';
 import * as backend from './backend.js';
-import { VIDEO_BASE, PROVIDER } from './video.js';
+import { VIDEO_BASE, PROVIDER, streamKey, sourceLabel } from './video.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const app = $('#app');
@@ -58,15 +58,14 @@ $('#week-select').addEventListener('change', (e) => selectWeek(Number(e.target.v
 $('#week-prev').addEventListener('click', () => selectWeek(S.week - 1));
 $('#week-next').addEventListener('click', () => selectWeek(S.week + 1));
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.leagueId && S.week) connectLive(); });
-// f = fullscreen, t = theater, matching the shortcuts every video site uses.
+// Only 't' is ours; fullscreen belongs to the provider's own player now.
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
-  const k = e.key.toLowerCase();
-  if (k !== 'f' && k !== 't') return;
+  if (e.key.toLowerCase() !== 't') return;
   if (!document.querySelector('#video-frame')) return;
   e.preventDefault();
-  videoAction(k === 'f' ? 'fullscreen' : 'theater');
+  videoAction('theater');
 });
 
 let playersReady = Promise.resolve();
@@ -558,6 +557,7 @@ function renderContent(p) {
   if (bench) bench.addEventListener('click', () => { const blk = $('#bench-block'); if (blk) { blk.hidden = !blk.hidden; bench.textContent = `${blk.hidden ? '›' : '⌄'} Bench (${bench.dataset.a} vs ${bench.dataset.b})`; } });
   content.querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => { S.watchGameId = b.dataset.watch; renderContent(p); renderScoreboardDynamic(); }));
   bindVideoControls(content);
+  if (S.view === 'game') syncStream(watchedGame);
   document.body.classList.toggle('theater', S.view === 'game' && S.theater);
   renderScoreboardDynamic();
 }
@@ -578,7 +578,8 @@ function updateGameView(p) {
   // Repoint the frame only if the watched game actually changed.
   const frame = $('#video-frame');
   const next = game && VIDEO_BASE ? PROVIDER.embedUrl(game) : null;
-  if (frame && next && frame.src !== next) frame.src = next;
+  if (frame && next && streamKey(game) !== srcState.key && frame.src !== next) frame.src = next;
+  syncStream(game);
   $('#content').querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => { S.watchGameId = b.dataset.watch; renderContent(p); renderScoreboardDynamic(); }));
 }
 
@@ -780,8 +781,12 @@ function watchedOf(list) {
 }
 const gameTitle = (g) => (g ? `${g.away} @ ${g.home}` : '—');
 
+let watchedGame = null;          // the game the video box is currently pointed at
+let srcState = { key: null, list: [], idx: 0, live: null };
+
 function videoAsideHtml(list) {
   const { withGame, watched, game } = watchedOf(list);
+  watchedGame = game;
   return `
     <aside class="watch">
       <div class="watch-hd">Watching · <span class="wh-game">${escape(gameTitle(game))}</span></div>
@@ -810,10 +815,7 @@ function videoBarHtml(g) {
   return `
     <div class="video-bar">
       <button type="button" class="vb-btn" data-vid="theater" aria-pressed="${S.theater}" title="Theater mode (t)">${S.theater ? 'Exit theater' : 'Theater'}</button>
-      <button type="button" class="vb-btn" data-vid="fullscreen" title="Fullscreen (f)">Fullscreen</button>
-      <button type="button" class="vb-btn" data-vid="popout" title="Open in a floating window">Pop out</button>
-      <button type="button" class="vb-btn" data-vid="reload" title="Reload the stream">Reload</button>
-      <span class="vb-note" title="Same-origin policy: our page cannot reach the video inside the frame.">Play · mute · PiP are in the player</span>
+      <span class="vb-quality"></span>
     </div>`;
 }
 
@@ -845,25 +847,65 @@ function setTheater(on) {
 }
 
 function videoAction(kind) {
-  const box = $('#video-box'), frame = $('#video-frame');
-  if (kind === 'theater') return setTheater(!S.theater);
-  if (kind === 'fullscreen') {
-    if (document.fullscreenElement) return document.exitFullscreen?.();
-    return box?.requestFullscreen?.().catch(() => banner('Fullscreen was blocked by the browser.'));
+  if (kind === 'theater') setTheater(!S.theater);
+}
+
+// The provider's sources API lists the live quality variants for a stream key.
+// Until it answers we show the constructed embed URL, which is what the player
+// itself resolves to, so nothing blocks on the network.
+async function syncStream(g) {
+  const key = g ? streamKey(g) : null;
+  if (!key) { srcState = { key: null, list: [], idx: 0, live: null }; return renderQuality(); }
+  if (srcState.key === key) return renderQuality();
+  srcState = { key, list: [], idx: 0, live: null };
+  let data = null;
+  try { data = await backend.getStream(key); } catch { /* keep the constructed URL */ }
+  if (srcState.key !== key) return;               // switched games while in flight
+  if (data) {
+    srcState.list = data.sources || [];
+    srcState.live = data.live;
+    srcState.idx = bestSourceIdx(srcState.list);
   }
-  if (kind === 'reload' && frame) { frame.src = frame.src; return; }
-  if (kind === 'popout' && frame) {
-    // The honest stand-in for PiP: a separate 16:9 window we do control.
-    const w = 640, h = 360 + 40;
-    const win = window.open(frame.src, 'fms-video', `popup=yes,width=${w},height=${h},left=${screen.availWidth - w - 40},top=${screen.availHeight - h - 60}`);
-    if (!win) banner('Pop-out was blocked. Allow pop-ups for this site.');
+  applySource();
+  renderQuality();
+}
+
+// Highest resolution wins; ties keep the provider's own ordering.
+function bestSourceIdx(list) {
+  let best = 0, bestRes = -1;
+  list.forEach((u, i) => {
+    const res = Number(sourceLabel(u, i).match(/^(\d{3,4})p/)?.[1] || 0);
+    if (res > bestRes) { bestRes = res; best = i; }
+  });
+  return best;
+}
+
+function applySource() {
+  const frame = $('#video-frame'), src = srcState.list[srcState.idx];
+  if (frame && src && frame.src !== src) frame.src = src;
+}
+
+function renderQuality() {
+  const host = $('.vb-quality');
+  if (!host) return;
+  if (srcState.live === false && !srcState.list.length) {
+    host.innerHTML = '<span class="vb-off">Stream not up yet</span>';
+    return;
   }
+  if (!srcState.list.length) { host.innerHTML = ''; return; }
+  const opts = srcState.list
+    .map((u, i) => `<option value="${i}"${i === srcState.idx ? ' selected' : ''}>${escape(sourceLabel(u, i))}</option>`)
+    .join('');
+  host.innerHTML = `<label class="vb-sel"><span class="vb-sel-lbl">Source</span><select aria-label="Stream quality and source">${opts}</select></label>`;
+  // Re-rendering on change would drop focus mid-interaction, so only the frame moves.
+  host.querySelector('select').addEventListener('change', (e) => {
+    srcState.idx = Number(e.target.value);
+    applySource();
+  });
 }
 
 function bindVideoControls(root) {
   root.querySelectorAll('[data-vid]').forEach((b) => b.addEventListener('click', () => videoAction(b.dataset.vid)));
-  const btn = root.querySelector('[data-vid="fullscreen"]');
-  if (btn) document.addEventListener('fullscreenchange', () => { btn.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen'; });
 }
 
 // --- Player side cell -------------------------------------------------------

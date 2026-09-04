@@ -25,3 +25,4 @@ export const getUserLeagues = (...a) => impl.getUserLeagues(...a);
 export const getPlayers = (...a) => impl.getPlayers(...a);
 export const getWeekData = (...a) => impl.getWeekData(...a);
 export const subscribeLive = (...a) => impl.subscribeLive(...a);
+export const getStream = (...a) => impl.getStream(...a);
