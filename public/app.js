@@ -30,6 +30,11 @@ const S = {
   players: null,      // slim player index
   view: prefs.view || 'slot',
   theater: !!prefs.theater,
+  // 'side' is the two-column dock, 'corner' the floating one. The brief
+  // defaults to side at 1100px and up, corner below.
+  dock: prefs.dock || (window.innerWidth >= 1100 ? 'side' : 'corner'),
+  railOpen: false,
+  laterOpen: false,
   viewMatchupId: null,
   liveAt: null,
   online: false,
@@ -446,9 +451,10 @@ function render({ keepVideo = false } = {}) {
       </div>
     </div>`;
   app.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => switchView(b.dataset.view)));
-  document.body.classList.toggle('theater', S.theater);
+  applyLayoutClasses();
   bindVideoControls(app);
   bindWatchTargets(cur, $('aside.watch'));
+  $('#later-toggle')?.addEventListener('click', () => { S.laterOpen = true; updateWatchAside(cur); });
   renderRail();
   renderContent(cur);
   syncStream(watchedGame);
@@ -607,7 +613,11 @@ function updateWatchAside(p) {
   const count = $('.sh-count');
   if (count) count.textContent = `${withGame.length} game${withGame.length !== 1 ? 's' : ''} · ${live.length} live`;
   const sw = $('.switch-list');
-  if (sw) { sw.innerHTML = switchListHtml(withGame, watched); bindWatchTargets(p, sw); }
+  if (sw) {
+    sw.innerHTML = switchListHtml(withGame, watched);
+    bindWatchTargets(p, sw);
+    $('#later-toggle')?.addEventListener('click', () => { S.laterOpen = true; updateWatchAside(p); });
+  }
   const clock = $('#pb-clock'), score = $('#pb-score');
   if (clock && game) clock.innerHTML = bandClock(game);
   if (score && game) score.innerHTML = scoreLineHtml(game);
@@ -845,6 +855,7 @@ function videoAsideHtml(list) {
       ${playerHtml(game)}
       <div class="video-bar">
         <button type="button" class="vb-btn" data-vid="theater" aria-pressed="${S.theater}" title="Theater mode (t)">${S.theater ? 'Exit theater' : 'Theater'}</button>
+      ${S.theater ? `<button type="button" class="vb-btn" data-vid="dock" title="Move the player">${S.dock === 'side' ? 'Corner' : 'Side'} dock</button>` : ''}
         <span class="vb-lbl">Source</span>
         <div class="src" id="src-menu"></div>
       </div>
@@ -881,7 +892,7 @@ function playerHtml(g) {
 const scoreLineHtml = (g) => `<span class="ps-t">${g.away}</span><span class="ps-n">${g.awayScore}</span><span class="ps-x">·</span><span class="ps-t">${g.home}</span><span class="ps-n">${g.homeScore}</span>`;
 
 function switchListHtml(withGame, watched) {
-  const items = withGame.map((bk) => {
+  const cell = (bk) => {
     const gg = bk.game, count = bk.a.length + bk.b.length;
     const active = watched && gg.id === watched.game.id;
     const state = gg.state === 'live' ? '<span class="si-state live">LIVE</span>'
@@ -889,17 +900,32 @@ function switchListHtml(withGame, watched) {
       : `<span class="si-state">${escape(shortKick(gg.kickoff))}</span>`;
     const sub = `${active ? 'Watching · ' : ''}${count} player${count !== 1 ? 's' : ''}`;
     return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state === 'live' ? 'is-live' : ''}" data-watch="${gg.id}"><span class="si-top"><span class="si-name">${gg.away} @ ${gg.home}</span>${state}</span><span class="si-sub">${escape(sub)}</span></button>`;
-  }).join('');
-  return items || '<div class="empty-col">No games with your players</div>';
+  };
+  const empty = '<div class="empty-col">No games with your players</div>';
+  // A dock is too narrow for ten cells, so only live games show and the rest
+  // hide behind a count. The watched game always shows, wherever it sits.
+  if (S.theater) {
+    const live = withGame.filter((bk) => bk.game.state === 'live');
+    const later = withGame.filter((bk) => bk.game.state !== 'live');
+    const watchedIsLater = later.some((bk) => watched && bk.game.id === watched.game.id);
+    const open = S.laterOpen || watchedIsLater;
+    const tail = !later.length ? ''
+      : open ? later.map(cell).join('')
+      : `<button type="button" class="rail-collapse" id="later-toggle">${later.length} later game${later.length !== 1 ? 's' : ''} \u2304</button>`;
+    return (live.map(cell).join('') + tail) || empty;
+  }
+  return withGame.map(cell).join('') || empty;
 }
 
 // --- Video controls ---------------------------------------------------------
 function setTheater(on) {
   S.theater = !!on;
   save({ theater: S.theater });
-  document.body.classList.toggle('theater', S.theater);
+  applyLayoutClasses();
   const btn = $('[data-vid="theater"]');
   if (btn) { btn.textContent = S.theater ? 'Exit theater' : 'Theater'; btn.setAttribute('aria-pressed', String(S.theater)); }
+  const cur = current();
+  if (cur) updateWatchAside(cur);
   renderRail();
   syncRailHint();
 }
@@ -907,7 +933,27 @@ window.addEventListener('resize', syncRailHint);
 
 function videoAction(kind) {
   if (kind === 'theater') return setTheater(!S.theater);
+  if (kind === 'dock') return setDock(S.dock === 'side' ? 'corner' : 'side');
   if (kind === 'reload') return reloadSource();
+}
+
+// Moving the dock is a layout change only. It must not touch the frame, so it
+// toggles classes and repaints the aside's own chrome rather than re-rendering.
+function setDock(which) {
+  S.dock = which === 'corner' ? 'corner' : 'side';
+  save({ dock: S.dock });
+  applyLayoutClasses();
+  renderSource();
+  const cur = current();
+  if (cur) updateWatchAside(cur);
+}
+
+function applyLayoutClasses() {
+  const b = document.body.classList;
+  b.toggle('theater', S.theater);
+  b.toggle('dock-side', S.theater && S.dock === 'side');
+  b.toggle('dock-corner', S.theater && S.dock === 'corner');
+  b.toggle('dock-min', S.theater && S.dock === 'corner' && !!S.dockMin);
 }
 
 // A hung stream needs the frame torn down, not just re-pointed: assigning the
