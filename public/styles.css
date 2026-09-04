@@ -530,15 +530,20 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .switch-item.active .si-sub { color: var(--muted); }
 
 /* Theater: the aside spans the width and the rail becomes one scrolling row. */
-body.theater .game-layout { grid-template-columns: 1fr; }
-body.theater .watch { order: -1; }
+/* minmax(0, 1fr), not 1fr: a bare 1fr is minmax(auto, 1fr), and that auto
+   floor cannot shrink below the rail's min-content width (one cell per game,
+   186px each). The column grew past the panel, pushing the games off screen
+   and throwing the centred player off axis. The scroll container also needs
+   min-width: 0 to be allowed narrower than the cells it holds. */
+body.theater .game-layout { grid-template-columns: minmax(0, 1fr); }
+body.theater .watch { order: -1; min-width: 0; }
 body.theater .watch-hd,
 body.theater .player,
 body.theater .video-bar,
 body.theater .switch-hd,
 body.theater .switch-rail { width: min(100%, calc(var(--theater-vid, 60vh) * 16 / 9)); margin-inline: auto; }
 body.theater .video-box { max-height: var(--theater-vid, 60vh); }
-body.theater .switch-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+body.theater .switch-list { min-width: 0; flex-direction: row; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 body.theater .switch-item { flex: none; width: 186px; border-bottom: 0; border-right: 1px solid var(--line); }
 body.theater .sr-fade { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 64px; background: linear-gradient(90deg, transparent, var(--bg)); pointer-events: none; }
 body.theater .sr-fade[hidden] { display: none; }
