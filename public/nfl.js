@@ -3,7 +3,11 @@ import { scorePlayer, expectedPoints, round2 } from './scoring.js';
 
 export const SLEEPER = 'https://api.sleeper.app/v1';
 export const SLEEPER_STATS = 'https://api.sleeper.com'; // undocumented stats/projections host
-export const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl';
+// site.api.espn.com answers curl and Node with Access-Control-Allow-Origin: *
+// but sends no such header to a real browser request, so a static deploy could
+// not read the scoreboard at all. site.web.api serves the same paths and the
+// same response shape, and does allow browser origins.
+export const ESPN = 'https://site.web.api.espn.com/apis/site/v2/sports/football/nfl';
 
 // Sleeper's full player dump is ~5 MB. Keep only what the UI needs.
 export function slimPlayers(raw) {

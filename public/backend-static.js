@@ -1,7 +1,8 @@
 // Backend: fetches Sleeper and ESPN directly from the browser, with no
 // server in between. Used automatically when /api isn't reachable (e.g. on
-// GitHub Pages). See backend.js. Both Sleeper's and ESPN's public read
-// endpoints send permissive CORS headers, so this works without a proxy.
+// GitHub Pages). See backend.js. Sleeper's endpoints allow browser origins,
+// and so does ESPN's site.web.api host; its site.api host does not, which is
+// why nfl.js points at the former.
 //
 // Requests here deliberately carry no custom headers: a cross-origin GET
 // with extra headers triggers a preflight OPTIONS request, and there's no

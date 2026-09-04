@@ -641,6 +641,9 @@ function nflStatus() {
   const byId = new Map();
   for (const g of Object.values(S.data?.games || {})) if (g && g.id) byId.set(g.id, g);
   const all = [...byId.values()];
+  // No scoreboard yet is not the same as every game being over, so say nothing
+  // rather than asserting a state we cannot know.
+  if (!all.length) return { none: true, live: false, next: null };
   if (all.some((g) => g.state === 'live')) return { live: true, next: null };
   const pre = all.filter((g) => g.state === 'pre')
     .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
@@ -659,6 +662,7 @@ function renderUpdated() {
     return;
   }
   const st = nflStatus();
+  if (st.none) { el.classList.remove('on', 'quiet'); el.innerHTML = ''; return; }
   el.classList.toggle('quiet', !st.live);
   const body = st.live
     ? `<span class="dot"></span>LIVE${S.liveAt ? ` ${time(S.liveAt)}` : ''}`
