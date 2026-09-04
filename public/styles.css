@@ -543,12 +543,6 @@ body.theater .video-bar,
 body.theater .switch-hd,
 body.theater .switch-rail { width: min(100%, calc(var(--theater-vid, 60vh) * 16 / 9)); margin-inline: auto; }
 body.theater .video-box { max-height: var(--theater-vid, 60vh); }
-/* The block is centred and narrower than the panel, so these two rows read as
-   captions to the picture. Left-aligning them inside it left them hugging the
-   block's edge, off-axis from the video above. */
-body.theater .watch-hd,
-body.theater .video-bar { justify-content: center; }
-
 body.theater .switch-list { min-width: 0; flex-direction: row; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 body.theater .switch-item { flex: none; width: 186px; border-bottom: 0; border-right: 1px solid var(--line); }
 body.theater .sr-fade { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 64px; background: linear-gradient(90deg, transparent, var(--bg)); pointer-events: none; }
