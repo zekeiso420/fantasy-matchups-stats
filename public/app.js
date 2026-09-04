@@ -58,14 +58,16 @@ $('#week-select').addEventListener('change', (e) => selectWeek(Number(e.target.v
 $('#week-prev').addEventListener('click', () => selectWeek(S.week - 1));
 $('#week-next').addEventListener('click', () => selectWeek(S.week + 1));
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.leagueId && S.week) connectLive(); });
-// Only 't' is ours; fullscreen belongs to the provider's own player now.
+// t = theater, r = reload a stalled source. Fullscreen belongs to the
+// provider's own player now.
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
-  if (e.key.toLowerCase() !== 't') return;
+  const k = e.key.toLowerCase();
+  if (k !== 't' && k !== 'r') return;
   if (!document.querySelector('#video-frame')) return;
   e.preventDefault();
-  videoAction('theater');
+  videoAction(k === 't' ? 'theater' : 'reload');
 });
 
 let playersReady = Promise.resolve();
@@ -815,6 +817,7 @@ function videoBarHtml(g) {
   return `
     <div class="video-bar">
       <button type="button" class="vb-btn" data-vid="theater" aria-pressed="${S.theater}" title="Theater mode (t)">${S.theater ? 'Exit theater' : 'Theater'}</button>
+      <button type="button" class="vb-btn" data-vid="reload" title="Reload this source (r) - use when the stream hangs">Reload</button>
       <span class="vb-quality"></span>
     </div>`;
 }
@@ -847,7 +850,27 @@ function setTheater(on) {
 }
 
 function videoAction(kind) {
-  if (kind === 'theater') setTheater(!S.theater);
+  if (kind === 'theater') return setTheater(!S.theater);
+  if (kind === 'reload') return reloadSource();
+}
+
+// A hung stream needs the frame torn down, not just re-pointed: assigning the
+// same src is a no-op in some browsers, and the provider's player would resume
+// the same stalled session anyway. Committing about:blank first guarantees a
+// cold start. Re-selecting the current option in the dropdown fires no change
+// event, so this is the only way back from a stall on the same source.
+function reloadSource() {
+  const frame = $('#video-frame');
+  if (!frame) return;
+  const src = srcState.list[srcState.idx] || frame.src;
+  if (!src || src === 'about:blank') return;
+  const btn = $('[data-vid="reload"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Reloading…'; }
+  frame.src = 'about:blank';
+  setTimeout(() => {
+    frame.src = src;
+    if (btn) { btn.disabled = false; btn.textContent = 'Reload'; }
+  }, 60);
 }
 
 // The provider's sources API lists the live quality variants for a stream key.
