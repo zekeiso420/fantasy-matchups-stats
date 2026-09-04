@@ -501,7 +501,7 @@ function renderScoreboardDynamic() {
   if (gap) {
     const d = ap - bp;
     gap.textContent = p.b ? `${d >= 0 ? '+' : '\u2212'}${Math.abs(d).toFixed(2)}` : '';
-    gap.classList.toggle('behind', d < 0);
+    gap.style.color = swingColor(d);
   }
   const wp = winProbFor(p);
   const meta = $('#ss-meta');
@@ -545,10 +545,18 @@ function renderRail() {
   const mine = myRoster()?.roster_id;
   rail.innerHTML = pairs().map((p) => {
     const ap = teamPts(p.a.m.roster_id), bp = p.b ? teamPts(p.b.m.roster_id) : 0;
+    // A zero is a real score; a side with nobody yet played is not zero, it is
+    // unknown, so it says so rather than printing 0.00.
+    const played = (sd) => { if (!sd) return false; const s = sideSummary(sd); return s.left < s.total || s.live > 0; };
+    const score = (sd, v, lead) => (played(sd)
+      ? `<span class="ri-score ${lead ? 'lead' : ''}">${fmt(v)}</span>`
+      : '<span class="ri-none">no games yet</span>');
+    const isMine = p.a.roster?.roster_id === mine || p.b?.roster?.roster_id === mine;
+    const rule = isMine ? ` style="border-left-color:${swingColor(ap - bp)}"` : '';
     return `
-      <button type="button" class="rail-item ${p.id === S.viewMatchupId ? 'active' : ''}" data-mid="${p.id}">
-        <div class="ri-row"><span class="ri-name ${p.a.roster?.roster_id === mine ? 'you' : ''}">${escape(p.a.name)}</span><span class="ri-score ${ap > bp ? 'lead' : ''}">${fmt(ap)}</span></div>
-        <div class="ri-row"><span class="ri-name ${p.b?.roster?.roster_id === mine ? 'you' : ''}">${escape(p.b?.name || 'Bye')}</span><span class="ri-score ${bp > ap ? 'lead' : ''}">${p.b ? fmt(bp) : ''}</span></div>
+      <button type="button" class="rail-item ${p.id === S.viewMatchupId ? 'active' : ''} ${isMine ? 'mine' : ''}" data-mid="${p.id}"${rule}>
+        <div class="ri-row"><span class="ri-name ${p.a.roster?.roster_id === mine ? 'you' : ''}">${escape(p.a.name)}</span>${score(p.a, ap, ap > bp)}</div>
+        <div class="ri-row"><span class="ri-name ${p.b?.roster?.roster_id === mine ? 'you' : ''}">${escape(p.b?.name || 'Bye')}</span>${p.b ? score(p.b, bp, bp > ap) : '<span class="ri-score"></span>'}</div>
       </button>`;
   }).join('');
   rail.querySelectorAll('[data-mid]').forEach((b) => b.addEventListener('click', () => { S.viewMatchupId = Number(b.dataset.mid); render({ keepVideo: true }); }));
@@ -598,9 +606,13 @@ function updateWatchAside(p) {
   const hd = $('.watch-hd .wh-game');
   if (hd) hd.textContent = gameTitle(game);
   const note = $('.watch-hd .wh-note');
-  if (note) note.textContent = watched
-    ? `${watched.a.filter((x) => !x.bench).length} of your starters · ${watched.b.filter((x) => !x.bench).length} of theirs`
-    : '';
+  if (note) {
+    const mine = watched ? watched.a.filter((x) => !x.bench).length : 0;
+    const theirs = watched ? watched.b.filter((x) => !x.bench).length : 0;
+    note.textContent = !watched ? ''
+      : (mine || theirs) ? `${mine} of your starters · ${theirs} of theirs`
+      : 'no starters in this game';
+  }
   const count = $('.sh-count');
   if (count) count.textContent = `${withGame.length} game${withGame.length !== 1 ? 's' : ''} · ${live.length} live`;
   for (const sw of app.querySelectorAll('.switch-list')) {
@@ -909,7 +921,9 @@ function videoAsideHtml(list) {
   watchedGame = game;
   const mine = watched ? watched.a.filter((x) => !x.bench).length : 0;
   const theirs = watched ? watched.b.filter((x) => !x.bench).length : 0;
-  const note = watched ? `${mine} of your starters · ${theirs} of theirs` : '';
+  const note = !watched ? ''
+    : (mine || theirs) ? `${mine} of your starters · ${theirs} of theirs`
+    : 'no starters in this game';
   const hint = `${withGame.length} game${withGame.length !== 1 ? 's' : ''} · ${live.length} live`;
   return `
     <aside class="watch">
@@ -1013,14 +1027,39 @@ function reloadSource() {
 // We cannot see inside a cross-origin frame, so this covers only what we can
 // know: the frame has not finished loading, or there is no stream to load. A
 // mid-stream stall is invisible from here, which is what Reload is for.
-function setPlayerState(kind, label) {
+function setPlayerState(kind, label, reason) {
   const el = $('#pl-state');
   if (!el) return;
-  if (!kind) { el.classList.remove('on'); return; }
+  el.dataset.kind = kind || '';
+  if (!kind) { el.classList.remove('on', 'err'); el.innerHTML = ''; return; }
   el.classList.add('on');
   el.classList.toggle('err', kind === 'error');
-  el.innerHTML = (kind === 'error' ? ICON.alert : '<span class="pl-ring"></span>')
-    + `<span class="pl-state-lbl">${escape(label || (kind === 'error' ? 'Stream unavailable' : 'Buffering'))}</span>`;
+  if (kind !== 'error') {
+    el.innerHTML = `<span class="pl-ring"></span><span class="pl-state-lbl">${escape(label || 'Buffering')}</span>`;
+    return;
+  }
+  el.innerHTML = ICON.alert
+    + `<span class="pl-state-lbl">${escape(label || 'Stream not available')}</span>`
+    + `<span class="pl-state-why">${escape(reason || 'This game has no feed right now.')}</span>`
+    + `<button type="button" class="pl-retry" data-vid="retry">Try again</button>`;
+  $('.pl-retry')?.addEventListener('click', retryStream);
+}
+
+// A stream we know does not exist must not be framed: the provider answers the
+// embed URL with JSON, and the browser renders its own JSON viewer inside our
+// 16:9 box. Blank the frame and show the designed block instead.
+function noStream(reason) {
+  const frame = $('#video-frame');
+  if (frame && frame.src !== 'about:blank') frame.src = 'about:blank';
+  setPlayerState('error', 'Stream not available', reason);
+}
+
+function retryStream() {
+  const key = srcState.key;
+  srcState.key = null;              // force the next sync to refetch
+  setPlayerState('buffering');
+  if (watchedGame) syncStream(watchedGame);
+  else srcState.key = key;
 }
 
 // --- Source menu ------------------------------------------------------------
@@ -1038,7 +1077,7 @@ async function syncStream(g) {
     srcState.options = buildOptions(data.sources || [], srcState.auto);
     srcState.live = data.live;
     srcState.idx = bestOptionIdx(srcState.options);
-    if (!data.live && !(data.sources || []).length) setPlayerState('error', 'Stream not up yet');
+    if (!data.live && !(data.sources || []).length) noStream('This game has no feed right now.');
     else applySource();
   }
   renderSource();
@@ -1146,7 +1185,11 @@ function bindVideoControls(root) {
   root.querySelectorAll('[data-vid]').forEach((b) => b.addEventListener('click', () => videoAction(b.dataset.vid)));
   const frame = root.querySelector('#video-frame');
   // about:blank commits during a reload; only a real source means "loaded".
-  if (frame) frame.addEventListener('load', () => { if (frame.src !== 'about:blank') setPlayerState(null); });
+  if (frame) frame.addEventListener('load', () => {
+    const st = $('#pl-state');
+    if (st?.dataset.kind === 'error') return;   // an error state outlives a load
+    if (frame.src !== 'about:blank') setPlayerState(null);
+  });
   root.querySelector('.switch-rail .switch-list')?.addEventListener('scroll', syncRailHint);
   requestAnimationFrame(syncRailHint);
 }
