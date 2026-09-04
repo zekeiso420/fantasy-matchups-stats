@@ -401,6 +401,14 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .game-bar { display: grid; grid-template-columns: minmax(0,1fr) 132px minmax(0,1fr); align-items: center; border-bottom: 1px solid var(--line-strong); padding: 0 10px 6px; }
 .game-bar.live { border-left: 3px solid var(--live-fill); }
 .game-bar .gb-line { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; }
+.gb-fix { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+/* Links out to ESPN keep the surrounding type and pick up a marker on hover,
+   so the row does not read as a page full of links. */
+.espn-link { color: inherit; text-decoration: none; }
+.espn-link:hover { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
+.espn-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.espn-link::after { content: "97"; margin-left: 5px; font-size: .78em; font-weight: 700; color: var(--dim); }
+.espn-link:hover::after { color: var(--accent); }
 .game-bar .gb-abbr, .game-bar .gb-score { flex: none; }
 .game-bar .gb-logo { width: 18px; height: 18px; object-fit: contain; }
 .game-bar .gb-abbr { font-weight: 700; }

@@ -608,7 +608,7 @@ function updateWatchAside(p) {
     return;
   }
   const hd = $('.watch-hd .wh-game');
-  if (hd) hd.textContent = gameTitle(game);
+  if (hd) { hd.textContent = gameTitle(game); hd.href = espnGameUrl(game) || '#'; }
   const note = $('.watch-hd .wh-note');
   if (note) {
     const mine = watched ? watched.a.filter((x) => !x.bench).length : 0;
@@ -930,9 +930,11 @@ function gameBarHtml(bk, startersA, startersB, totA, totB) {
   return `
     <div class="game-bar ${g.state === 'live' ? 'live' : ''}">
       <div class="gb-line">
-        <img class="gb-logo" src="${logo(g.away)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.away}</span> <span class="gb-score" data-game-score="${g.away}:away">${g.awayScore}</span>
-        <span class="gb-at">@</span>
-        <img class="gb-logo" src="${logo(g.home)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.home}</span> <span class="gb-score" data-game-score="${g.home}:home">${g.homeScore}</span>
+        <a class="gb-fix espn-link" href="${espnGameUrl(g)}" target="_blank" rel="noopener noreferrer" title="Box score on ESPN">
+          <img class="gb-logo" src="${logo(g.away)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.away}</span> <span class="gb-score" data-game-score="${g.away}:away">${g.awayScore}</span>
+          <span class="gb-at">@</span>
+          <img class="gb-logo" src="${logo(g.home)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.home}</span> <span class="gb-score" data-game-score="${g.home}:home">${g.homeScore}</span>
+        </a>
         <span class="gb-clock ${g.state === 'live' ? '' : 'pre'}" data-game-status="${g.home}">${gameStatusText(g)}</span>
       </div>
       <div class="gb-swing" data-gswing="${totKey(startersA)}|${totKey(startersB)}">${gameSwingHtml(totA - totB)}</div>
@@ -992,6 +994,13 @@ function bandClock(g) {
   return escape((m ? `${m[1]} · ${m[2]}` : d).toUpperCase());
 }
 
+// The game ids come from ESPN's scoreboard, so they address its box score
+// directly. Only the places that present a game as a label get the link;
+// the switch-game cells and the by-game headers are buttons that pick a
+// stream, and a link inside a button would be invalid and steal the click.
+const ESPN_GAME = 'https://www.espn.com/nfl/game/_/gameId/';
+const espnGameUrl = (g) => (g && g.id ? ESPN_GAME + encodeURIComponent(g.id) : null);
+
 const ICON = {
   chevron: (up) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="${up ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'}"/></svg>`,
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
@@ -1010,7 +1019,7 @@ function videoAsideHtml(list) {
   const hint = `${withGame.length} game${withGame.length !== 1 ? 's' : ''} · ${live.length} live`;
   return `
     <aside class="watch">
-      <div class="watch-hd"><span class="wh-lbl">Watching</span><span class="wh-game">${escape(gameTitle(game))}</span><span class="wh-note">${escape(note)}</span></div>
+      <div class="watch-hd"><span class="wh-lbl">Watching</span><a class="wh-game espn-link" href="${espnGameUrl(game) || '#'}" target="_blank" rel="noopener noreferrer" title="Box score on ESPN">${escape(gameTitle(game))}</a><span class="wh-note">${escape(note)}</span></div>
       ${playerHtml(game)}
       <div class="video-bar">
         <button type="button" class="vb-btn" data-vid="theater" aria-pressed="${S.theater}" title="Theater mode (t)">${S.theater ? 'Exit theater' : 'Theater'}</button>
