@@ -448,6 +448,7 @@ function render({ keepVideo = false } = {}) {
   // both and the tabs cannot shift when you switch.
   app.innerHTML = `
     <div class="matchup">
+      <div class="matchup-head">
       ${scoreStripHtml(cur)}
       <div class="tabs-row">
         <div class="tabs" role="tablist">
@@ -455,6 +456,7 @@ function render({ keepVideo = false } = {}) {
           <button type="button" role="tab" data-view="game" class="${S.view === 'game' ? 'active' : ''}" aria-pressed="${S.view === 'game'}">By NFL game</button>
         </div>
         <span class="tabs-hint ${S.theater ? 'on' : ''}" id="tabs-hint">${S.theater ? 'Theater on' : ''}</span>
+      </div>
       </div>
       <div class="matchup-body">
         <aside class="rail"><div class="rail-head">All matchups</div><div id="rail"></div></aside>
@@ -487,21 +489,29 @@ function switchView(view) {
 
 // One score readout for the screen. The hero block, the win-probability row
 // and the week strip all restated the same numbers in about 260px, and the
-// hero and the strip could disagree by a point. This is one line plus a 3px
-// rule, about 46px.
+// hero and the strip could disagree by a point. Keep actual and projected
+// scores aligned by team, with the outlook centered between them.
 function scoreStripHtml(p) {
   const a = p.a, b = p.b;
   return `
     <div class="score-strip" id="score-strip">
       <div class="ss-line">
-        <span class="ss-name" title="${escape(a.name)}">${escape(a.name)}</span>
-        <span class="ss-tot" data-total="${a.m.roster_id}">${fmt(teamPts(a.m.roster_id))}</span>
-        <span class="ss-gap" id="ss-gap"></span>
-        <span class="ss-tot opp" ${b ? `data-total="${b.m.roster_id}"` : ''}>${b ? fmt(teamPts(b.m.roster_id)) : '\u2013'}</span>
-        <span class="ss-name opp" title="${escape(b?.name || 'Bye')}">${escape(b?.name || 'Bye')}</span>
-        <span class="ss-meta" id="ss-meta"></span>
+        <div class="ss-team">
+          <span class="ss-name" title="${escape(a.name)}">${escape(a.name)}</span>
+          <span class="ss-tot" data-total="${a.m.roster_id}">${fmt(teamPts(a.m.roster_id))}</span>
+          <span class="ss-proj" id="ss-proj-a" hidden></span>
+        </div>
+        <div class="ss-outlook">
+          <div id="ss-projection" hidden></div>
+          <span class="ss-gap" id="ss-gap"></span>
+          <span class="ss-meta" id="ss-meta"></span>
+        </div>
+        <div class="ss-team opp">
+          <span class="ss-name opp" title="${escape(b?.name || 'Bye')}">${escape(b?.name || 'Bye')}</span>
+          <span class="ss-tot opp" ${b ? `data-total="${b.m.roster_id}"` : ''}>${b ? fmt(teamPts(b.m.roster_id)) : '–'}</span>
+          <span class="ss-proj" id="ss-proj-b" hidden></span>
+        </div>
       </div>
-      <div class="ss-projection" id="ss-projection" hidden></div>
       <div class="ss-wp"><i id="ss-wp-fill"></i></div>
     </div>`;
 }
@@ -528,20 +538,22 @@ function renderScoreboardDynamic() {
     meta.textContent = bits.join(' \u00b7 ');
   }
   const projection = $('#ss-projection');
-  if (projection) {
-    projection.hidden = wp == null;
-    projection.textContent = '';
-    if (wp != null) {
-      // These are the same expected final totals used by winProbFor().
-      const ea = teamExp(p.a.m.roster_id), eb = teamExp(p.b.m.roster_id);
-      const margin = Math.abs(ea - eb);
-      const tied = fmt(ea) === fmt(eb);
-      const favorite = ea >= eb ? p.a : p.b;
-      const chance = ea >= eb ? wp : 1 - wp;
-      const outcome = tied ? 'Even projection · 50% each'
-        : `${favorite.name} favored by ${fmt(margin)} · Estimated win chance ${Math.round(chance * 100)}%`;
-      projection.textContent = `Projected final: ${p.a.name} ${fmt(ea)} vs ${p.b.name} ${fmt(eb)} · ${outcome}`;
-    }
+  const projA = $('#ss-proj-a'), projB = $('#ss-proj-b');
+  for (const el of [projection, projA, projB]) {
+    if (el) { el.hidden = wp == null; el.textContent = ''; el.removeAttribute('aria-label'); }
+  }
+  if (gap) gap.hidden = wp != null;
+  if (projection && wp != null) {
+    const ea = teamExp(p.a.m.roster_id), eb = teamExp(p.b.m.roster_id);
+    const tied = fmt(ea) === fmt(eb);
+    const chanceA = tied ? 50 : Math.round(wp * 100);
+    projA.textContent = `${fmt(ea)} projected`;
+    projB.textContent = `${fmt(eb)} projected`;
+    const edge = tied ? 'Even projection' : `${ea > eb ? '← ' : ''}${fmt(Math.abs(ea - eb))} projected edge${eb > ea ? ' →' : ''}`;
+    projection.innerHTML = `<span class="ss-outlook-label">Est. win chance</span>
+      <span class="ss-chances"><b class="${ea >= eb ? 'favored' : ''}">${chanceA}%</b><span> / </span><b class="${eb >= ea ? 'favored' : ''}">${100 - chanceA}%</b></span>
+      <span class="ss-edge">${edge}</span>`;
+    projection.setAttribute('aria-label', `${p.a.name}: ${chanceA}% win chance, projected ${fmt(ea)}. ${p.b.name}: ${100 - chanceA}% win chance, projected ${fmt(eb)}.`);
   }
   const fill = $('#ss-wp-fill');
   if (fill) {
