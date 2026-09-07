@@ -420,7 +420,7 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .game-bar .gb-swing .diff { font-size: 11px; font-weight: 700; letter-spacing: 0; }
 .game-bar .gb-swing .diff.even { color: var(--dim); }
 .game-bar .gb-swing .swing { width: 100%; height: 5px; margin-top: 0; }
-.game-bar .gb-tot { text-align: right; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.game-bar .gb-tot { text-align: right; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 .game-bar .gb-tot b { color: var(--text); font-weight: 800; font-size: 14px; }
 
 .game-row { min-height: 44px; }
@@ -435,13 +435,13 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 
 /* Collapsed non-live games */
 .later-hd { font-size: 10px; letter-spacing: .14em; color: var(--faint); font-weight: 700; padding: 8px 0 6px; border-bottom: 2px solid var(--line-strong); text-transform: uppercase; }
-.later-line { display: grid; grid-template-columns: 150px minmax(0,1fr) auto; gap: 14px; align-items: center; width: 100%; text-align: left; background: transparent; border: 0; border-bottom: 1px solid var(--line); min-height: 38px; font-size: 12.5px; color: var(--muted); }
+.later-line { display: grid; grid-template-columns: 150px minmax(0,1fr) minmax(0, 34%); gap: 14px; align-items: center; width: 100%; text-align: left; background: transparent; border: 0; border-bottom: 1px solid var(--line); min-height: 38px; font-size: 12.5px; color: var(--muted); }
 .later-line:hover { background: color-mix(in srgb, var(--raised) 40%, transparent); }
 .later-line .ll-name { display: flex; align-items: baseline; gap: 8px; color: var(--text); font-weight: 700; white-space: nowrap; }
 .later-line .ll-time { font-size: 10.5px; letter-spacing: .06em; color: var(--faint); font-weight: 600; }
 .later-line .ll-time.final { color: color-mix(in srgb, var(--faint) 65%, transparent); }
 .later-line .ll-players { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.later-line .ll-count { color: var(--faint); font-size: 11px; white-space: nowrap; }
+.later-line .ll-count { color: var(--faint); font-size: 11px; text-align: right; overflow-wrap: anywhere; }
 
 /* Video column */
 /* Watching line: label, game, roster note on one baseline. */
