@@ -856,7 +856,13 @@ function slotViewHtml(p) {
   const benchBlock = n
     ? `<div class="bench-hd">Bench (${benchA.length} vs ${benchB.length})</div><div class="bench-block">${benchRows}</div>`
     : '';
-  return `<div class="starters">${rows}</div>${benchBlock}${foot}`;
+  return `<div class="starters">
+    <div class="slot-row roster-heading">
+      <h2 class="roster-team a">${escape(p.a.name)}</h2>
+      <span aria-hidden="true"></span>
+      <h2 class="roster-team b">${escape(p.b?.name || 'Bye')}</h2>
+    </div>
+    ${rows}</div>${benchBlock}${foot}`;
 }
 
 function benchIds(s) {
@@ -1362,9 +1368,12 @@ function sideHtml(pl, rosterId, sideKey, { bench = false, compact = false } = {}
 
 function avatarHtml(pl) {
   if (pl.pos === 'DEF' && pl.team) return `<img class="head def" src="${logo(pl.team)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'init',textContent:'${initials(pl.name)}'}))">`;
-  const src = pl.espn ? `https://a.espncdn.com/i/headshots/nfl/players/full/${pl.espn}.png` : null;
-  const init = `<div class="init">${initials(pl.name)}</div>`;
-  return src ? `<img class="head" src="${src}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'init',textContent:'${initials(pl.name)}'}))">` : init;
+  // Sleeper IDs are always available; ESPN IDs are missing for many players.
+  const src = pl.id ? `https://sleepercdn.com/content/nfl/players/${encodeURIComponent(pl.id)}.jpg` : null;
+  const fallback = pl.espn ? `https://a.espncdn.com/i/headshots/nfl/players/full/${encodeURIComponent(pl.espn)}.png` : '';
+  const init = escape(initials(pl.name));
+  if (!src && !fallback) return `<div class="init">${init}</div>`;
+  return `<img class="head" src="${src || fallback}" data-fallback="${src ? fallback : ''}" data-initials="${init}" alt="" loading="lazy" onerror="if(this.dataset.fallback){const next=this.dataset.fallback;delete this.dataset.fallback;this.src=next;}else{this.onerror=null;this.replaceWith(Object.assign(document.createElement('div'),{className:'init',textContent:this.dataset.initials}));}">`;
 }
 
 const emptySide = (sideKey) => `<div class="side ${sideKey} empty">–</div>`;
