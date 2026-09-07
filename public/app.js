@@ -501,6 +501,7 @@ function scoreStripHtml(p) {
         <span class="ss-name opp" title="${escape(b?.name || 'Bye')}">${escape(b?.name || 'Bye')}</span>
         <span class="ss-meta" id="ss-meta"></span>
       </div>
+      <div class="ss-projection" id="ss-projection" hidden></div>
       <div class="ss-wp"><i id="ss-wp-fill"></i></div>
     </div>`;
 }
@@ -523,9 +524,24 @@ function renderScoreboardDynamic() {
   if (meta) {
     const sa = sideSummary(p.a), sb = p.b ? sideSummary(p.b) : { left: 0, total: 0 };
     const bits = [];
-    if (wp != null) bits.push(`win prob ${Math.round(wp * 100)}%`);
     bits.push(`${sa.left + sb.left} of ${sa.total + sb.total} starters left`);
     meta.textContent = bits.join(' \u00b7 ');
+  }
+  const projection = $('#ss-projection');
+  if (projection) {
+    projection.hidden = wp == null;
+    projection.textContent = '';
+    if (wp != null) {
+      // These are the same expected final totals used by winProbFor().
+      const ea = teamExp(p.a.m.roster_id), eb = teamExp(p.b.m.roster_id);
+      const margin = Math.abs(ea - eb);
+      const tied = fmt(ea) === fmt(eb);
+      const favorite = ea >= eb ? p.a : p.b;
+      const chance = ea >= eb ? wp : 1 - wp;
+      const outcome = tied ? 'Even projection · 50% each'
+        : `${favorite.name} favored by ${fmt(margin)} · Estimated win chance ${Math.round(chance * 100)}%`;
+      projection.textContent = `Projected final: ${p.a.name} ${fmt(ea)} vs ${p.b.name} ${fmt(eb)} · ${outcome}`;
+    }
   }
   const fill = $('#ss-wp-fill');
   if (fill) {

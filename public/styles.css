@@ -252,6 +252,7 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 .ss-tot.trail { color: var(--muted); }
 .ss-gap { font-size: 15px; font-weight: 800; }
 .ss-meta { margin-left: auto; font-size: 11.5px; color: var(--faint); white-space: nowrap; }
+.ss-projection { margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.6; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .ss-wp { height: 3px; background: var(--line); margin-top: 6px; }
 .ss-wp i { display: block; height: 100%; background: var(--bar); transition: width .5s ease; }
 
