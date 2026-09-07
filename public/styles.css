@@ -393,7 +393,18 @@ table.sheet td.v, table.sheet td.p { text-align: right; font-weight: 700; white-
 table.sheet td.w { color: var(--faint); text-align: right; padding: 0 10px; white-space: nowrap; }
 table.sheet tfoot td { border-top: 2px solid var(--line-strong); border-bottom: 0; padding-top: 7px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
 table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; letter-spacing: 0; }
-.sheet-proj, .sheet-empty { color: var(--muted); padding-top: 6px; }
+.sheet-empty { color: var(--muted); padding-top: 6px; }
+.sheet-proj { padding-top: 10px; }
+.projection-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 12px; }
+.projection-label { color: var(--text); font-size: 12px; font-weight: 700; }
+.projection-context { color: var(--muted); font-size: 11px; margin-top: 3px; }
+.projection-total { color: var(--accent); font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.projection-total > span { margin-left: 5px; color: var(--muted); font-size: 11px; font-weight: 500; }
+.projection-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: 8px; margin: 0; }
+.projection-stat { padding: 10px 12px; border: 1px solid var(--line); background: var(--bg); min-width: 0; }
+.projection-stat dt { color: var(--muted); font-size: 11px; margin-bottom: 6px; overflow-wrap: anywhere; }
+.projection-stat dd { margin: 0; color: var(--text); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.projection-stat dd > span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; font-weight: 500; }
 
 /* ==========================================================================
    By NFL game + video slot
