@@ -2,7 +2,7 @@
 // Data flows one way: fetch → state → render(). Live updates patch state and
 // either re-render or touch only the numbers, depending on what changed.
 
-import { breakdown } from './scoring.js';
+import { breakdown, scorePlayer } from './scoring.js';
 import * as backend from './backend.js';
 import { VIDEO_BASE, PROVIDER, streamKey, sourceLabel } from './video.js';
 
@@ -1386,11 +1386,20 @@ function sheetBodyHtml(pid, rosterId) {
   const proj = S.data.proj?.[pid];
   if (!st && !proj) return `<div class="sheet-empty">${S.data.statsAvailable === false ? 'Live stat feed unavailable; showing Sleeper\'s points.' : 'No stats yet.'}</div>`;
   const rows = st ? breakdown(st, scoring) : [];
-  const projRows = proj ? breakdown(proj, scoring).slice(0, 4) : [];
+  const projRows = proj ? breakdown(proj, scoring) : [];
   return `
     ${rows.length ? `<table class="sheet"><tbody>${rows.map((r) => `<tr><td>${escape(r.label)}</td><td class="v">${fmtStat(r.value)}</td><td class="w">× ${fmtW(r.weight)}</td><td class="p">${r.points > 0 ? '+' : ''}${fmt(r.points)}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td colspan="3">${sc?.src === 'official' ? 'Official' : 'Live, league scoring'}</td><td class="p">${fmt(playerPts(pid, rosterId))}</td></tr></tfoot></table>` : ''}
-    ${projRows.length ? `<div class="sheet-proj">Projected ${fmt(sc?.proj)}: ${projRows.map((r) => `${fmtStat(r.value)} ${r.label.toLowerCase()}`).join(', ')}</div>` : ''}`;
+    ${proj ? `<section class="sheet-proj" aria-label="Projected performance">
+      <div class="projection-summary">
+        <div><div class="projection-label">Projected points</div><div class="projection-context">League scoring</div></div>
+        <div class="projection-total">${fmt(sc?.proj ?? scorePlayer(proj, scoring))}<span>pts</span></div>
+      </div>
+      ${projRows.length ? `<dl class="projection-stats">${projRows.map((r) => `<div class="projection-stat">
+        <dt>${escape(r.key === 'rec' ? 'Receptions' : r.label)}</dt>
+        <dd>${fmtStat(r.value)}<span>${r.points > 0 ? '+' : ''}${fmt(r.points)} pts</span></dd>
+      </div>`).join('')}</dl>` : '<div class="projection-context">No projected scoring stats</div>'}
+    </section>` : ''}`;
 }
 const fmtStat = (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
 const fmtW = (w) => (Math.abs(w) >= 1 ? String(w) : w.toFixed(2).replace(/0+$/, ''));
