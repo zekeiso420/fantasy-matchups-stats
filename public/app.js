@@ -295,6 +295,19 @@ function side(m) {
   };
 }
 
+// Use the selected fantasy teams consistently, including when spectating.
+function matchupLabels(p = current()) {
+  return { a: p.a.name, b: p.b?.name || 'Bye' };
+}
+
+function startersNote(watched, p = current()) {
+  if (!watched) return '';
+  const a = watched.a.filter((x) => !x.bench).length;
+  const b = watched.b.filter((x) => !x.bench).length;
+  const labels = matchupLabels(p);
+  return (a || b) ? `${labels.a}: ${a} starters · ${labels.b}: ${b} starters` : 'no starters in this game';
+}
+
 function current() { return pairs().find((p) => p.id === S.viewMatchupId) || pairs()[0]; }
 
 function starterSlots() {
@@ -418,6 +431,7 @@ function render({ keepVideo = false } = {}) {
   // switching tabs never touches the <iframe>. Only a full rebuild does, so
   // skip one whenever the frame is already mounted.
   if (keepVideo && cur && $('aside.watch')) {
+    $('#score-strip').outerHTML = scoreStripHtml(cur);
     renderContent(cur);
     updateWatchAside(cur);
     renderRail();
@@ -611,11 +625,7 @@ function updateWatchAside(p) {
   if (hd) { hd.textContent = gameTitle(game); hd.href = espnGameUrl(game) || '#'; }
   const note = $('.watch-hd .wh-note');
   if (note) {
-    const mine = watched ? watched.a.filter((x) => !x.bench).length : 0;
-    const theirs = watched ? watched.b.filter((x) => !x.bench).length : 0;
-    note.textContent = !watched ? ''
-      : (mine || theirs) ? `${mine} of your starters · ${theirs} of theirs`
-      : 'no starters in this game';
+    note.textContent = startersNote(watched, p);
   }
   const count = $('.sh-count');
   if (count) count.textContent = `${withGame.length} game${withGame.length !== 1 ? 's' : ''} · ${live.length} live`;
@@ -783,14 +793,14 @@ function byGameColumnHtml(pair) {
 
   const shown = [...live, ...started];
   const body = shown.map(group).join('');
-  const empty = live.length ? '' : '<div class="bg-empty">None of your starters are playing right now</div>';
+  const empty = live.length ? '' : `<div class="bg-empty">None of ${escape(pair.a.name)}’s starters are playing right now</div>`;
   const seen = new Set(shown.map((bk) => bk.game.id));
   const rest = list.filter((bk) => bk.game && !seen.has(bk.game.id));
   const later = rest.length
     ? `<button type="button" class="later-toggle" data-bg-later>Other games (${rest.length}) ⌄</button>`
     : '';
   const laterRows = S.bgLaterOpen ? rest.map(group).join('') : '';
-  return `<div class="bygame"><div class="mini-hd"><span class="mini-lbl">By game</span><span class="mini-sub">your starters</span></div>`
+  return `<div class="bygame"><div class="mini-hd"><span class="mini-lbl">By game</span><span class="mini-sub">${escape(pair.a.name)} starters</span></div>`
     + empty + body + later + laterRows + `</div>`;
 }
 
@@ -811,7 +821,7 @@ function compressedStartersHtml(p) {
       + `</div>`;
   }).join('');
   return `<div class="mini">`
-    + `<div class="mini-hd"><span class="mini-lbl">Starters</span><span class="mini-sub">you vs them</span></div>`
+    + `<div class="mini-hd"><span class="mini-lbl">Starters</span><span class="mini-sub">${escape(p.a.name)} vs ${escape(p.b?.name || 'Bye')}</span></div>`
     + rows
     + `</div>`;
 }
@@ -938,7 +948,7 @@ function gameBarHtml(bk, startersA, startersB, totA, totB) {
         <span class="gb-clock ${g.state === 'live' ? '' : 'pre'}" data-game-status="${g.home}">${gameStatusText(g)}</span>
       </div>
       <div class="gb-swing" data-gswing="${totKey(startersA)}|${totKey(startersB)}">${gameSwingHtml(totA - totB)}</div>
-      <div class="gb-tot" data-tot-a="${totKey(startersA)}" data-tot-b="${totKey(startersB)}"><b class="ta">${fmt(totA)}</b> you · <b class="tb">${fmt(totB)}</b> them</div>
+      <div class="gb-tot" data-tot-a="${totKey(startersA)}" data-tot-b="${totKey(startersB)}"><b class="ta">${fmt(totA)}</b> ${escape(matchupLabels().a)} · <b class="tb">${fmt(totB)}</b> ${escape(matchupLabels().b)}</div>
     </div>`;
 }
 
@@ -960,7 +970,8 @@ function laterLineHtml(bk) {
   const isFinal = g && g.state === 'final';
   const time = g ? (isFinal ? 'FINAL' : shortKick(g.kickoff)) : '';
   const who = [...bk.a, ...bk.b].map((x) => `${escape(shortName(x))}${x.pts ? ` ${fmt(x.pts)}` : ''}`).join(' · ');
-  const count = `${bk.a.length} you, ${bk.b.length} them`;
+  const labels = matchupLabels();
+  const count = `${escape(labels.a)}: ${bk.a.length} · ${escape(labels.b)}: ${bk.b.length}`;
   return `<button type="button" class="later-line" ${g ? `data-watch="${g.id}"` : ''}><span class="ll-name">${name}${time ? `<span class="ll-time ${isFinal ? 'final' : ''}">${time}</span>` : ''}</span><span class="ll-players">${who}</span><span class="ll-count">${count}</span></button>`;
 }
 
@@ -1011,11 +1022,7 @@ const ICON = {
 function videoAsideHtml(list) {
   const { withGame, watched, live, game } = watchedOf(list);
   watchedGame = game;
-  const mine = watched ? watched.a.filter((x) => !x.bench).length : 0;
-  const theirs = watched ? watched.b.filter((x) => !x.bench).length : 0;
-  const note = !watched ? ''
-    : (mine || theirs) ? `${mine} of your starters · ${theirs} of theirs`
-    : 'no starters in this game';
+  const note = startersNote(watched);
   const hint = `${withGame.length} game${withGame.length !== 1 ? 's' : ''} · ${live.length} live`;
   return `
     <aside class="watch">
@@ -1068,7 +1075,7 @@ function switchListHtml(withGame, watched) {
     const sub = `${active ? 'Watching · ' : ''}${count} player${count !== 1 ? 's' : ''}`;
     return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state === 'live' ? 'is-live' : ''}" data-watch="${gg.id}"><span class="si-top"><span class="si-name">${gg.away} @ ${gg.home}</span>${state}</span><span class="si-sub">${escape(sub)}</span></button>`;
   };
-  const empty = '<div class="empty-col">No games with your players</div>';
+  const empty = '<div class="empty-col">No games with players in this matchup</div>';
   // Live games first; the rest sit behind a count, since a dock column has no
   // room for ten cells. The watched game always shows, wherever it sits.
   // Theater lists the grouped roster below, so the control only needs the game
