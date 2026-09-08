@@ -26,6 +26,11 @@
   --stat-down: #ff8a1f;
   --own-edge: #3ddc5f;     /* the rule marking your half of a rail row */
   --opp-edge: #4e5a4a;     /* and the opponent's */
+  --panel-rule: #31432f;   /* the projection grid's internal rules */
+  --panel-lbl: #9b9797;    /* its PROJECTED label */
+  --panel-val: #f0c543;    /* its big number */
+  --lift-shadow: 0 -10px 14px -6px rgba(0, 0, 0, .55);
+  --panel-shadow: 0 14px 26px -8px rgba(0, 0, 0, .7);
 
   /* Role tokens, resolved differently per theme. */
   --accent: #f0c543;        /* markers, tabs, rail-active, "you", your lead */
@@ -65,12 +70,17 @@
   --swing-even: #c8a01f;
   --swing-ahead: #17a544;
   --swing-behind: #d92b0f;
-  --sel-fill: #e2e6d8;
-  --sel-edge: #c3c8b6;
-  --stat-up: #3f7d16;
-  --stat-down: #b45309;
+  --sel-fill: #ffffff;
+  --sel-edge: #d6d3d0;
+  --stat-up: #2f7d32;
+  --stat-down: #c2410c;
   --own-edge: #17a544;
   --opp-edge: #b4b1a8;
+  --panel-rule: #e4e1de;
+  --panel-lbl: #6b6663;
+  --panel-val: #b8250e;    /* accent-700: the pure accent is too hot at 22px */
+  --lift-shadow: 0 1px 2px rgba(32, 30, 29, .06);
+  --panel-shadow: 0 1px 2px rgba(32, 30, 29, .06), 0 8px 20px rgba(32, 30, 29, .10);
 
   --accent: #ec3013;
   --bar: #201e1d;
@@ -91,8 +101,11 @@
     --text: #201e1d; --muted: #605d5d; --faint: #7d7979; --video: #eae9e9;
     --surface-2: #eaece4; --menu: #ffffff; --frame-deep: #d9d8d8; --dim: #8b8888;
     --swing-even: #c8a01f; --swing-ahead: #17a544; --swing-behind: #d92b0f;
-    --sel-fill: #e2e6d8; --sel-edge: #c3c8b6; --stat-up: #3f7d16; --stat-down: #b45309;
+    --sel-fill: #ffffff; --sel-edge: #d6d3d0; --stat-up: #2f7d32; --stat-down: #c2410c;
     --own-edge: #17a544; --opp-edge: #b4b1a8;
+    --panel-rule: #e4e1de; --panel-lbl: #6b6663; --panel-val: #b8250e;
+    --lift-shadow: 0 1px 2px rgba(32, 30, 29, .06);
+    --panel-shadow: 0 1px 2px rgba(32, 30, 29, .06), 0 8px 20px rgba(32, 30, 29, .10);
     --accent: #ec3013; --bar: #201e1d; --gap: #ae1800; --live: #ae1800;
     --live-fill: #ec3013; --accent-ink: #ffffff;
     --bar-bg: #201e1d; --bar-fg: #f3f2f2; --bar-muted: color-mix(in srgb, #f3f2f2 62%, transparent);
@@ -433,8 +446,8 @@ main { padding: 0 0 48px; }
    on its outer side and a shadow above, so the half and the panel below read as
    one L rather than a band across the whole row. */
 .side[aria-expanded="true"] { background: var(--sel-fill); position: relative; z-index: 1; }
-.side.a[aria-expanded="true"] { box-shadow: inset 3px 0 0 var(--accent), 0 -10px 14px -6px rgba(0,0,0,.55); border-left-color: transparent; }
-.side.b[aria-expanded="true"] { box-shadow: inset -3px 0 0 var(--accent), 0 -10px 14px -6px rgba(0,0,0,.55); }
+.side.a[aria-expanded="true"] { box-shadow: inset 3px 0 0 var(--accent), var(--lift-shadow); border-left-color: transparent; }
+.side.b[aria-expanded="true"] { box-shadow: inset -3px 0 0 var(--accent), var(--lift-shadow); }
 /* The row rule stops at the selected half, which flows into the panel; it still
    runs under the swing column and the opponent. */
 .slot-row:has(.stat-panel.open) { border-bottom-color: transparent; }
@@ -460,23 +473,23 @@ main { padding: 0 0 48px; }
 .sp-body {
   opacity: 0; transition: opacity .17s ease;
   background: var(--sel-fill); border: 1px solid var(--sel-edge); border-top: 0;
-  box-shadow: 0 14px 26px -8px rgba(0, 0, 0, .7);
+  box-shadow: var(--panel-shadow);
 }
 .stat-panel.open .sp-body { opacity: 1; }
 .sp-hd { display: flex; align-items: baseline; gap: 8px; padding: 13px 24px 12px; }
 .stat-panel.b .sp-hd { justify-content: flex-end; }
-.sp-hd-lbl { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
-.sp-hd-val { font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--accent); }
-.sp-hd-unit { font-size: 11px; color: var(--muted); }
+.sp-hd-lbl { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--panel-lbl); }
+.sp-hd-val { font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--panel-val); }
+.sp-hd-unit { font-size: 11px; color: var(--panel-lbl); }
 /* Eight cells, 4x2. The horizontal rules run the full width - under the header
    and between the two rows - while the verticals sit only between columns, so
    the block is ruled inside and open at its edges. */
-.sp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.sp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--panel-rule); }
 .sp-cell { padding: 9px 14px; min-width: 0; }
-.sp-cell:not(:nth-child(4n + 1)) { border-left: 1px solid var(--line); }
+.sp-cell:not(:nth-child(4n + 1)) { border-left: 1px solid var(--panel-rule); }
 .sp-cell:nth-child(4n + 1) { padding-left: 24px; }
-.sp-cell:nth-child(n + 5) { border-top: 1px solid var(--line); }
-.sp-lbl { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-cell:nth-child(n + 5) { border-top: 1px solid var(--panel-rule); }
+.sp-lbl { font-size: 10.5px; color: var(--panel-lbl); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp-val { font-size: 16px; font-weight: 800; white-space: nowrap; }
 .sp-pts { font-size: 11px; font-weight: 700; margin-left: 6px; }
 .sp-pts.up { color: var(--stat-up); }
@@ -486,10 +499,10 @@ main { padding: 0 0 48px; }
 @media (max-width: 900px) {
   .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sp-cell:not(:nth-child(4n + 1)) { border-left: 0; }
-  .sp-cell:nth-child(2n) { border-left: 1px solid var(--line); }
+  .sp-cell:nth-child(2n) { border-left: 1px solid var(--panel-rule); }
   .sp-cell:nth-child(4n + 1) { padding-left: 14px; }
   .sp-cell:nth-child(2n + 1) { padding-left: 18px; }
-  .sp-cell:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .sp-cell:nth-child(n + 3) { border-top: 1px solid var(--panel-rule); }
 }
 
 /* ==========================================================================
@@ -702,11 +715,12 @@ body.theater .games { display: none; }
 /* Six fixed tracks: chip, name, score, swing, score, name. Fixed rather than
    flowed so every score lands in the same column all the way down and a long
    name truncates instead of pushing the number sideways. The budget at 400px:
-   22px chip, 44px scores, 60px swing, 6px gaps - about 91px per name, which
-   fits a full surname. */
+   30px chip, 44px scores, 52px swing, 6px gaps - about 83px per name, still a
+   full surname, and FLEX now clears the name with the whole 6px gap rather
+   than crowding it. */
 .mini-row {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 44px 60px 44px minmax(0, 1fr);
+  grid-template-columns: 30px minmax(0, 1fr) 44px 52px 44px minmax(0, 1fr);
   gap: 6px; align-items: center; min-height: 30px;
   border-bottom: 1px solid var(--line);
 }
@@ -721,7 +735,7 @@ body.theater .games { display: none; }
 .mini-gut { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-width: 0; }
 .mini-swing { text-align: center; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .mini-swing .diff { font-size: 11px; }
-.mini-bar .swing { margin-top: 0; height: 3px; }
+.mini-bar .swing { margin-top: 0; height: 3px; width: 48px; margin-left: auto; margin-right: auto; }
 
 
 /* Theater: the player takes the full panel width and the rest stacks under it.
