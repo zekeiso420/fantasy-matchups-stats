@@ -31,6 +31,8 @@
   --panel-val: #f0c543;    /* its big number */
   --lift-shadow: 0 -10px 14px -6px rgba(0, 0, 0, .55);
   --panel-shadow: 0 14px 26px -8px rgba(0, 0, 0, .7);
+  --proj-dim: #b8b4ae;     /* a rail number that is a projection, not a score */
+  --live-dot: #3ddc5f;     /* this matchup has a game on */
 
   /* Role tokens, resolved differently per theme. */
   --accent: #f0c543;        /* markers, tabs, rail-active, "you", your lead */
@@ -81,6 +83,8 @@
   --panel-val: #b8250e;    /* accent-700: the pure accent is too hot at 22px */
   --lift-shadow: 0 1px 2px rgba(32, 30, 29, .06);
   --panel-shadow: 0 1px 2px rgba(32, 30, 29, .06), 0 8px 20px rgba(32, 30, 29, .10);
+  --proj-dim: #6b6663;
+  --live-dot: #17a544;
 
   --accent: #ec3013;
   --bar: #201e1d;
@@ -106,6 +110,7 @@
     --panel-rule: #e4e1de; --panel-lbl: #6b6663; --panel-val: #b8250e;
     --lift-shadow: 0 1px 2px rgba(32, 30, 29, .06);
     --panel-shadow: 0 1px 2px rgba(32, 30, 29, .06), 0 8px 20px rgba(32, 30, 29, .10);
+    --proj-dim: #6b6663; --live-dot: #17a544;
     --accent: #ec3013; --bar: #201e1d; --gap: #ae1800; --live: #ae1800;
     --live-fill: #ec3013; --accent-ink: #ffffff;
     --bar-bg: #201e1d; --bar-fg: #f3f2f2; --bar-muted: color-mix(in srgb, #f3f2f2 62%, transparent);
@@ -345,8 +350,18 @@ main { padding: 0 0 48px; }
 .rail-item .ri-row + .ri-row { margin-top: 2px; }
 .rail-item .ri-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-item .ri-name.you::after { content: "you"; margin-left: 6px; font-size: 9.5px; letter-spacing: .1em; color: var(--accent); font-weight: 700; text-transform: uppercase; }
+.rail-item .ri-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: visible; }
+.ri-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-item .ri-name.you::after { flex: none; }
+/* A matchup with a game on says so once, on the row, rather than in a column
+   header that would have to describe every other row too. */
+.ri-live { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--live-dot); flex: none; }
 .rail-item .ri-score { font-weight: 700; color: var(--muted); white-space: nowrap; }
-.rail-item .ri-score.lead { color: var(--text); }
+.rail-item .ri-score.lead { color: var(--text); font-weight: 800; }
+/* A projected total, not a score: dimmed, and tagged so the two are never
+   mistaken for each other in a rail showing both. */
+.rail-item .ri-score.proj { font-weight: 700; color: var(--proj-dim); }
+.ri-tag { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-left: 4px; font-weight: 700; }
 
 /* Panel head: tabs + hint */
 .panel { min-width: 0; }
@@ -781,7 +796,6 @@ aside.rail {
 .rail-item { min-height: 24px; padding: 8px 0; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; padding-left: 9px; }
 .rail-item.mine { border-left-width: 3px; }
 .rail-item .ri-row { font-size: 12px; line-height: 1.25; }
-.ri-none { font-size: 11.5px; font-weight: 400; color: var(--dim); white-space: nowrap; }
 .rail-item .ri-name { font-weight: 500; }
 .rail-item .ri-score { width: 52px; text-align: right; font-weight: 700; }
 
