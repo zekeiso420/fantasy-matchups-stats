@@ -2,7 +2,7 @@
 // Data flows one way: fetch → state → render(). Live updates patch state and
 // either re-render or touch only the numbers, depending on what changed.
 
-import { breakdown, scorePlayer } from './scoring.js';
+import { breakdown, scorePlayer, STAT_LABEL } from './scoring.js';
 import * as backend from './backend.js';
 import { VIDEO_BASE, PROVIDER, streamKey, sourceLabel } from './video.js';
 
@@ -232,14 +232,15 @@ function patchNumbers() {
   for (const el of app.querySelectorAll('[data-swing]')) {
     const [a, b] = el.dataset.swing.split('|').map((x) => x.split(':'));
     const d = playerPts(a[1], Number(a[0])) - playerPts(b[1], Number(b[0]));
+    const compact = el.classList.contains('mini-row') ? { digits: 1, tieAsNumber: true } : {};
     const span = $('.diff', el);
-    if (span) span.outerHTML = diffHtml(d);
+    if (span) span.outerHTML = diffHtml(d, SWING_CLAMP, compact);
     const bar = $('.swing', el);
     if (bar) bar.outerHTML = swingBar(d);
   }
-  for (const el of app.querySelectorAll('.stat-sheet[open]')) {
+  for (const el of app.querySelectorAll('.stat-panel.open')) {
     const [rid, pid] = el.dataset.sheet.split(':');
-    $('.sheet-body', el).innerHTML = sheetBodyHtml(pid, Number(rid));
+    $('.sp-body', el).innerHTML = sheetBodyHtml(pid, Number(rid));
   }
   for (const el of app.querySelectorAll('[data-game-status]')) {
     const g = S.data.games?.[el.dataset.gameStatus];
@@ -650,7 +651,11 @@ function updateWatchAside(p) {
     return;
   }
   const hd = $('.watch-hd .wh-game');
-  if (hd) { hd.textContent = gameTitle(game); hd.href = espnGameUrl(game) || '#'; }
+  if (hd) {
+    const linked = hd.tagName === 'A';
+    if (linked !== !!espnGameUrl(game)) hd.outerHTML = espnLinkHtml(game, 'wh-game');
+    else { hd.textContent = gameTitle(game); if (linked) hd.href = espnGameUrl(game); }
+  }
   const note = $('.watch-hd .wh-note');
   if (note) {
     note.textContent = startersNote(watched, p);
@@ -753,14 +758,17 @@ function swingBar(d, clamp = SWING_CLAMP) {
 }
 
 // The number carries the same colour as its bar, so the column scans as a strip.
-function diffHtml(d, clamp = SWING_CLAMP) {
-  if (Math.abs(d) < 0.005) return '<span class="diff even">even</span>';
-  return `<span class="diff" style="color:${swingColor(d, clamp)}">${diffText(d)}</span>`;
+// The rail widgets have 60px for a swing, so they take one decimal and print a
+// tie as +0.0 rather than the word "even": at that size the number carries the
+// meaning and a word in the same slot reads as a different kind of value.
+function diffHtml(d, clamp = SWING_CLAMP, { digits = 1, tieAsNumber = false } = {}) {
+  if (Math.abs(d) < 0.005 && !tieAsNumber) return '<span class="diff even">even</span>';
+  return `<span class="diff" style="color:${swingColor(d, clamp)}">${diffText(d, digits)}</span>`;
 }
 function diffClass(d, has) { if (!has || Math.abs(d) < 0.005) return 'even'; return d > 0 ? 'you' : 'opp'; }
-function diffText(d) {
-  if (Math.abs(d) < 0.005) return 'even';
-  return `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`;
+function diffText(d, digits = 1) {
+  if (Math.abs(d) < 0.005) return `+${(0).toFixed(digits)}`;
+  return `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(digits)}`;
 }
 
 // --- By position -----------------------------------------------------------
@@ -790,11 +798,20 @@ function byGameColumnHtml(pair) {
     if (id && id !== '0') slotOf.set(id, SLOT_LABEL[slot] || slot);
   });
   const watchedId = watchedOf(list).game?.id;
+  const slotOfB = new Map();
+  starterSlots().forEach((slot, i) => {
+    const id = (pair.b?.m.starters || [])[i];
+    if (id && id !== '0') slotOfB.set(id, SLOT_LABEL[slot] || slot);
+  });
   const mineIn = (bk) => bk.a.filter((x) => !x.bench);
-  const swingOf = (bk) => bk.a.filter((x) => !x.bench).reduce((t, x) => t + (x.pts || 0), 0)
-    - bk.b.filter((x) => !x.bench).reduce((t, x) => t + (x.pts || 0), 0);
+  const theirsIn = (bk) => bk.b.filter((x) => !x.bench);
+  const swingOf = (bk) => mineIn(bk).reduce((t, x) => t + (x.pts || 0), 0)
+    - theirsIn(bk).reduce((t, x) => t + (x.pts || 0), 0);
 
-  const withMine = list.filter((bk) => bk.game && mineIn(bk).length);
+  // A game counts if either side has somebody in it: a game where only the
+  // opponent is playing is exactly where the deficit is coming from, and
+  // leaving it out hid that.
+  const withMine = list.filter((bk) => bk.game && (mineIn(bk).length || theirsIn(bk).length));
   const live = withMine.filter((bk) => bk.game.state === 'live')
     .sort((x, y) => Math.abs(swingOf(y)) - Math.abs(swingOf(x)));
   const started = withMine.filter((bk) => bk.game.state === 'final');
@@ -806,30 +823,43 @@ function byGameColumnHtml(pair) {
     const state = g.state === 'live' ? `<span class="bg-state live">${escape(g.detail || 'Live')}</span>`
       : g.state === 'final' ? '<span class="bg-state">FINAL</span>'
       : `<span class="bg-state">${escape(shortKick(g.kickoff))}</span>`;
-    const rows = mineIn(bk).map((x) => `<div class="bg-row">`
-      + `<span class="bg-slot">${escape(slotOf.get(x.id) || '')}</span>`
-      + `<span class="bg-name">${escape(x.pos === 'DEF' ? x.name : initialSurname(x.name))}</span>`
-      + `<span class="bg-pts" data-pts="${x.rosterId}:${x.id}">${fmt(x.pts)}</span>`
-      + `</div>`).join('');
+    // The two sides sit beside each other inside the game rather than one list
+    // after the other: the block is half as tall, and which side a player is on
+    // is a position rather than something to work out from the name.
+    const nameOf = (x) => (x.pos === 'DEF' ? (x.team || x.name) : initialSurname(x.name));
+    const half = (x, opp) => {
+      if (!x) return `<span class="bg-half ${opp ? 'opp' : ''} none">\u2014</span>`;
+      const cells = [
+        `<span class="bg-slot">${escape((opp ? slotOfB : slotOf).get(x.id) || '')}</span>`,
+        `<span class="bg-name">${escape(nameOf(x))}</span>`,
+        `<span class="bg-pts" data-pts="${x.rosterId}:${x.id}">${fmt(x.pts)}</span>`,
+      ];
+      return `<span class="bg-half ${opp ? 'opp' : ''}">${(opp ? cells.reverse() : cells).join('')}</span>`;
+    };
+    const mine = mineIn(bk), theirs = theirsIn(bk);
+    const rows = Array.from({ length: Math.max(mine.length, theirs.length) }, (_, i) =>
+      `<div class="bg-row">${half(mine[i], false)}${half(theirs[i], true)}</div>`).join('');
     return `<div class="bg-group">`
       + `<button type="button" class="bg-head ${g.state === 'live' ? 'live' : ''} ${watched ? 'watched' : ''}" data-watch="${g.id}" aria-pressed="${watched}">`
       + `<span class="bg-line"><span class="bg-score">${g.away} ${g.awayScore} @ ${g.home} ${g.homeScore}</span>${state}</span>`
-      + `<span class="bg-swing">${mineIn(bk).length ? diffHtml(d, GAME_CLAMP) : ''}</span>`
-      + `<span class="bg-bar">${mineIn(bk).length ? swingBar(d, GAME_CLAMP) : ''}</span>`
+      + `<span class="bg-swing">${diffHtml(d, GAME_CLAMP, { digits: 1, tieAsNumber: true })}</span>`
       + `</button>${rows}</div>`;
   };
 
   const shown = [...live, ...started];
   const body = shown.map(group).join('');
-  const empty = live.length ? '' : `<div class="bg-empty">None of ${escape(pair.a.name)}’s starters are playing right now</div>`;
+  const empty = live.length ? '' : `<div class="bg-empty">Nobody in this matchup is playing right now</div>`;
   const seen = new Set(shown.map((bk) => bk.game.id));
   const rest = list.filter((bk) => bk.game && !seen.has(bk.game.id));
   const later = rest.length
     ? `<button type="button" class="later-toggle" data-bg-later>Other games (${rest.length}) ⌄</button>`
     : '';
   const laterRows = S.bgLaterOpen ? rest.map(group).join('') : '';
-  return `<div class="bygame"><div class="mini-hd"><span class="mini-lbl">By game</span><span class="mini-sub">${escape(pair.a.name)} starters</span></div>`
-    + empty + body + later + laterRows + `</div>`;
+  const cols = `<div class="bg-cols">`
+    + `<span>${escape(pair.a.name)}</span>`
+    + `<span class="opp">${escape(pair.b?.name || 'Bye')}</span></div>`;
+  return `<div class="bygame"><div class="mini-hd"><span class="mini-lbl">By game</span></div>`
+    + cols + empty + body + later + laterRows + `</div>`;
 }
 
 function compressedStartersHtml(p) {
@@ -840,12 +870,24 @@ function compressedStartersHtml(p) {
     const b = p.b && B[i] && B[i] !== '0' ? player(B[i], p.b.m) : null;
     const has = !!(a && b);
     const d = has ? (a.pts || 0) - (b.pts || 0) : 0;
-    const name = a ? (a.pos === 'DEF' ? a.name : initialSurname(a.name)) : '\u2013';
+    // A defence is its team here rather than "Baltimore Ravens": with a name and
+    // a score on each side of the swing there is no room for the long form.
+    const nameOf = (x) => (x ? (x.pos === 'DEF' ? (x.team || x.name) : initialSurname(x.name)) : '\u2013');
+    // Six fixed tracks - chip, name, score, swing, score, name - rather than a
+    // name and score sharing a box. Every score lands in the same column down
+    // the list, and a long name truncates instead of shoving the number around.
+    const nameCell = (x, opp) => `<span class="mini-name ${opp ? 'opp' : ''} ${x && !x.pts ? 'zero' : ''}">${escape(nameOf(x))}</span>`;
+    const ptsCell = (x, rid, opp) => (x
+      ? `<span class="mini-pts ${opp ? 'opp' : ''}" data-pts="${rid}:${x.id}">${fmt(x.pts)}</span>`
+      : `<span class="mini-pts ${opp ? 'opp' : ''}"></span>`);
     return `<div class="mini-row"${has ? ` data-swing="${p.a.m.roster_id}:${a.id}|${p.b.m.roster_id}:${b.id}"` : ''}>`
       + `<span class="mini-slot">${escape(SLOT_LABEL[slot] || slot)}</span>`
-      + `<span class="mini-name ${a && !a.pts ? 'zero' : ''}">${escape(name)}</span>`
-      + `<span class="mini-swing">${has ? diffHtml(d) : ''}</span>`
-      + `<span class="mini-bar">${swingBar(has ? d : 0)}</span>`
+      + nameCell(a, false)
+      + ptsCell(a, p.a.m.roster_id, false)
+      + `<span class="mini-gut"><span class="mini-swing">${diffHtml(has ? d : 0, SWING_CLAMP, { digits: 1, tieAsNumber: true })}</span>`
+      + `<span class="mini-bar">${swingBar(has ? d : 0)}</span></span>`
+      + ptsCell(b, p.b?.m.roster_id, true)
+      + nameCell(b, true)
       + `</div>`;
   }).join('');
   return `<div class="mini">`
@@ -865,7 +907,7 @@ function slotViewHtml(p) {
         ${a ? sideHtml(a, p.a.m.roster_id, 'a') : emptySide('a')}
         ${gutterHtml(SLOT_LABEL[slot] || slot, a, b, p.a.m.roster_id, p.b?.m.roster_id)}
         ${b ? sideHtml(b, p.b.m.roster_id, 'b') : emptySide('b')}
-        ${a ? sheetHtml(p.a.m.roster_id, a) : ''}${b ? sheetHtml(p.b.m.roster_id, b) : ''}
+        ${a || b ? sheetHtml() : ''}
       </div>`;
   }).join('');
 
@@ -878,7 +920,7 @@ function slotViewHtml(p) {
         ${benchA[i] ? sideHtml(player(benchA[i], p.a.m), p.a.m.roster_id, 'a', { bench: true }) : emptySide('a')}
         ${gutterHtml('BN', null, null)}
         ${benchB[i] ? sideHtml(player(benchB[i], p.b.m), p.b.m.roster_id, 'b', { bench: true }) : emptySide('b')}
-        ${benchA[i] ? sheetHtml(p.a.m.roster_id, player(benchA[i], p.a.m)) : ''}${benchB[i] ? sheetHtml(p.b.m.roster_id, player(benchB[i], p.b.m)) : ''}
+        ${benchA[i] || benchB[i] ? sheetHtml() : ''}
       </div>`).join('');
 
   const benchBlock = n
@@ -950,7 +992,7 @@ function gamesColumnHtml(list) {
           ${a ? sideHtml(a, a.rosterId, 'a', { bench: a.bench, compact: true }) : emptyGameSide('a')}
           ${gameGutterHtml()}
           ${b ? sideHtml(b, b.rosterId, 'b', { bench: b.bench, compact: true }) : emptyGameSide('b')}
-          ${a ? sheetHtml(a.rosterId, a) : ''}${b ? sheetHtml(b.rosterId, b) : ''}
+          ${a || b ? sheetHtml() : ''}
         </div>`;
     }).join('');
     return `<div class="game-grp">${gameBarHtml(bk, startersA, startersB, totA, totB)}${rows}</div>`;
@@ -974,11 +1016,11 @@ function gameBarHtml(bk, startersA, startersB, totA, totB) {
   return `
     <div class="game-bar ${g.state === 'live' ? 'live' : ''}">
       <div class="gb-line">
-        <a class="gb-fix espn-link" href="${espnGameUrl(g)}" target="_blank" rel="noopener noreferrer" title="Box score on ESPN">
+        ${espnLinkHtml(g, 'gb-fix', `
           <img class="gb-logo" src="${logo(g.away)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.away}</span> <span class="gb-score" data-game-score="${g.away}:away">${g.awayScore}</span>
           <span class="gb-at">@</span>
           <img class="gb-logo" src="${logo(g.home)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.home}</span> <span class="gb-score" data-game-score="${g.home}:home">${g.homeScore}</span>
-        </a>
+        `)}
         <span class="gb-clock ${g.state === 'live' ? '' : 'pre'}" data-game-status="${g.home}">${gameStatusText(g)}</span>
       </div>
       <div class="gb-swing" data-gswing="${totKey(startersA)}|${totKey(startersB)}">${gameSwingHtml(totA - totB)}</div>
@@ -1046,6 +1088,16 @@ function bandClock(g) {
 const ESPN_GAME = 'https://www.espn.com/nfl/game/_/gameId/';
 const espnGameUrl = (g) => (g && g.id ? ESPN_GAME + encodeURIComponent(g.id) : null);
 
+// A game's name links to its box score only when we have an id to link to.
+// Without one there is no anchor at all: an href of "#" goes nowhere, and the
+// marker beside it promises a page that does not exist.
+function espnLinkHtml(game, cls, inner = escape(gameTitle(game))) {
+  const url = espnGameUrl(game);
+  return url
+    ? `<a class="${cls} espn-link" href="${url}" target="_blank" rel="noopener noreferrer" title="Box score on ESPN">${inner}</a>`
+    : `<span class="${cls}">${inner}</span>`;
+}
+
 const ICON = {
   chevron: (up) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="${up ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'}"/></svg>`,
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
@@ -1060,7 +1112,7 @@ function videoAsideHtml(list) {
   const hint = `${withGame.length} game${withGame.length !== 1 ? 's' : ''} · ${live.length} live`;
   return `
     <aside class="watch">
-      <div class="watch-hd"><span class="wh-lbl">Watching</span><a class="wh-game espn-link" href="${espnGameUrl(game) || '#'}" target="_blank" rel="noopener noreferrer" title="Box score on ESPN">${escape(gameTitle(game))}</a><span class="wh-note">${escape(note)}</span></div>
+      <div class="watch-hd"><span class="wh-lbl">Watching</span>${espnLinkHtml(game, 'wh-game')}<span class="wh-note">${escape(note)}</span></div>
       ${playerHtml(game)}
       <div class="video-bar">
         <button type="button" class="vb-btn" data-vid="theater" aria-pressed="${S.theater}" title="Theater mode (t)">${S.theater ? 'Exit theater' : 'Theater'}</button>
@@ -1390,7 +1442,8 @@ function sideHtml(pl, rosterId, sideKey, { bench = false, compact = false } = {}
     + `<div class="p-line"><span class="p-pos">${escape(posLabel)}</span>${line ? ` · <span class="p-state ${cls}">${escape(line)}</span>` : ''}</div>`
     + `</div>`;
   const pts = `<div class="p-pts ${pre && !pl.pts ? 'pre' : ''}" data-pts="${rosterId}:${pl.id}">${fmt(pl.pts)}</div>`;
-  const cells = sideKey === 'a' ? [av, who, pts] : [pts, who, av];
+  const chev = `<span class="p-chev" aria-hidden="true">▾</span>`;
+  const cells = sideKey === 'a' ? [av, who, pts, chev] : [chev, pts, who, av];
   return `<div class="side ${sideKey} ${compact ? 'compact' : ''} ${isLive && !compact ? 'live' : ''} ${bench ? 'bench' : ''}" data-sheet-for="${rosterId}:${pl.id}" tabindex="0" role="button" aria-expanded="false">${cells.join('')}</div>`;
 }
 
@@ -1405,51 +1458,97 @@ function avatarHtml(pl) {
 }
 
 const emptySide = (sideKey) => `<div class="side ${sideKey} empty">–</div>`;
-const sheetHtml = (rosterId, pl) => (pl ? `<details class="stat-sheet" data-sheet="${rosterId}:${pl.id}"><summary hidden></summary><div class="sheet-body" data-name="${escape(pl.name)}"></div></details>` : '');
+// One panel per row, not one per player. The two players in a row share it, so
+// moving from a player to his opponent swaps the panel's contents and flips its
+// alignment while the box itself holds still. With a panel each, that move
+// collapsed one and expanded the other at the same time, and the pair read as a
+// single block growing out of its own middle.
+const sheetHtml = () => `<div class="stat-panel a" data-sheet=""><div class="sp-clip"><div class="sp-body"></div></div></div>`;
+
+// The eight categories that carry a player's week, per position. A category he
+// has nothing in still gets a cell: a QB with no interception reads as a QB who
+// has not thrown one, where a half-empty grid reads as missing data.
+const PANEL_STATS = {
+  QB: ['pass_yd', 'pass_td', 'rush_yd', 'rush_td', 'pass_int', 'fum_lost', 'pass_2pt', 'rush_2pt'],
+  RB: ['rush_yd', 'rush_td', 'rec', 'rec_yd', 'rec_td', 'fum_lost', 'rush_2pt', 'rec_2pt'],
+  WR: ['rec', 'rec_yd', 'rec_td', 'rush_yd', 'rush_td', 'fum_lost', 'rec_2pt', 'rush_2pt'],
+  TE: ['rec', 'rec_yd', 'rec_td', 'bonus_rec_te', 'rush_yd', 'rush_td', 'fum_lost', 'rec_2pt'],
+  K: ['xpm', 'fgm_20_29', 'fgm_30_39', 'fgm_40_49', 'fgm_50p', 'fgm_0_19', 'fgmiss', 'xpmiss'],
+  DEF: ['sack', 'int', 'fum_rec', 'def_td', 'safe', 'blk_kick', 'def_st_td', 'ff'],
+};
+const PANEL_FALLBACK = ['pass_yd', 'pass_td', 'rush_yd', 'rush_td', 'rec', 'rec_yd', 'rec_td', 'fum_lost'];
+
+function panelRows(stats, scoring, pos) {
+  const scored = breakdown(stats, scoring);
+  const seen = new Set(scored.map((r) => r.key));
+  const filler = (PANEL_STATS[pos] || PANEL_FALLBACK)
+    .filter((k) => !seen.has(k) && typeof scoring[k] === 'number' && scoring[k] !== 0)
+    .map((k) => ({ key: k, label: STAT_LABEL[k] || k.replace(/_/g, ' '), value: 0, weight: scoring[k], points: 0 }));
+  return [...scored, ...filler].slice(0, 8);
+}
 
 function sheetBodyHtml(pid, rosterId) {
   const scoring = S.data.league.scoring_settings || {};
   const st = S.data.stats?.[pid];
   const sc = S.data.scored?.players?.[pid];
   const proj = S.data.proj?.[pid];
-  if (!st && !proj) return `<div class="sheet-empty">${S.data.statsAvailable === false ? 'Live stat feed unavailable; showing Sleeper\'s points.' : 'No stats yet.'}</div>`;
-  const rows = st ? breakdown(st, scoring) : [];
-  const projRows = proj ? breakdown(proj, scoring) : [];
-  return `
-    ${rows.length ? `<table class="sheet"><tbody>${rows.map((r) => `<tr><td>${escape(r.label)}</td><td class="v">${fmtStat(r.value)}</td><td class="w">× ${fmtW(r.weight)}</td><td class="p">${r.points > 0 ? '+' : ''}${fmt(r.points)}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="3">${sc?.src === 'official' ? 'Official' : 'Live, league scoring'}</td><td class="p">${fmt(playerPts(pid, rosterId))}</td></tr></tfoot></table>` : ''}
-    ${proj ? `<section class="sheet-proj" aria-label="Projected performance">
-      <div class="projection-summary">
-        <div><div class="projection-label">Projected points</div><div class="projection-context">League scoring</div></div>
-        <div class="projection-total">${fmt(sc?.proj ?? scorePlayer(proj, scoring))}<span>pts</span></div>
-      </div>
-      ${projRows.length ? `<dl class="projection-stats">${projRows.map((r) => `<div class="projection-stat">
-        <dt>${escape(r.key === 'rec' ? 'Receptions' : r.label)}</dt>
-        <dd>${fmtStat(r.value)}<span>${r.points > 0 ? '+' : ''}${fmt(r.points)} pts</span></dd>
-      </div>`).join('')}</dl>` : '<div class="projection-context">No projected scoring stats</div>'}
-    </section>` : ''}`;
+  const pos = S.players?.[pid]?.p || '';
+  // Before his game starts, anything in the stat feed is stale, so the panel
+  // reads the projection until he is actually on.
+  const team = S.players?.[pid]?.t;
+  const game = team ? S.data.games?.[team] : null;
+  const live = !!game && game.state !== 'pre' && !!st && breakdown(st, scoring).length > 0;
+  const rows = panelRows(live ? st : proj, scoring, pos);
+  if (!rows.length) {
+    return `<div class="sp-empty">${S.data.statsAvailable === false
+      ? `Live stat feed unavailable; showing Sleeper's points.`
+      : 'No projection for this player.'}</div>`;
+  }
+  const total = live ? playerPts(pid, rosterId) : (sc?.proj ?? (proj ? scorePlayer(proj, scoring) : 0));
+  const cells = rows.map((r) => `<div class="sp-cell">`
+    + `<div class="sp-lbl">${escape(r.key === 'rec' ? 'Receptions' : r.label)}</div>`
+    + `<div class="sp-val">${fmtStat(r.value)}<span class="sp-pts ${r.points > 0 ? 'up' : r.points < 0 ? 'down' : 'zero'}">`
+    + `${r.points > 0 ? '+' : r.points < 0 ? '−' : ''}${fmt(Math.abs(r.points))}</span></div>`
+    + `</div>`).join('');
+  return `<div class="sp-hd"><span class="sp-hd-lbl">${live ? 'Live' : 'Projected'}</span>`
+    + `<span class="sp-hd-val">${fmt(total)}</span><span class="sp-hd-unit">pts</span></div>`
+    + `<div class="sp-grid">${cells}</div>`;
 }
 const fmtStat = (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
-const fmtW = (w) => (Math.abs(w) >= 1 ? String(w) : w.toFixed(2).replace(/0+$/, ''));
 
 app.addEventListener('click', onRowToggle);
 app.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { const r = e.target.closest('[data-sheet-for]'); if (r) { e.preventDefault(); onRowToggle(e); } } });
 function onRowToggle(e) {
   const row = e.target.closest('[data-sheet-for]');
   if (!row) return;
-  const sheet = row.closest('.slot-row')?.querySelector(`[data-sheet="${row.dataset.sheetFor}"]`);
-  if (!sheet) return;
-  const opening = !sheet.open;
-  // One breakdown at a time. Opening a player closes whichever was open,
-  // including the opponent sharing the row.
-  for (const other of app.querySelectorAll('.stat-sheet[open]')) {
-    if (other === sheet) continue;
-    other.open = false;
+  const slot = row.closest('.slot-row');
+  const panel = slot?.querySelector('.stat-panel');
+  if (!panel) return;
+  const key = row.dataset.sheetFor;
+  // Clicking the player who is already showing closes the panel; clicking his
+  // opponent keeps it open and moves it across, so only the contents change.
+  const opening = !panel.classList.contains('open') || panel.dataset.sheet !== key;
+
+  // One breakdown at a time, across the whole screen.
+  for (const other of app.querySelectorAll('.stat-panel.open')) {
+    if (other === panel) continue;
+    other.classList.remove('open');
     app.querySelector(`[data-sheet-for="${other.dataset.sheet}"]`)?.setAttribute('aria-expanded', 'false');
   }
-  sheet.open = opening;
-  row.setAttribute('aria-expanded', String(opening));
-  if (opening) { const [rid, pid] = row.dataset.sheetFor.split(':'); $('.sheet-body', sheet).innerHTML = sheetBodyHtml(pid, Number(rid)); }
+  for (const half of slot.querySelectorAll('[data-sheet-for]')) {
+    half.setAttribute('aria-expanded', String(half === row && opening));
+  }
+  panel.classList.toggle('open', opening);
+  if (opening) {
+    // Side only changes on the way open; on the way out it collapses on the
+    // side it was already on rather than flipping mid-animation.
+    const away = row.classList.contains('b');
+    panel.classList.toggle('b', away);
+    panel.classList.toggle('a', !away);
+    panel.dataset.sheet = key;
+    const [rid, pid] = key.split(':');
+    $('.sp-body', panel).innerHTML = sheetBodyHtml(pid, Number(rid));
+  }
 }
 
 // ---------------------------------------------------------------------------

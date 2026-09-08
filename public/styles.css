@@ -20,6 +20,12 @@
   --swing-even: #f0c543;   /* the swing scale: close, ahead, behind */
   --swing-ahead: #3ddc5f;
   --swing-behind: #ff3b1f;
+  --sel-fill: #2a3a30;     /* the half you clicked, and its panel */
+  --sel-edge: #3d5238;     /* that panel's border */
+  --stat-up: #a2cf4f;      /* a stat line's contribution, for and against */
+  --stat-down: #ff8a1f;
+  --own-edge: #3ddc5f;     /* the rule marking your half of a rail row */
+  --opp-edge: #4e5a4a;     /* and the opponent's */
 
   /* Role tokens, resolved differently per theme. */
   --accent: #f0c543;        /* markers, tabs, rail-active, "you", your lead */
@@ -37,6 +43,8 @@
   --font: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
   --gutter: 24px;
   --rail-w: 240px;
+  --page-max: 1560px;                          /* app bar and content share it */
+  --rail-strip: calc(var(--rail-w) + 40px);    /* the rail plus its 8px inset and a gap */
   --col-gap: 28px;
 }
 
@@ -57,6 +65,12 @@
   --swing-even: #c8a01f;
   --swing-ahead: #17a544;
   --swing-behind: #d92b0f;
+  --sel-fill: #e2e6d8;
+  --sel-edge: #c3c8b6;
+  --stat-up: #3f7d16;
+  --stat-down: #b45309;
+  --own-edge: #17a544;
+  --opp-edge: #b4b1a8;
 
   --accent: #ec3013;
   --bar: #201e1d;
@@ -77,6 +91,8 @@
     --text: #201e1d; --muted: #605d5d; --faint: #7d7979; --video: #eae9e9;
     --surface-2: #eaece4; --menu: #ffffff; --frame-deep: #d9d8d8; --dim: #8b8888;
     --swing-even: #c8a01f; --swing-ahead: #17a544; --swing-behind: #d92b0f;
+    --sel-fill: #e2e6d8; --sel-edge: #c3c8b6; --stat-up: #3f7d16; --stat-down: #b45309;
+    --own-edge: #17a544; --opp-edge: #b4b1a8;
     --accent: #ec3013; --bar: #201e1d; --gap: #ae1800; --live: #ae1800;
     --live-fill: #ec3013; --accent-ink: #ffffff;
     --bar-bg: #201e1d; --bar-fg: #f3f2f2; --bar-muted: color-mix(in srgb, #f3f2f2 62%, transparent);
@@ -128,7 +144,7 @@ img { display: block; }
 
 .topbar-inner {
   display: flex; align-items: center; gap: 16px; height: 100%;
-  max-width: 1560px; margin: 0 auto; padding: 0 var(--gutter);
+  padding: 0 var(--gutter);
 }
 .topbar-controls { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
@@ -207,7 +223,19 @@ select#week-select {
    ========================================================================== */
 /* Content and app bar share one width and one gutter, so the brand mark and
    the score line start on the same pixel. */
-main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
+/* The rail's strip is taken from the margin beside the page, never out of the
+   page itself: the content box keeps its full width and is simply placed to the
+   right of the strip. Centring still wins once the window is wide enough to
+   give a bigger margin than the strip needs, and on a window too narrow for
+   both the box is the thing that shrinks - so the player gives width, not the
+   page. This is why the rail needs no min-width gate any more: it never depends
+   on there being spare margin to sit in. */
+.topbar-inner, main {
+  max-width: min(var(--page-max), calc(100% - var(--rail-strip) - var(--gutter)));
+  margin-left: max(var(--rail-strip), calc((100% - var(--page-max)) / 2));
+  margin-right: auto;
+}
+main { padding: 0 0 48px; }
 .matchup { padding: 0; }
 
 /* ==========================================================================
@@ -327,13 +355,16 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
    ========================================================================== */
 .slot-row { display: grid; grid-template-columns: minmax(0,1fr) 132px minmax(0,1fr); align-items: center; border-bottom: 1px solid var(--line); min-height: 52px; padding: 5px 0; }
 
-.side { container-type: inline-size; display: grid; align-items: center; gap: 8px; padding: 2px 14px 2px 10px; border-left: 3px solid transparent; }
+.side { container-type: inline-size; display: grid; align-items: center; align-self: stretch; gap: 8px; padding: 6px 10px; border-left: 3px solid transparent; }
+/* The chevron says the row opens, and which way it currently is. */
+.p-chev { font-size: 10px; line-height: 1; color: var(--dim); text-align: center; transition: transform .3s ease, color .3s ease; }
+.side[aria-expanded="true"] .p-chev { transform: rotate(180deg); color: var(--accent); }
 /* Match the roster rows' columns, including their responsive gutter width. */
 .roster-heading { border-bottom: 2px solid var(--line-strong); min-height: 38px; }
 .roster-team { margin: 0; padding: 6px 12px; font-size: 13px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
 .roster-team.b { text-align: right; }
-.side.a { grid-template-columns: 36px minmax(0,1fr) 54px; }
-.side.b { grid-template-columns: 54px minmax(0,1fr) 36px; padding: 2px 12px 2px 14px; border-left: 0; }
+.side.a { grid-template-columns: 36px minmax(0,1fr) 54px 12px; }
+.side.b { grid-template-columns: 12px 54px minmax(0,1fr) 36px; border-left: 0; }
 .side.a.live { border-left-color: var(--live-fill); }
 
 .side.empty { color: var(--faint); }
@@ -346,8 +377,8 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 .p-av img.head.def { object-fit: contain; padding: 5px; background: var(--raised); }
 
 /* Compact avatar: By NFL game rows use a 24px headshot, no logo badge. */
-.side.a.compact { grid-template-columns: 24px minmax(0,1fr) 54px; }
-.side.b.compact { grid-template-columns: 54px minmax(0,1fr) 24px; }
+.side.a.compact { grid-template-columns: 24px minmax(0,1fr) 54px 12px; }
+.side.b.compact { grid-template-columns: 12px 54px minmax(0,1fr) 24px; }
 .p-av.compact { width: 24px; height: 24px; }
 .p-av.compact img.head { width: 24px; height: 24px; }
 .p-av.compact img.head.def { padding: 3px; }
@@ -394,33 +425,72 @@ main { padding: 0 0 48px; max-width: 1560px; margin: 0 auto; }
 .bench-block .side .p-pts { color: var(--muted); font-weight: 700; }
 
 /* ==========================================================================
-   Stat sheet (tap a row)
+   Projection panel (tap a player)
    ========================================================================== */
 .side[data-sheet-for] { cursor: pointer; }
 .side[data-sheet-for]:hover { background: color-mix(in srgb, var(--raised) 45%, transparent); }
-.side[aria-expanded="true"] { background: var(--raised); }
-.stat-sheet { grid-column: 1 / -1; }
-.stat-sheet:not([open]) { display: none; }
-.stat-sheet .sheet-body { padding: 8px 14px 12px; background: var(--raised); border-top: 1px solid var(--line); font-size: 12.5px; }
-.stat-sheet .sheet-body::before { content: attr(data-name); display: block; font-weight: 700; margin-bottom: 4px; }
-table.sheet { width: 100%; border-collapse: collapse; }
-table.sheet td { padding: 4px 0; border-bottom: 1px solid var(--line); }
-table.sheet td.v, table.sheet td.p { text-align: right; font-weight: 700; white-space: nowrap; }
-table.sheet td.w { color: var(--faint); text-align: right; padding: 0 10px; white-space: nowrap; }
-table.sheet tfoot td { border-top: 2px solid var(--line-strong); border-bottom: 0; padding-top: 7px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; letter-spacing: 0; }
-.sheet-empty { color: var(--muted); padding-top: 6px; }
-.sheet-proj { padding-top: 10px; }
-.projection-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 12px; }
-.projection-label { color: var(--text); font-size: 12px; font-weight: 700; }
-.projection-context { color: var(--muted); font-size: 11px; margin-top: 3px; }
-.projection-total { color: var(--accent); font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.projection-total > span { margin-left: 5px; color: var(--muted); font-size: 11px; font-weight: 500; }
-.projection-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: 8px; margin: 0; }
-.projection-stat { padding: 10px 12px; border: 1px solid var(--line); background: var(--bg); min-width: 0; }
-.projection-stat dt { color: var(--muted); font-size: 11px; margin-bottom: 6px; overflow-wrap: anywhere; }
-.projection-stat dd { margin: 0; color: var(--text); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.projection-stat dd > span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; font-weight: 500; }
+/* Only the half you clicked lifts: it takes the panel's fill, a 3px accent edge
+   on its outer side and a shadow above, so the half and the panel below read as
+   one L rather than a band across the whole row. */
+.side[aria-expanded="true"] { background: var(--sel-fill); position: relative; z-index: 1; }
+.side.a[aria-expanded="true"] { box-shadow: inset 3px 0 0 var(--accent), 0 -10px 14px -6px rgba(0,0,0,.55); border-left-color: transparent; }
+.side.b[aria-expanded="true"] { box-shadow: inset -3px 0 0 var(--accent), 0 -10px 14px -6px rgba(0,0,0,.55); }
+/* The row rule stops at the selected half, which flows into the panel; it still
+   runs under the swing column and the opponent. */
+.slot-row:has(.stat-panel.open) { border-bottom-color: transparent; }
+.slot-row:has(.stat-panel.open) > .side:not([aria-expanded="true"]),
+.slot-row:has(.stat-panel.open) > .gutter { border-bottom: 1px solid var(--line); }
+
+/* Always in the DOM at 0fr so both directions animate. It grows out of the
+   bottom edge of the player who opened it: start-aligned so the row's centring
+   cannot split the growth around it, and overflow-anchor off because otherwise
+   the browser holds what is below the row still and compensates by scrolling,
+   which reads as the block opening from its middle rather than downward.
+   Eased out hard, because the first frames of a height animation on a filled
+   box are a bare strip of fill with no content in them yet, and a slow start
+   leaves that strip on screen long enough to read as a bar flashing. */
+.starters, .bench-block, .games, .slot-row { overflow-anchor: none; }
+.stat-panel { grid-column: 1 / -1; align-self: start; display: grid; grid-template-rows: 0fr; align-content: start; transition: grid-template-rows .3s cubic-bezier(.22, .9, .3, 1); }
+.stat-panel.open { grid-template-rows: 1fr; position: relative; z-index: 1; }
+.sp-clip { overflow: hidden; min-height: 0; }
+/* The fade carries the fill in with the content instead of trailing it, and the
+   shadow is offset clear of the top edge so it never haloes upward over the
+   card - a shadow on both edges reads as the block growing out of its own
+   middle rather than down from the player. */
+.sp-body {
+  opacity: 0; transition: opacity .17s ease;
+  background: var(--sel-fill); border: 1px solid var(--sel-edge); border-top: 0;
+  box-shadow: 0 14px 26px -8px rgba(0, 0, 0, .7);
+}
+.stat-panel.open .sp-body { opacity: 1; }
+.sp-hd { display: flex; align-items: baseline; gap: 8px; padding: 13px 24px 12px; }
+.stat-panel.b .sp-hd { justify-content: flex-end; }
+.sp-hd-lbl { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.sp-hd-val { font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--accent); }
+.sp-hd-unit { font-size: 11px; color: var(--muted); }
+/* Eight cells, 4x2. The horizontal rules run the full width - under the header
+   and between the two rows - while the verticals sit only between columns, so
+   the block is ruled inside and open at its edges. */
+.sp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.sp-cell { padding: 9px 14px; min-width: 0; }
+.sp-cell:not(:nth-child(4n + 1)) { border-left: 1px solid var(--line); }
+.sp-cell:nth-child(4n + 1) { padding-left: 24px; }
+.sp-cell:nth-child(n + 5) { border-top: 1px solid var(--line); }
+.sp-lbl { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-val { font-size: 16px; font-weight: 800; white-space: nowrap; }
+.sp-pts { font-size: 11px; font-weight: 700; margin-left: 6px; }
+.sp-pts.up { color: var(--stat-up); }
+.sp-pts.down { color: var(--stat-down); }
+.sp-pts.zero { color: var(--dim); }
+.sp-empty { color: var(--muted); font-size: 12.5px; padding: 0 24px 14px; }
+@media (max-width: 900px) {
+  .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sp-cell:not(:nth-child(4n + 1)) { border-left: 0; }
+  .sp-cell:nth-child(2n) { border-left: 1px solid var(--line); }
+  .sp-cell:nth-child(4n + 1) { padding-left: 14px; }
+  .sp-cell:nth-child(2n + 1) { padding-left: 18px; }
+  .sp-cell:nth-child(n + 3) { border-top: 1px solid var(--line); }
+}
 
 /* ==========================================================================
    By NFL game + video slot
@@ -438,7 +508,9 @@ table.sheet tfoot td.p { color: var(--text); font-size: 14px; font-weight: 800; 
 .espn-link { color: inherit; text-decoration: none; }
 .espn-link:hover { text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
 .espn-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.espn-link::after { content: "97"; margin-left: 5px; font-size: .78em; font-weight: 700; color: var(--dim); }
+/* The arrow is written as an escape: as a raw character it once became a
+   stray control byte and a literal "97" beside every box-score link. */
+.espn-link::after { content: "\2197"; margin-left: 5px; font-size: .78em; font-weight: 700; color: var(--dim); }
 .espn-link:hover::after { color: var(--accent); }
 .game-bar .gb-abbr, .game-bar .gb-score { flex: none; }
 .game-bar .gb-logo { width: 18px; height: 18px; object-fit: contain; }
@@ -588,7 +660,7 @@ body.theater aside.watch .switch-rail { display: none; }
 body.theater .bygame { display: block; }
 
 .bg-group { margin-bottom: 10px; }
-.bg-head { display: grid; grid-template-columns: minmax(0, 1fr) 44px 40px; gap: 8px; align-items: center; min-height: 30px; padding: 0 0 0 9px; border: 0; border-left: 3px solid var(--line); width: 100%; text-align: left; background: none; color: inherit; font: inherit; cursor: pointer; }
+.bg-head { display: grid; grid-template-columns: minmax(0, 1fr) 52px; gap: 8px; align-items: center; min-height: 30px; padding: 0 0 0 9px; border: 0; border-left: 3px solid var(--line); width: 100%; text-align: left; background: none; color: inherit; font: inherit; cursor: pointer; }
 .bg-head:hover { background: var(--surface-2); }
 .bg-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .bg-head.live { border-left-color: var(--live-fill); }
@@ -599,7 +671,19 @@ body.theater .bygame { display: block; }
 .bg-state.live { color: var(--live); }
 .bg-swing { text-align: right; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .bg-bar .swing { margin-top: 0; }
-.bg-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) 44px; gap: 8px; align-items: center; min-height: 26px; padding-left: 12px; border-bottom: 1px solid var(--line); }
+/* One game, both sides: each row is two half-width lists, yours flush to a rule
+   on the left and the opponent's flush to one on the right. Which side a player
+   is on is a position, not something to infer from the name. */
+.bg-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px 0 4px; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; color: var(--dim); }
+.bg-cols span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bg-cols .opp { text-align: right; }
+.bg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: center; min-height: 24px; border-bottom: 1px solid var(--line); }
+.bg-half { display: grid; grid-template-columns: 20px minmax(0, 1fr) 40px; gap: 6px; align-items: center; min-width: 0; border-left: 2px solid var(--own-edge); padding-left: 7px; }
+.bg-half.opp { grid-template-columns: 40px minmax(0, 1fr) 20px; border-left: 0; border-right: 2px solid var(--opp-edge); padding: 0 7px 0 0; color: var(--muted); }
+.bg-half.none { display: block; color: var(--dim); padding-left: 7px; font-size: 11.5px; }
+.bg-half.opp.none { text-align: right; padding: 0 7px 0 0; }
+.bg-half.opp .bg-name { text-align: right; }
+.bg-half.opp .bg-pts { text-align: left; }
 .bg-slot { font-size: 9.5px; font-weight: 700; color: var(--dim); }
 .bg-name { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bg-pts { text-align: right; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -615,13 +699,29 @@ body.theater .games { display: none; }
 .mini-hd { display: flex; align-items: baseline; gap: 8px; padding: 14px 0 6px; border-bottom: 2px solid var(--line-strong); }
 .mini-lbl { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
 .mini-sub { margin-left: auto; font-size: 11px; color: var(--dim); }
-.mini-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 44px 40px; gap: 8px; align-items: center; min-height: 30px; border-bottom: 1px solid var(--line); }
-.mini-slot { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; color: var(--dim); }
+/* Six fixed tracks: chip, name, score, swing, score, name. Fixed rather than
+   flowed so every score lands in the same column all the way down and a long
+   name truncates instead of pushing the number sideways. The budget at 400px:
+   22px chip, 44px scores, 60px swing, 6px gaps - about 91px per name, which
+   fits a full surname. */
+.mini-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 44px 60px 44px minmax(0, 1fr);
+  gap: 6px; align-items: center; min-height: 30px;
+  border-bottom: 1px solid var(--line);
+}
+.mini-slot { font-size: 9px; font-weight: 700; letter-spacing: .06em; color: var(--dim); }
 .mini-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mini-name.zero { color: var(--muted); }
-.mini-swing { text-align: right; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.mini-swing .diff { font-size: 11.5px; }
-.mini-bar .swing { margin-top: 0; }
+.mini-name.opp { text-align: right; color: var(--muted); font-weight: 500; }
+.mini-pts { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.mini-pts.opp { text-align: left; color: var(--muted); }
+/* Signed delta over its bar; the number carries the meaning at this size and
+   the bar carries the scale. */
+.mini-gut { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-width: 0; }
+.mini-swing { text-align: center; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.mini-swing .diff { font-size: 11px; }
+.mini-bar .swing { margin-top: 0; height: 3px; }
 
 
 /* Theater: the player takes the full panel width and the rest stacks under it.
@@ -640,28 +740,30 @@ body.theater .video-box { max-height: 74vh; }
 /* All matchups floats at the left in theater rather than taking a column or
    stacking under the player. It opens from the collapsed count, and scrolls
    internally if the league is long. */
-/* A rule on the right edge only: no border box, no shadow, no own background.
-   This replaces the floating card. */
-aside.rail { border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 6px; }
-
-/* Wide enough to have a margin: the widget leaves the column entirely and
-   pins to the top left of the viewport, so the player starts at the top of the
-   column instead of below it. Its right edge is pinned clear of the content
-   box's padded edge, so the width follows the margin and it never covers a
-   row. 1960px is where a usable width first exists. */
-@media (min-width: 1960px) {
-  aside.rail {
-    position: fixed; z-index: 30;
-    top: 62px; left: 8px; right: calc(50% + 768px); width: auto; max-width: 240px;
-    max-height: calc(100vh - 80px); overflow-y: auto;
-    background: var(--menu); border: 1px solid var(--line-strong);
-    box-shadow: 0 16px 40px -10px rgba(0, 0, 0, .55);
-    padding: 8px 12px; margin-bottom: 0;
-  }
-  .matchup-body { grid-template-rows: auto; }
-  .matchup-body > aside.watch { grid-row: 1; }
-  .matchup-body > .panel { grid-row: 1; }
+/* The rail owns a strip at the left edge of the viewport and never leaves it.
+   It is fixed rather than a column, so nothing in the main area can push it and
+   it cannot push anything; the space it needs is reserved by --rail-clear on
+   the bar and the content, not borrowed from whatever centring happens to leave
+   over. That borrowing is what used to make it fall back into the main column
+   on a 1080p screen, where a 1560px page leaves no margin at all. */
+aside.rail {
+  position: fixed; z-index: 30;
+  top: 62px; left: 8px; width: var(--rail-w);
+  max-height: calc(100vh - 80px); overflow-y: auto;
+  background: var(--menu); border: 1px solid var(--line-strong);
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, .55);
+  padding: 8px 12px;
 }
+/* With the rail out of the grid the body is just the player and the rows. The
+   rows cap at the width they had when the rail shared the player's column, so
+   pulling the rail out gives its space back to the player rather than widening
+   the rows - at full width the player is the size it has always been. Below
+   that the player is the one that gives, down to 420px, and the rows follow. */
+:root { --rows-w: calc(var(--page-max) - var(--gutter) * 2 - var(--col-gap) - var(--video-w)); }
+.matchup-body { grid-template-columns: minmax(420px, 1fr) minmax(560px, var(--rows-w)); grid-template-rows: auto; }
+.matchup-body > aside.watch { grid-column: 1; grid-row: 1; }
+.matchup-body > .panel { grid-column: 2; grid-row: 1; }
+
 .rail-item { min-height: 24px; padding: 8px 0; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; padding-left: 9px; }
 .rail-item.mine { border-left-width: 3px; }
 .rail-item .ri-row { font-size: 12px; line-height: 1.25; }
@@ -672,12 +774,25 @@ aside.rail { border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-b
 /* ==========================================================================
    Mobile. Desktop-first per handoff; this keeps phones usable, not final.
    ========================================================================== */
-/* Three columns need roughly 1400px. Below that the all-matchups column is the
-   one to give up: the rows and the player are what the screen is for. */
-/* The rail goes first when the width runs out, then the columns stack. */
-@media (max-width: 1280px) {
-  .matchup-body,
-  body.theater .matchup-body { grid-template-columns: minmax(0, 520px) minmax(0, 880px); }
+/* Below about 1320px the strip plus both columns no longer fit, so the rail
+   gives up its strip, rejoins the flow and goes back to being a plain list at
+   the top of the player's column - the pre-existing narrow layout. */
+@media (max-width: 1319px) {
+  .topbar-inner, main {
+    max-width: var(--page-max); margin-left: auto; margin-right: auto;
+  }
+  aside.rail {
+    position: static; width: auto; max-height: none; overflow: visible;
+    background: none; border: 0; border-bottom: 1px solid var(--line);
+    box-shadow: none; padding: 0 0 6px; margin-bottom: 6px;
+  }
+  .matchup-body {
+    grid-template-columns: minmax(0, 520px) minmax(0, 880px);
+    grid-template-rows: auto auto;
+  }
+  .matchup-body > aside.rail { grid-column: 1; grid-row: 1; }
+  .matchup-body > aside.watch { grid-column: 1; grid-row: 2; }
+  .matchup-body > .panel { grid-column: 2; grid-row: 1 / span 2; }
 }
 
 /* Two columns need roughly 1100px. Below that the player stacks above the rows
@@ -703,9 +818,8 @@ aside.rail { border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-b
   .slot-row { grid-template-columns: minmax(0,1fr) 96px minmax(0,1fr); }
   .side { gap: 8px; }
   .p-av { display: none; }
-  .side.a, .side.b { grid-template-columns: minmax(0,1fr) 44px; }
-  .side.b { grid-template-columns: 44px minmax(0,1fr); }
-  table.sheet td.w { display: none; }
+  .side.a { grid-template-columns: minmax(0,1fr) 44px 12px; }
+  .side.b { grid-template-columns: 12px 44px minmax(0,1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

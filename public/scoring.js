@@ -50,7 +50,7 @@ export function expectedPoints(actual, projected, game) {
 
 export const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-const STAT_LABEL = {
+export const STAT_LABEL = {
   pass_yd: 'Passing yards', pass_td: 'Passing TD', pass_int: 'Interception thrown', pass_2pt: 'Passing 2-pt', pass_cmp: 'Completions', pass_att: 'Pass attempts', pass_inc: 'Incompletions', pass_sack: 'Sacked',
   rush_yd: 'Rushing yards', rush_td: 'Rushing TD', rush_2pt: 'Rushing 2-pt', rush_att: 'Rush attempts', rush_fd: 'Rushing first down',
   rec: 'Reception', rec_yd: 'Receiving yards', rec_td: 'Receiving TD', rec_2pt: 'Receiving 2-pt', rec_fd: 'Receiving first down', rec_tgt: 'Target',
