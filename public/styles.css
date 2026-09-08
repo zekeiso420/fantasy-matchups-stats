@@ -346,7 +346,10 @@ main { padding: 0 0 48px; }
 }
 .rail-item.active { border-left-color: var(--accent); }
 .rail-item:hover { background: color-mix(in srgb, var(--raised) 40%, transparent); }
-.rail-item .ri-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+/* Three tracks - name, number, tag - so the tag sits inside the row's padding
+   with a column of its own instead of trailing the number and spilling past
+   the right edge, and so numbers line up down the rail whatever their width. */
+.rail-item .ri-row { display: grid; grid-template-columns: minmax(0, 1fr) 50px 22px; column-gap: 6px; align-items: baseline; font-size: 13px; overflow: hidden; }
 .rail-item .ri-row + .ri-row { margin-top: 2px; }
 .rail-item .ri-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-item .ri-name.you::after { content: "you"; margin-left: 6px; font-size: 9.5px; letter-spacing: .1em; color: var(--accent); font-weight: 700; text-transform: uppercase; }
@@ -356,12 +359,14 @@ main { padding: 0 0 48px; }
 /* A matchup with a game on says so once, on the row, rather than in a column
    header that would have to describe every other row too. */
 .ri-live { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--live-dot); flex: none; }
-.rail-item .ri-score { font-weight: 700; color: var(--muted); white-space: nowrap; }
+.rail-item .ri-score { font-weight: 700; color: var(--muted); white-space: nowrap; text-align: right; }
 .rail-item .ri-score.lead { color: var(--text); font-weight: 800; }
 /* A projected total, not a score: dimmed, and tagged so the two are never
    mistaken for each other in a rail showing both. */
 .rail-item .ri-score.proj { font-weight: 700; color: var(--proj-dim); }
-.ri-tag { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-left: 4px; font-weight: 700; }
+/* A unit label beside the number, not a column heading: lowercase and small,
+   so it reads as "proj" qualifying the figure rather than as its own data. */
+.ri-tag { font-size: 8.5px; color: var(--faint); font-weight: 500; white-space: nowrap; }
 
 /* Panel head: tabs + hint */
 .panel { min-width: 0; }
@@ -797,7 +802,7 @@ aside.rail {
 .rail-item.mine { border-left-width: 3px; }
 .rail-item .ri-row { font-size: 12px; line-height: 1.25; }
 .rail-item .ri-name { font-weight: 500; }
-.rail-item .ri-score { width: 52px; text-align: right; font-weight: 700; }
+.rail-item .ri-score { text-align: right; font-weight: 700; }
 
 /* ==========================================================================
    Mobile. Desktop-first per handoff; this keeps phones usable, not final.

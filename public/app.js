@@ -604,11 +604,15 @@ function renderRail() {
     // over to the real number once one of its games is under way. The state is
     // per matchup, so a mixed rail is normal.
     const { started, live } = pairGameState(p);
+    // Number and tag are separate cells, not a tag trailing the number in flow:
+    // in flow it ran past the row's right edge and was clipped. The tag track
+    // is there whether or not a tag shows, so the numbers line up down the rail
+    // regardless of which matchups have started.
     const score = (sd, v, lead) => {
-      if (!sd) return '<span class="ri-score"></span>';
-      if (started) return `<span class="ri-score ${lead ? 'lead' : ''}">${fmt(v)}</span>`;
+      if (!sd) return '<span class="ri-score"></span><span class="ri-tag"></span>';
+      if (started) return `<span class="ri-score ${lead ? 'lead' : ''}">${fmt(v)}</span><span class="ri-tag"></span>`;
       const e = teamExp(sd.m.roster_id);
-      return `<span class="ri-score proj">${fmt(e ?? 0)}<span class="ri-tag">proj</span></span>`;
+      return `<span class="ri-score proj">${fmt(e ?? 0)}</span><span class="ri-tag">proj</span>`;
     };
     // The team name is the only part that may truncate; the live dot and the
     // "you" tag are short, fixed, and the reason to look at the row at all.
@@ -620,7 +624,7 @@ function renderRail() {
     return `
       <button type="button" class="rail-item ${p.id === S.viewMatchupId ? 'active' : ''} ${isMine ? 'mine' : ''}" data-mid="${p.id}"${rule}>
         <div class="ri-row">${name(p.a, p.a.name)}${score(p.a, ap, ap > bp)}</div>
-        <div class="ri-row">${name(p.b, p.b?.name || 'Bye')}${p.b ? score(p.b, bp, bp > ap) : '<span class="ri-score"></span>'}</div>
+        <div class="ri-row">${name(p.b, p.b?.name || 'Bye')}${score(p.b, bp, bp > ap)}</div>
       </button>`;
   }).join('');
   rail.querySelectorAll('[data-mid]').forEach((b) => b.addEventListener('click', () => { S.viewMatchupId = Number(b.dataset.mid); render({ keepVideo: true }); }));
