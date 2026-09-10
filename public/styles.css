@@ -876,6 +876,10 @@ body.theater .watch .watch-hd,
 body.theater .video-bar,
 body.theater .pl-band,
 body.theater .pl-chrome { flex: none; }
+/* The stream's title above and the exit/source bar below line up with the
+   picture, not with the column: --stage-w is the player's measured width. */
+body.theater .watch .watch-hd,
+body.theater .video-bar { width: 100%; max-width: var(--stage-w, 100%); margin-inline: auto; }
 /* The unit is what holds the shape, not the picture inside it: with the ratio
    on the box alone, the border, the score strip and the chrome bar kept the
    column's full width while the picture centred inside them, so the strip ran

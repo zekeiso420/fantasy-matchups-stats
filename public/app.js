@@ -1528,6 +1528,22 @@ function bindLaterToggle(p) {
   }));
 }
 
+// The watching line and the source bar belong to the picture, not to the column
+// they sit in. The player's width comes from the height left over after the
+// fixed rows, and CSS has no way to hand that measurement to its siblings, so
+// an observer copies it onto the column and they take their width from it.
+let stageSizer = null;
+function trackStageWidth() {
+  const player = $('.player'), watch = $('aside.watch');
+  stageSizer?.disconnect();
+  stageSizer = null;
+  if (!player || !watch) return;
+  const sync = () => watch.style.setProperty('--stage-w', `${player.offsetWidth}px`);
+  stageSizer = new ResizeObserver(sync);
+  stageSizer.observe(player);
+  sync();
+}
+
 function bindVideoControls(root) {
   root.querySelectorAll('[data-vid]').forEach((b) => b.addEventListener('click', () => videoAction(b.dataset.vid)));
   const frame = root.querySelector('#video-frame');
@@ -1539,6 +1555,7 @@ function bindVideoControls(root) {
   });
   root.querySelector('.switch-rail .switch-list')?.addEventListener('scroll', syncRailHint);
   requestAnimationFrame(syncRailHint);
+  trackStageWidth();
 }
 
 // --- Player side cell -------------------------------------------------------
