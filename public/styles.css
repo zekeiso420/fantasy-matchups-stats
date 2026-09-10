@@ -778,14 +778,27 @@ body.theater .games { display: none; }
    The column is a plain stack of blocks here, not the floating card it is out
    of theater: at this height a border and a shadow around all three read as a
    panel sitting on top of the page rather than part of it. */
-/* What is left for the picture once the fixed chrome above and below it is
-   accounted for: top bar, the one-line score strip, the tabs, the watching
-   line, the player's own band and chrome bar, and the source bar under it.
-   A share of the viewport instead would keep overflowing on short windows,
-   where that chrome is the same height but the share is not. */
-body.theater { --rail-w: 380px; --rail-strip: calc(var(--rail-w) + 40px); --stage-h: calc(100vh - 320px); }
-body.theater aside.rail { left: var(--gutter); background: none; border: 0; box-shadow: none; padding: 0 0 8px; }
-body.theater #rail-games { margin-top: 10px; }
+body.theater { --rail-w: 380px; }
+/* One page container in theater, not a floating strip beside an offset page:
+   the rail leaves its fixed position and becomes the grid's first column, so
+   the top bar, the score band and both columns all sit on the same 24px page
+   padding and the band spans the width the video ends at. */
+body.theater .topbar-inner,
+body.theater main { max-width: var(--page-max); margin-left: auto; margin-right: auto; }
+body.theater aside.rail {
+  position: static; width: auto; max-height: none; overflow: visible;
+  background: none; box-shadow: none;
+  border: 0; border-right: 1px solid var(--line); padding: 0 20px 0 0;
+}
+/* The three tables read as one list without a rule apiece, so every section
+   head carries its own: 18px of air above, a 6px gap below, one hairline. */
+body.theater .rail-head,
+body.theater .switch-hd,
+body.theater .mini-hd { margin-top: 18px; padding-top: 0; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+body.theater .rail-head { margin-top: 0; }
+body.theater #rail-games { margin-top: 0; }
+/* At 380px the six tracks give the names room for "B. Robinson" whole. */
+body.theater .mini-row { grid-template-columns: 26px minmax(0, 1fr) 42px 50px 42px minmax(0, 1fr); }
 /* Nothing follows the player in theater, so the page's tail padding goes. */
 body.theater main { padding-bottom: 12px; }
 /* 12a's header: in theater the score strip is one line, not a three-deck block.
@@ -807,16 +820,13 @@ body.theater .ss-chances { display: inline-flex; align-items: baseline; font-siz
 body.theater .ss-meta { margin-top: 0; }
 body.theater .ss-wp { display: none; }
 body.theater .tabs-row { top: 86px; }
-body.theater .matchup-body { grid-template-columns: minmax(0, 1fr); }
-body.theater .matchup-body > aside.watch { grid-column: 1; grid-row: 1; }
-/* The frame is capped by height, not width, so the column is capped to the
-   width that cap produces and centred: otherwise the band, the chrome bar and
-   the game list all run on past the picture's right edge. */
-body.theater aside.watch { min-width: 0; width: 100%; max-width: calc(var(--stage-h) * 16 / 9); justify-self: center; }
-body.theater .video-box { max-height: var(--stage-h); }
-/* Inside the strip the roster is the rail's second block, not a column of its
-   own: no right padding to reserve, and a rule to part it from the matchups. */
-body.theater aside.rail > .panel { margin-top: 10px; padding-right: 0; }
+body.theater .matchup-body { grid-template-columns: var(--rail-w) minmax(0, 1fr); column-gap: 24px; }
+body.theater .matchup-body > aside.rail { grid-column: 1; grid-row: 1; }
+/* The stage fills its track. A max-width here - centred, or capped to what the
+   frame's height allows - is what left a dead gutter between the rule and the
+   picture, and pulled the source bar into the middle with it. */
+body.theater .matchup-body > aside.watch { grid-column: 2; grid-row: 1; min-width: 0; width: 100%; max-width: none; margin: 0; justify-self: stretch; }
+body.theater aside.rail > .panel { padding-right: 0; }
 
 /* The game list is a vertical list in every layout. The horizontal strip is
    gone: it sat between the video and the rows and pushed them off screen. */
