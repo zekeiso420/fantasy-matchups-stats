@@ -778,16 +778,42 @@ body.theater .games { display: none; }
    The column is a plain stack of blocks here, not the floating card it is out
    of theater: at this height a border and a shadow around all three read as a
    panel sitting on top of the page rather than part of it. */
-body.theater { --rail-w: 380px; --rail-strip: calc(var(--rail-w) + 40px); }
+/* What is left for the picture once the fixed chrome above and below it is
+   accounted for: top bar, the one-line score strip, the tabs, the watching
+   line, the player's own band and chrome bar, and the source bar under it.
+   A share of the viewport instead would keep overflowing on short windows,
+   where that chrome is the same height but the share is not. */
+body.theater { --rail-w: 380px; --rail-strip: calc(var(--rail-w) + 40px); --stage-h: calc(100vh - 320px); }
 body.theater aside.rail { left: var(--gutter); background: none; border: 0; box-shadow: none; padding: 0 0 8px; }
 body.theater #rail-games { margin-top: 10px; }
+/* Nothing follows the player in theater, so the page's tail padding goes. */
+body.theater main { padding-bottom: 12px; }
+/* 12a's header: in theater the score strip is one line, not a three-deck block.
+   The screen is the player here, and 90px of scoreboard above it was what kept
+   the video from fitting the page - so the totals drop to 22px, each side runs
+   name / score / projection along a single baseline, the outlook and its meta
+   line sit inline between them, and the win-probability bar stands down. */
+body.theater .score-strip { padding: 6px var(--gutter) 4px; }
+body.theater .ss-line { gap: 16px; }
+body.theater .ss-team { flex-direction: row; align-items: baseline; gap: 8px; }
+body.theater .ss-team.opp { flex-direction: row-reverse; }
+body.theater .ss-tot { font-size: 22px; line-height: 1.2; }
+body.theater .ss-name { flex: 0 1 auto; }
+body.theater .ss-proj { font-size: 10px; }
+body.theater .ss-outlook { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+body.theater #ss-projection { display: flex; align-items: baseline; gap: 8px; }
+body.theater .ss-outlook-label { display: inline; font-size: 9px; }
+body.theater .ss-chances { display: inline-flex; align-items: baseline; font-size: 13px; line-height: 1.2; }
+body.theater .ss-meta { margin-top: 0; }
+body.theater .ss-wp { display: none; }
+body.theater .tabs-row { top: 86px; }
 body.theater .matchup-body { grid-template-columns: minmax(0, 1fr); }
 body.theater .matchup-body > aside.watch { grid-column: 1; grid-row: 1; }
 /* The frame is capped by height, not width, so the column is capped to the
    width that cap produces and centred: otherwise the band, the chrome bar and
    the game list all run on past the picture's right edge. */
-body.theater aside.watch { min-width: 0; width: 100%; max-width: calc(74vh * 16 / 9); justify-self: center; }
-body.theater .video-box { max-height: 74vh; }
+body.theater aside.watch { min-width: 0; width: 100%; max-width: calc(var(--stage-h) * 16 / 9); justify-self: center; }
+body.theater .video-box { max-height: var(--stage-h); }
 /* Inside the strip the roster is the rail's second block, not a column of its
    own: no right padding to reserve, and a rule to part it from the matchups. */
 body.theater aside.rail > .panel { margin-top: 10px; padding-right: 0; }
