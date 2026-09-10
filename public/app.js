@@ -31,6 +31,7 @@ const S = {
   view: prefs.view || 'slot',
   theater: !!prefs.theater,
   laterOpen: false,
+  railAll: false,     // theater's All matchups disclosure
   bgLaterOpen: false,
   viewMatchupId: null,
   liveAt: null,
@@ -443,7 +444,9 @@ function render({ keepVideo = false } = {}) {
     $('#score-strip').outerHTML = scoreStripHtml(cur);
     renderContent(cur);
     updateWatchAside(cur);
+    renderRailHead();
     renderRail();
+    renderRailGames(cur);
     renderScoreboardDynamic();
     renderUpdated();
     return;
@@ -468,16 +471,19 @@ function render({ keepVideo = false } = {}) {
       </div>
       </div>
       <div class="matchup-body">
-        <aside class="rail"><div class="rail-head">All matchups</div><div id="rail"></div></aside>
+        <aside class="rail"><div class="rail-head" id="rail-head"></div><div id="rail"></div><div id="rail-games"></div></aside>
         <section class="panel"><div id="content"></div></section>
         ${videoAsideHtml(gameBuckets(cur))}
       </div>
     </div>`;
   app.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => switchView(b.dataset.view)));
   document.body.classList.toggle('theater', S.theater);
+  placePanel();
   bindVideoControls(app);
   bindWatchTargets(cur, $('aside.watch'));
+  renderRailHead();
   renderRail();
+  renderRailGames(cur);
   renderContent(cur);
   syncStream(watchedGame);
   renderUpdated();
@@ -617,11 +623,28 @@ function pairGameState(p) {
   return { started: games.some((g) => g.state !== 'pre'), live: games.some((g) => g.state === 'live') };
 }
 
+// In theater the rail is the top block of the left column, and the column has
+// to fit beside the video rather than run past it - so it shows the matchup you
+// are watching and keeps the rest of the league behind a disclosure. Out of
+// theater it is a floating widget with room for the whole list.
+function renderRailHead() {
+  const head = $('#rail-head');
+  if (!head) return;
+  head.classList.toggle('open', S.theater);
+  head.innerHTML = S.theater
+    ? `<span class="rail-lbl">This matchup</span>`
+      + `<button type="button" class="rail-all" id="rail-all" aria-expanded="${S.railAll}">All matchups`
+      + `<span class="rail-chev">▾</span></button>`
+    : `<span class="rail-lbl">All matchups</span>`;
+  $('#rail-all')?.addEventListener('click', () => { S.railAll = !S.railAll; renderRailHead(); renderRail(); });
+}
+
 function renderRail() {
   const rail = $('#rail');
   if (!rail) return;
   const mine = myRoster()?.roster_id;
-  rail.innerHTML = pairs().map((p) => {
+  const list = S.theater && !S.railAll ? pairs().filter((p) => p.id === S.viewMatchupId) : pairs();
+  rail.innerHTML = list.map((p) => {
     const ap = teamPts(p.a.m.roster_id), bp = p.b ? teamPts(p.b.m.roster_id) : 0;
     // Before a matchup's first snap there is no score to report - zero would be
     // a lie and saying "no games yet" spent a whole row saying nothing - so the
@@ -655,16 +678,29 @@ function renderRail() {
   rail.querySelectorAll('[data-mid]').forEach((b) => b.addEventListener('click', () => { S.viewMatchupId = Number(b.dataset.mid); render({ keepVideo: true }); }));
 }
 
+// Theater's game list belongs to the left column, between the matchups and the
+// starters; the copy in the video column is hidden while it is there. Its count
+// reads "N live" rather than the aside's longer line - the column is 380px and
+// the header already says what the list is.
+function renderRailGames(p) {
+  const host = $('#rail-games');
+  if (!host) return;
+  if (!S.theater) { host.innerHTML = ''; return; }
+  const { withGame, watched, live } = watchedOf(gameBuckets(p));
+  host.innerHTML = `<div class="games-side">`
+    + `<div class="switch-hd"><span class="sh-lbl">Switch game</span><span class="sh-count">${live.length} live</span></div>`
+    + `<div class="switch-rail"><div class="switch-list">${switchListHtml(withGame, watched)}</div></div>`
+    + `</div>`;
+  bindWatchTargets(p, host);
+  bindLaterToggle(p);
+}
+
 function renderContent(p) {
   const content = $('#content');
   if (!content) return;
-  // In theater the game list moves above the compressed roster in the right
-  // column. CSS cannot reparent, so the block renders here and the copy inside
-  // the video column is hidden; both are patched together.
-  // In theater the third column's content is what the tab switches; the video
-  // sits in its own column and is never touched by this.
+  // The tab is what this swaps; the player and its game list are never touched
+  // by it, in theater or out.
   content.innerHTML = (S.view === 'slot' ? slotViewHtml(p) : gameViewHtml(p))
-    + (S.theater && S.view === 'slot' ? gameListHtml(p) : '')
     + (S.view === 'slot' ? compressedStartersHtml(p) : byGameColumnHtml(p));
   bindWatchTargets(p, content);
   bindLaterToggle(p);
@@ -715,9 +751,7 @@ function updateWatchAside(p) {
     sw.innerHTML = switchListHtml(withGame, watched);
     bindWatchTargets(p, sw);
   }
-  for (const el of app.querySelectorAll('.sh-count')) {
-    el.textContent = el.closest('.games-side') ? `${live.length} live` : `${withGame.length} game${withGame.length !== 1 ? 's' : ''} \u00b7 ${live.length} live`;
-  }
+  for (const el of app.querySelectorAll('.games-side .sh-count')) el.textContent = `${live.length} live`;
   bindLaterToggle(p);
   const clock = $('#pb-clock'), score = $('#pb-score');
   if (clock && game) clock.innerHTML = bandClock(game);
@@ -835,16 +869,6 @@ function diffText(d, digits = 1) {
 // swing: re-sorting would move a player between refreshes, and the slot order
 // is how a lineup is read. The opponent's score is absent because the swing
 // already encodes it, and the full rows are one click away.
-// The switch-game block, rendered either in the video column or, in theater,
-// at the top of the right column.
-function gameListHtml(pair) {
-  const { withGame, watched, live } = watchedOf(gameBuckets(pair));
-  return `<div class="games-side">`
-    + `<div class="switch-hd"><span class="sh-lbl">Switch game</span><span class="sh-count">${live.length} live</span></div>`
-    + `<div class="switch-rail"><div class="switch-list">${switchListHtml(withGame, watched)}</div></div>`
-    + `</div>`;
-}
-
 // Theater's By NFL game column: your players grouped under their game, live
 // first and biggest mover at the top. Only your side appears; the header's
 // swing already encodes the difference, and a 400px column has no room for two
@@ -1251,10 +1275,26 @@ function setTheater(on) {
   if (btn) { btn.textContent = S.theater ? 'Exit theater' : 'Theater'; btn.setAttribute('aria-pressed', String(S.theater)); }
   const hint = $('#tabs-hint');
   if (hint) { hint.textContent = S.theater ? 'Theater on' : ''; hint.classList.toggle('on', S.theater); }
+  placePanel();
   const cur = current();
   if (cur) { renderContent(cur); updateWatchAside(cur); }
+  renderRailHead();
   renderRail();
+  if (cur) renderRailGames(cur);
   syncRailHint();
+}
+
+// Theater hands the whole body to the player, so the roster goes into the rail's
+// strip under All matchups. It is the same panel in both layouts - moved, not
+// re-rendered - so an open stat panel survives the toggle and the <iframe> is
+// never touched.
+function placePanel() {
+  const panel = $('section.panel'), rail = $('aside.rail'), body = $('.matchup-body');
+  if (!panel || !rail || !body) return;
+  const target = S.theater ? rail : body;
+  if (panel.parentElement === target) return;
+  if (S.theater) rail.appendChild(panel);
+  else body.insertBefore(panel, $('aside.watch', body));
 }
 window.addEventListener('resize', syncRailHint);
 
