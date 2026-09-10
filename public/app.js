@@ -17,6 +17,12 @@ const prefs = load();
 function load() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; } }
 function save(patch) { Object.assign(prefs, patch); localStorage.setItem(STORE_KEY, JSON.stringify(prefs)); }
 
+// Theater's detail view keeps its own key: it is one boolean about one screen,
+// and the collapsed state should survive a reload on its own terms.
+const DETAIL_KEY = 'matchup.theater.detailOpen';
+function readDetailOpen() { try { return localStorage.getItem(DETAIL_KEY) !== '0'; } catch { return true; } }
+function writeDetailOpen(v) { try { localStorage.setItem(DETAIL_KEY, v ? '1' : '0'); } catch {} }
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -32,6 +38,7 @@ const S = {
   theater: !!prefs.theater,
   laterOpen: false,
   railAll: false,     // theater's All matchups disclosure
+  detailOpen: readDetailOpen(),  // theater's rail + score band, together
   bgLaterOpen: false,
   viewMatchupId: null,
   liveAt: null,
@@ -61,12 +68,14 @@ $('#week-select').addEventListener('change', (e) => selectWeek(Number(e.target.v
 $('#week-prev').addEventListener('click', () => selectWeek(S.week - 1));
 $('#week-next').addEventListener('click', () => selectWeek(S.week + 1));
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.leagueId && S.week) connectLive(); });
-// t = theater, r = reload a stalled source. Fullscreen belongs to the
-// provider's own player now.
+// t = theater, r = reload a stalled source, d = theater's detail view,
+// Esc = leave theater. Fullscreen belongs to the provider's own player now.
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
   const k = e.key.toLowerCase();
+  if (k === 'd' && S.theater) { e.preventDefault(); return setDetailOpen(!S.detailOpen); }
+  if (e.key === 'Escape' && S.theater) { e.preventDefault(); return setTheater(false); }
   if (k !== 't' && k !== 'r') return;
   if (!document.querySelector('#video-frame')) return;
   e.preventDefault();
@@ -460,18 +469,18 @@ function render({ keepVideo = false } = {}) {
   // both and the tabs cannot shift when you switch.
   app.innerHTML = `
     <div class="matchup">
-      <div class="matchup-head">
+      <div class="matchup-head" id="theater-scoreband">
       ${scoreStripHtml(cur)}
       <div class="tabs-row">
         <div class="tabs" role="tablist">
           <button type="button" role="tab" data-view="slot" class="${S.view === 'slot' ? 'active' : ''}" aria-pressed="${S.view === 'slot'}">By position</button>
           <button type="button" role="tab" data-view="game" class="${S.view === 'game' ? 'active' : ''}" aria-pressed="${S.view === 'game'}">By NFL game</button>
         </div>
-        <span class="tabs-hint ${S.theater ? 'on' : ''}" id="tabs-hint">${S.theater ? 'Theater on' : ''}</span>
+        <span class="tabs-end" id="tabs-end"></span>
       </div>
       </div>
       <div class="matchup-body">
-        <aside class="rail"><div class="rail-head" id="rail-head"></div><div id="rail"></div><div id="rail-games"></div></aside>
+        <aside class="rail" id="theater-rail"><div class="rail-inner"><div class="rail-head" id="rail-head"></div><div id="rail"></div><div id="rail-games"></div></div></aside>
         <section class="panel"><div id="content"></div></section>
         ${videoAsideHtml(gameBuckets(cur))}
       </div>
@@ -481,6 +490,9 @@ function render({ keepVideo = false } = {}) {
   placePanel();
   bindVideoControls(app);
   bindWatchTargets(cur, $('aside.watch'));
+  applyDetail();
+  renderNavScore();
+  renderDetailControl();
   renderRailHead();
   renderRail();
   renderRailGames(cur);
@@ -592,6 +604,7 @@ function renderScoreboardDynamic() {
     fill.style.width = wp == null ? '0%' : `${Math.round(wp * 100)}%`;
     fill.style.background = swingColor(ap - bp);
   }
+  renderNavScore();
 }
 
 function winProbFor(p) {
@@ -1296,15 +1309,90 @@ function setTheater(on) {
   document.body.classList.toggle('theater', S.theater);
   const btn = $('[data-vid="theater"]');
   if (btn) { btn.textContent = S.theater ? 'Exit theater' : 'Theater'; btn.setAttribute('aria-pressed', String(S.theater)); }
-  const hint = $('#tabs-hint');
-  if (hint) { hint.textContent = S.theater ? 'Theater on' : ''; hint.classList.toggle('on', S.theater); }
   placePanel();
+  applyDetail();
+  renderNavScore();
+  renderDetailControl();
   const cur = current();
   if (cur) { renderContent(cur); updateWatchAside(cur); }
   renderRailHead();
   renderRail();
   if (cur) renderRailGames(cur);
   syncRailHint();
+}
+
+// --- Theater's detail view ---------------------------------------------------
+// One control over two things: the rail and the score band fold together, and
+// while they are folded the score itself rides in the nav. One boolean, because
+// there is one idea here - show me the detail, or give the space to the game.
+const CHEV = (up) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"`
+  + ` stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">`
+  + `<path d="${up ? 'm18 15-6-6-6 6' : 'm6 9 6 6 6-6'}"/></svg>`;
+
+const detailToggleHtml = () => `<button type="button" class="detail-toggle" data-detail`
+  + ` aria-expanded="${S.detailOpen}" aria-controls="theater-rail theater-scoreband">`
+  + `${S.detailOpen ? 'Collapse detail view' : 'Open detail view'}${CHEV(S.detailOpen)}</button>`;
+
+// The same button in both places, so it is one control that moves rather than
+// two that have to agree.
+function renderDetailControl() {
+  const end = $('#tabs-end'), nav = $('#nav-score');
+  if (end) end.innerHTML = S.theater && S.detailOpen ? detailToggleHtml() : '';
+  const navBtn = nav?.querySelector('.detail-toggle');
+  if (nav && S.theater && !S.detailOpen && !navBtn) nav.insertAdjacentHTML('beforeend', detailToggleHtml());
+  else if (navBtn && (S.detailOpen || !S.theater)) navBtn.remove();
+  for (const b of app.ownerDocument.querySelectorAll('[data-detail]')) {
+    b.addEventListener('click', () => setDetailOpen(!S.detailOpen));
+  }
+}
+
+// The score in the nav is the band's line at nav scale: the same numbers, the
+// same order, so folding the band away moves the score rather than losing it.
+function renderNavScore() {
+  const nav = $('#nav-score');
+  if (!nav) return;
+  const p = S.data && current();
+  if (!p || !p.b) { nav.querySelector('.nav-score-body')?.remove(); return; }
+  const pre = !pairGameState(p).started && teamExp(p.a.m.roster_id) != null;
+  const val = (rid) => (pre ? teamExp(rid) ?? 0 : teamPts(rid));
+  const a = val(p.a.m.roster_id), b = val(p.b.m.roster_id);
+  const body = `<span class="nav-score-body">`
+    + `<span class="nav-score-div"></span>`
+    + `<span>${escape(p.a.name)}</span>`
+    + `<span class="big">${fmt(a)}</span>`
+    + `<span class="edge" style="color:${swingColor(a - b)}">${diffText(a - b, 2)}</span>`
+    + `<span class="big dim">${fmt(b)}</span>`
+    + `<span class="dim">${escape(p.b.name)}</span>`
+    + `</span>`;
+  const cur = nav.querySelector('.nav-score-body');
+  if (cur) cur.outerHTML = body;
+  else nav.insertAdjacentHTML('afterbegin', body);
+}
+
+// Collapsing is a state on three elements and a re-measure of the stage: the
+// band folds, the rail's track goes to zero while its content keeps its width
+// and is clipped, and the picture grows into what both leave behind.
+function applyDetail() {
+  const band = $('#theater-scoreband'), grid = $('.matchup-body'), rail = $('#theater-rail'), nav = $('.topbar');
+  const off = S.theater && !S.detailOpen;
+  for (const [el, on] of [[band, off], [grid, off], [nav, off]]) {
+    if (!el) continue;
+    if (on) el.setAttribute('data-collapsed', ''); else el.removeAttribute('data-collapsed');
+  }
+  for (const el of [band, rail]) {
+    if (!el) continue;
+    el.toggleAttribute('inert', off);
+    if (off) el.setAttribute('aria-hidden', 'true'); else el.removeAttribute('aria-hidden');
+  }
+  sizeStage();
+}
+
+function setDetailOpen(open) {
+  S.detailOpen = !!open;
+  writeDetailOpen(S.detailOpen);
+  applyDetail();
+  renderNavScore();
+  renderDetailControl();
 }
 
 // Theater hands the whole body to the player, so the roster goes into the rail's
@@ -1314,9 +1402,10 @@ function setTheater(on) {
 function placePanel() {
   const panel = $('section.panel'), rail = $('aside.rail'), body = $('.matchup-body');
   if (!panel || !rail || !body) return;
-  const target = S.theater ? rail : body;
+  const inner = $('.rail-inner', rail) || rail;
+  const target = S.theater ? inner : body;
   if (panel.parentElement === target) return;
-  if (S.theater) rail.appendChild(panel);
+  if (S.theater) inner.appendChild(panel);
   else body.insertBefore(panel, $('aside.watch', body));
 }
 window.addEventListener('resize', syncRailHint);
@@ -1528,20 +1617,39 @@ function bindLaterToggle(p) {
   }));
 }
 
-// The watching line and the source bar belong to the picture, not to the column
-// they sit in. The player's width comes from the height left over after the
-// fixed rows, and CSS has no way to hand that measurement to its siblings, so
-// an observer copies it onto the column and they take their width from it.
+// The stage cannot be sized in CSS. Its height is what the flex column has left
+// over and its width follows from that, but aspect-ratio can only work the
+// other way: on a height-driven column it has no width to feed back to the
+// parent and the unit collapses to the width of the score strip's text. So the
+// width is measured - the picture's height times 16/9, clamped to the column -
+// and set on the unit, which the score strip, the chrome bar, the watching line
+// and the source bar all take their width from. Transitioning that width is
+// also what lets the picture grow along with the collapsing rail.
+const STRIP_H = 34, CHROME_H = 44;
 let stageSizer = null;
+function sizeStage() {
+  const unit = $('.player'), watch = $('aside.watch');
+  if (!unit || !watch) return;
+  if (!S.theater) { unit.style.width = ''; watch.style.removeProperty('--stage-w'); return; }
+  const picH = unit.clientHeight - STRIP_H - CHROME_H;
+  if (picH <= 0) return;
+  const w = Math.min(Math.round(picH * 16 / 9), unit.parentElement.clientWidth);
+  if (unit.style.width === `${w}px`) return;
+  unit.style.width = `${w}px`;
+  watch.style.setProperty('--stage-w', `${w}px`);
+}
+
 function trackStageWidth() {
-  const player = $('.player'), watch = $('aside.watch');
+  const unit = $('.player'), stage = $('aside.watch');
   stageSizer?.disconnect();
   stageSizer = null;
-  if (!player || !watch) return;
-  const sync = () => watch.style.setProperty('--stage-w', `${player.offsetWidth}px`);
-  stageSizer = new ResizeObserver(sync);
-  stageSizer.observe(player);
-  sync();
+  if (!unit || !stage) return;
+  // The unit's height changes when the band folds; the column's width changes
+  // when the rail's track does. Both feed the same measurement.
+  stageSizer = new ResizeObserver(() => sizeStage());
+  stageSizer.observe(unit);
+  stageSizer.observe(stage);
+  sizeStage();
 }
 
 function bindVideoControls(root) {

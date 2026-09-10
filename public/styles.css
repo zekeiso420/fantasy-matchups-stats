@@ -395,9 +395,6 @@ main { padding: 0 0 48px; }
 /* The hint shares the tabs' baseline: they carry 5px of padding and a 3px
    underline beneath their text, so without its own padding it sat that much
    lower than the row it belongs to. */
-.tabs-hint { padding-bottom: 8px; font-size: 10px; color: var(--dim); font-weight: 400; letter-spacing: .08em; text-transform: uppercase; }
-.tabs-hint.on { color: var(--live); font-weight: 700; }
-.tabs-hint.online::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--live-fill); margin-right: 6px; vertical-align: 1px; animation: pulse 1.6s infinite; }
 
 /* ==========================================================================
    Starters table (By position): 56px rows, headshots, swing gutter
@@ -880,6 +877,60 @@ body.theater .pl-chrome { flex: none; }
    picture, not with the column: --stage-w is the player's measured width. */
 body.theater .watch .watch-hd,
 body.theater .video-bar { width: 100%; max-width: var(--stage-w, 100%); margin-inline: auto; }
+
+/* --- Collapsed detail view ------------------------------------------------
+   The band folds to nothing and the rail's track goes to zero, while the rail's
+   content keeps a fixed 359px and is simply clipped: an inner width in percent,
+   or padding on the animating track, would re-wrap every line on the way past.
+   The picture grows into what both leave behind. */
+body.theater .matchup-head {
+  overflow: hidden; max-height: 160px; opacity: 1;
+  transition: max-height .22s cubic-bezier(.4, 0, .2, 1), opacity .18s;
+}
+body.theater .matchup-head[data-collapsed] { max-height: 0; opacity: 0; }
+body.theater .matchup-body { transition: grid-template-columns .22s cubic-bezier(.4, 0, .2, 1), column-gap .22s cubic-bezier(.4, 0, .2, 1); }
+body.theater .matchup-body[data-collapsed] { grid-template-columns: 0 minmax(0, 1fr); column-gap: 0; }
+body.theater aside.rail { transition: border-color .18s; }
+/* A zero-width track can still put up a scrollbar, so the clip is explicit. */
+body.theater .matchup-body[data-collapsed] > aside.rail { border-right-width: 0; overflow: hidden; }
+.rail-inner { opacity: 1; transition: opacity .18s .06s; }
+body.theater .rail-inner { width: 359px; }
+body.theater .matchup-body[data-collapsed] .rail-inner { opacity: 0; transition-delay: 0s; }
+
+/* One control, in the tab row while the detail view is open and in the nav
+   while it is folded away. */
+.detail-toggle {
+  display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 4px 0 8px;
+  background: none; border: 0; cursor: pointer; color: var(--faint);
+  font: 700 10px/1 var(--font); letter-spacing: .1em; text-transform: uppercase;
+}
+.detail-toggle:hover { color: var(--text); }
+.detail-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabs-end { display: flex; align-items: flex-end; }
+
+/* The score wipes into the nav rather than appearing in it: nowrap and a
+   clipped, animating max-width mean the line never re-lays out, and the type
+   fades in once the wipe has made room for it. */
+.nav-score {
+  display: flex; align-items: baseline; gap: 9px; white-space: nowrap; overflow: hidden;
+  max-width: 0; opacity: 0; font-variant-numeric: tabular-nums;
+  transition: max-width .22s cubic-bezier(.4, 0, .2, 1), opacity .18s;
+}
+.nav-score .nav-score-body { display: flex; align-items: baseline; gap: 9px; }
+.topbar[data-collapsed] .nav-score { max-width: 780px; opacity: 1; transition-delay: 0s, .08s; }
+.nav-score span { font-size: 12px; font-weight: 600; }
+.nav-score .big { font-size: 15px; font-weight: 800; letter-spacing: -.02em; }
+.nav-score .edge { font-size: 11.5px; font-weight: 700; }
+.nav-score .dim { color: var(--bar-muted); }
+.nav-score-div { align-self: center; width: 1px; height: 18px; background: var(--line); }
+
+@media (prefers-reduced-motion: reduce) {
+  body.theater .matchup-head,
+  body.theater .matchup-body,
+  body.theater .player,
+  .rail-inner,
+  .nav-score { transition: none; }
+}
 /* The unit is what holds the shape, not the picture inside it: with the ratio
    on the box alone, the border, the score strip and the chrome bar kept the
    column's full width while the picture centred inside them, so the strip ran
@@ -888,8 +939,8 @@ body.theater .video-bar { width: 100%; max-width: var(--stage-w, 100%); margin-i
    iframe simply fills it. */
 body.theater .player {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
-  aspect-ratio: 16 / 9; height: 100%; width: auto; max-width: 100%;
-  align-self: center; margin: 0 auto;
+  max-width: 100%; align-self: center; margin: 0 auto;
+  transition: width .22s cubic-bezier(.4, 0, .2, 1);
 }
 body.theater .video-box { flex: 1; min-height: 0; width: 100%; max-width: none; aspect-ratio: auto; margin: 0; }
 body.theater aside.rail > .panel { padding-right: 0; }
