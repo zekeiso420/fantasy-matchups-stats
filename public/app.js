@@ -1192,7 +1192,21 @@ const ICON = {
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
   reload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>',
   alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>',
+  volume: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
+  cast: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16.1A5 5 0 0 1 5.9 20"/><path d="M2 12.05A9 9 0 0 1 9.95 20"/><path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/></svg>',
+  pip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><rect x="12" y="12" width="7" height="5" rx="1"/></svg>',
+  full: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>',
 };
+
+// The bar the mockup draws, with the honesty the frame forces on it. Stop and
+// fullscreen are ours to drive - one tears the frame down, the other asks the
+// box for fullscreen. Volume, cast and picture-in-picture belong to the
+// provider's player inside a cross-origin frame, so they render in place and
+// say so rather than pretending to work.
+const PL_DEAD = 'The provider’s own player owns this control';
+const plBtn = (kind, icon, label) => `<button type="button" class="pl-btn" data-vid="${kind}" title="${label}" aria-label="${label}">${icon}</button>`;
+const plDead = (icon, label) => `<button type="button" class="pl-btn dead" disabled title="${label} · ${PL_DEAD}" aria-label="${label}, unavailable">${icon}</button>`;
 
 function videoAsideHtml(list) {
   const { withGame, watched, live, game } = watchedOf(list);
@@ -1230,9 +1244,14 @@ function playerHtml(g) {
         <div class="pl-state on" id="pl-state"><span class="pl-ring"></span><span class="pl-state-lbl">Buffering</span></div>
       </div>
       <div class="pl-chrome">
+        ${plBtn('stop', ICON.stop, 'Stop the stream')}
+        ${plDead(ICON.volume, 'Volume')}
         ${g.state === 'live' ? '<span class="pl-live"><span class="pl-dot"></span>Live</span>' : `<span class="pl-off">${escape(g.state === 'final' ? 'Final' : 'Not started')}</span>`}
         <div class="pl-right">
-          <button type="button" class="pl-btn" data-vid="reload" title="Reload this source (r)" aria-label="Reload this source">${ICON.reload}</button>
+          ${plBtn('reload', ICON.reload, 'Reload this source (r)')}
+          ${plDead(ICON.cast, 'Cast')}
+          ${plDead(ICON.pip, 'Picture in picture')}
+          ${plBtn('full', ICON.full, 'Fullscreen')}
         </div>
       </div>
     </div>`;
@@ -1304,7 +1323,28 @@ window.addEventListener('resize', syncRailHint);
 
 function videoAction(kind) {
   if (kind === 'theater') return setTheater(!S.theater);
-  if (kind === 'reload') return reloadSource();
+  if (kind === 'reload' || kind === 'retry') return reloadSource();
+  if (kind === 'stop') return stopSource();
+  if (kind === 'full') return goFullscreen();
+}
+
+// Stop is a real teardown, not a pause we cannot reach: the frame goes to
+// about:blank and the state label says the stream is stopped. Reload brings it
+// back from the same source.
+function stopSource() {
+  const frame = $('#video-frame');
+  if (!frame || frame.src === 'about:blank') return;
+  frame.src = 'about:blank';
+  setPlayerState('stopped');
+}
+
+// Fullscreen is asked of our own box, which is allowed: the frame carries
+// allowfullscreen, so the provider's player comes with it.
+function goFullscreen() {
+  const box = $('#video-box');
+  if (!box) return;
+  if (document.fullscreenElement) document.exitFullscreen?.();
+  else box.requestFullscreen?.();
 }
 
 // A hung stream needs the frame torn down, not just re-pointed: assigning the
@@ -1332,6 +1372,14 @@ function setPlayerState(kind, label, reason) {
   if (!kind) { el.classList.remove('on', 'err'); el.innerHTML = ''; return; }
   el.classList.add('on');
   el.classList.toggle('err', kind === 'error');
+  // A stopped stream is not a loading one: no spinner, just what happened and
+  // the way back.
+  if (kind === 'stopped') {
+    el.innerHTML = `<span class="pl-state-lbl">${escape(label || 'Stopped')}</span>`
+      + `<button type="button" class="pl-retry" data-vid="retry">Start again</button>`;
+    bindVideoControls(el);
+    return;
+  }
   if (kind !== 'error') {
     el.innerHTML = `<span class="pl-ring"></span><span class="pl-state-lbl">${escape(label || 'Buffering')}</span>`;
     return;

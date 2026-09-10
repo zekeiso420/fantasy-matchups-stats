@@ -635,11 +635,15 @@ main { padding: 0 0 48px; }
 @keyframes pl-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pl-ring { animation-duration: 3s; } }
 
-/* Chrome bar. Only controls we can actually drive live here: the live pill is
-   ours because we hold game state, and Reload re-points the frame. Stop,
-   volume, cast, PiP and fullscreen belong to the player inside the frame,
-   which same-origin policy puts out of reach. */
-.pl-chrome { display: flex; align-items: center; height: 44px; padding: 0 8px; background: var(--bg); border-top: 1px solid var(--line); }
+/* Chrome bar, 44px: stop, volume and the live pill flush left, cast, PiP and
+   fullscreen flush right, each control a 32px hit area on a 17px icon. Stop
+   and fullscreen are ours to drive - one tears the frame down, the other asks
+   our own box for fullscreen. Volume, cast and PiP belong to the player inside
+   a cross-origin frame, so they hold their place disabled and say why on hover
+   rather than looking live and doing nothing. */
+.pl-chrome { display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 8px; background: var(--bg); border-top: 1px solid var(--line); }
+.pl-btn.dead { color: var(--dim); cursor: default; }
+.pl-btn.dead:hover { background: none; color: var(--dim); }
 .pl-live { display: flex; align-items: center; gap: 7px; margin-left: 8px; font-size: 10px; letter-spacing: .12em; font-weight: 700; color: var(--live); text-transform: uppercase; }
 .pl-dot { width: 6px; height: 6px; background: var(--live-fill); border-radius: 50%; }
 .pl-off { margin-left: 8px; font-size: 10px; letter-spacing: .12em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
@@ -788,21 +792,24 @@ body.theater { --rail-w: 380px; }
    the top bar, the score band and both columns all sit on the same 24px page
    padding and the band spans the width the video ends at. */
 body.theater .topbar-inner,
-body.theater main { max-width: var(--page-max); margin-left: auto; margin-right: auto; }
+body.theater main { max-width: none; margin-left: 0; margin-right: 0; }
 body.theater aside.rail {
-  position: static; width: auto; max-height: none; overflow: visible;
+  /* z-index still applies to a static grid item, so the strip's stacking order
+     has to be given back too: at 30 the column painted over the sticky score
+     bar and its rows showed through the header on the way past. */
+  position: static; z-index: auto; width: auto; max-height: none; overflow: visible;
   background: none; box-shadow: none;
   border: 0; border-right: 1px solid var(--line); padding: 0 20px 0 0;
 }
 /* The three tables read as one list without a rule apiece, so every section head
    carries its own, on one rhythm: 18px of air above, 6px down to a hairline,
-   7px from the hairline to the first row. The rule runs the column's full inner
-   width - out through the 20px padding - so it lands on the divider instead of
-   stopping short of it. */
+   7px from the hairline to the first row. The rules stop at the column's content
+   edge rather than running out through its padding: in the mockup they clear the
+   divider, and joining the two turns three separate rules into a grid. */
 body.theater .rail-head,
 body.theater .switch-hd,
 body.theater .mini-hd {
-  margin: 18px -20px 7px 0; padding: 0 20px 6px 0;
+  margin: 18px 0 7px; padding: 0 0 6px;
   border-bottom: 1px solid var(--line);
 }
 body.theater .rail-head { margin-top: 0; }
@@ -810,7 +817,7 @@ body.theater #rail-games { margin-top: 0; }
 /* At 380px the six tracks give the names room for "B. Robinson" whole, and the
    swing keeps a 50px track: the bar is 46px of it, under its signed delta
    rather than butted against it. */
-body.theater .mini-row { grid-template-columns: 26px minmax(0, 1fr) 42px 50px 42px minmax(0, 1fr); column-gap: 5px; min-height: 33px; }
+body.theater .mini-row { grid-template-columns: 26px minmax(0, 1fr) 42px 50px 42px minmax(0, 1fr); column-gap: 5px; height: 33px; min-height: 33px; align-items: center; }
 body.theater .mini-gut { gap: 3px; }
 body.theater .mini-bar .swing { width: 46px; }
 /* Nothing follows the player in theater, so the page's tail padding goes. */
@@ -834,12 +841,43 @@ body.theater .ss-chances { display: inline-flex; align-items: baseline; font-siz
 body.theater .ss-meta { margin-top: 0; }
 body.theater .ss-wp { display: none; }
 body.theater .tabs-row { top: 86px; }
-body.theater .matchup-body { grid-template-columns: var(--rail-w) minmax(0, 1fr); column-gap: 24px; }
+body.theater .matchup-body {
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  /* One row that is exactly the height left over, and columns that fill it:
+     the page's default start-alignment would size both to their content and
+     leave the stage nothing to flex into. */
+  grid-template-rows: minmax(0, 1fr); align-items: stretch; column-gap: 24px;
+}
 body.theater .matchup-body > aside.rail { grid-column: 1; grid-row: 1; }
 /* The stage fills its track. A max-width here - centred, or capped to what the
    frame's height allows - is what left a dead gutter between the rule and the
    picture, and pulled the source bar into the middle with it. */
 body.theater .matchup-body > aside.watch { grid-column: 2; grid-row: 1; min-width: 0; width: 100%; max-width: none; margin: 0; justify-self: stretch; }
+/* Theater is a fixed-height screen, not a page that scrolls: the window is the
+   frame, and the stage is the only row that flexes. Everything else - nav, the
+   score band and tabs, the watching line, the player's own band and chrome, the
+   source bar - is fixed height, and what is left over is the picture. Each link
+   in that chain needs min-height:0, or a flex item refuses to shrink below its
+   content and pushes the stage off the bottom. The picture takes its height
+   from the leftover space and derives its width, so a short window letterboxes
+   it left and right instead of overflowing, and a tall one caps it at the
+   column's width. */
+body.theater { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+body.theater > .topbar,
+body.theater > .banner { flex: none; }
+body.theater > main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding-bottom: 0; }
+body.theater .matchup { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+body.theater .matchup-head { flex: none; }
+body.theater .matchup-body { flex: 1; min-height: 0; padding-bottom: 12px; }
+/* A long list scrolls inside the column rather than growing the screen. */
+body.theater .matchup-body > aside.rail { overflow-y: auto; min-height: 0; }
+body.theater aside.watch { display: flex; flex-direction: column; min-height: 0; }
+body.theater .watch .watch-hd,
+body.theater .video-bar,
+body.theater .pl-band,
+body.theater .pl-chrome { flex: none; }
+body.theater .player { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+body.theater .video-box { flex: 1; min-height: 0; width: auto; max-width: 100%; align-self: center; margin: 0 auto; }
 body.theater aside.rail > .panel { padding-right: 0; }
 
 /* The game list is a vertical list in every layout. The horizontal strip is
@@ -892,7 +930,7 @@ aside.rail {
     max-width: var(--page-max); margin-left: auto; margin-right: auto;
   }
   aside.rail {
-    position: static; width: auto; max-height: none; overflow: visible;
+    position: static; z-index: auto; width: auto; max-height: none; overflow: visible;
     background: none; border: 0; border-bottom: 1px solid var(--line);
     box-shadow: none; padding: 0 0 6px; margin-bottom: 6px;
   }
