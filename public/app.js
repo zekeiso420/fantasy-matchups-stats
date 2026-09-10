@@ -627,16 +627,20 @@ function pairGameState(p) {
 // to fit beside the video rather than run past it - so it shows the matchup you
 // are watching and keeps the rest of the league behind a disclosure. Out of
 // theater it is a floating widget with room for the whole list.
+// One disclosure for both of theater's section heads: All matchups over the
+// rail, All games over the switcher. Same control, same type, and both fold
+// back up again - a one-way "show the rest" link left no way back.
+const sectMoreHtml = (label, open) => `<button type="button" class="sect-more" aria-expanded="${!!open}">`
+  + `${label}<span class="sect-chev">▾</span></button>`;
+
 function renderRailHead() {
   const head = $('#rail-head');
   if (!head) return;
   head.classList.toggle('open', S.theater);
   head.innerHTML = S.theater
-    ? `<span class="rail-lbl">This matchup</span>`
-      + `<button type="button" class="rail-all" id="rail-all" aria-expanded="${S.railAll}">All matchups`
-      + `<span class="rail-chev">▾</span></button>`
+    ? `<span class="rail-lbl">This matchup</span>${sectMoreHtml('All matchups', S.railAll)}`
     : `<span class="rail-lbl">All matchups</span>`;
-  $('#rail-all')?.addEventListener('click', () => { S.railAll = !S.railAll; renderRailHead(); renderRail(); });
+  $('.sect-more', head)?.addEventListener('click', () => { S.railAll = !S.railAll; renderRailHead(); renderRail(); });
 }
 
 function renderRail() {
@@ -688,9 +692,11 @@ function renderRailGames(p) {
   if (!S.theater) { host.innerHTML = ''; return; }
   const { withGame, watched, live } = watchedOf(gameBuckets(p));
   host.innerHTML = `<div class="games-side">`
-    + `<div class="switch-hd"><span class="sh-lbl">Switch game</span><span class="sh-count">${live.length} live</span></div>`
+    + `<div class="switch-hd"><span class="sh-lbl">Switch game</span><span class="sh-count">${live.length} live</span>`
+    + `${withGame.length > 1 ? sectMoreHtml('All games', S.laterOpen) : ''}</div>`
     + `<div class="switch-rail"><div class="switch-list">${switchListHtml(withGame, watched)}</div></div>`
     + `</div>`;
+  $('.sect-more', host)?.addEventListener('click', () => { S.laterOpen = !S.laterOpen; renderRailGames(p); });
   bindWatchTargets(p, host);
   bindLaterToggle(p);
 }
@@ -1250,12 +1256,10 @@ function switchListHtml(withGame, watched) {
   // Theater lists the grouped roster below, so the control only needs the game
   // being watched plus a way to reach the others.
   if (S.theater) {
+    if (!withGame.length) return empty;
     const rest = withGame.filter((bk) => !watched || bk.game.id !== watched.game.id);
-    const head = watched ? cell(watched) : '';
-    if (!S.laterOpen) {
-      return (head + (rest.length ? `<button type="button" class="later-toggle">${rest.length} other game${rest.length !== 1 ? 's' : ''} ⌄</button>` : '')) || empty;
-    }
-    return (head + rest.map(cell).join('')) || empty;
+    const head = cell(watched || withGame[0]);
+    return S.laterOpen ? head + rest.map(cell).join('') : head;
   }
   const live = withGame.filter((bk) => bk.game.state === 'live');
   const later = withGame.filter((bk) => bk.game.state !== 'live');
