@@ -1333,17 +1333,17 @@ const detailToggleHtml = () => `<button type="button" class="detail-toggle" data
   + ` aria-expanded="${S.detailOpen}" aria-controls="theater-rail theater-scoreband">`
   + `${S.detailOpen ? 'Collapse detail view' : 'Open detail view'}${CHEV(S.detailOpen)}</button>`;
 
-// The same button in both places, so it is one control that moves rather than
-// two that have to agree.
+// One control in one place. It used to sit in the tab row while the detail view
+// was open and in the nav once it was folded away - but the tab row is part of
+// what folds, so the button you had just clicked was never where you left it.
+// The nav is the only chrome that survives both states, and the slot is
+// right-anchored so the longer label grows leftwards and the hit area holds
+// still between "Collapse" and "Open".
 function renderDetailControl() {
-  const end = $('#tabs-end'), nav = $('#nav-score');
-  if (end) end.innerHTML = S.theater && S.detailOpen ? detailToggleHtml() : '';
-  const navBtn = nav?.querySelector('.detail-toggle');
-  if (nav && S.theater && !S.detailOpen && !navBtn) nav.insertAdjacentHTML('beforeend', detailToggleHtml());
-  else if (navBtn && (S.detailOpen || !S.theater)) navBtn.remove();
-  for (const b of app.ownerDocument.querySelectorAll('[data-detail]')) {
-    b.addEventListener('click', () => setDetailOpen(!S.detailOpen));
-  }
+  const slot = $('#detail-slot');
+  if (!slot) return;
+  slot.innerHTML = S.theater ? detailToggleHtml() : '';
+  $('.detail-toggle', slot)?.addEventListener('click', () => setDetailOpen(!S.detailOpen));
 }
 
 // The score in the nav is the band's line at nav scale: the same numbers, the

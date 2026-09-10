@@ -900,11 +900,15 @@ body.theater .matchup-body[data-collapsed] .rail-inner { opacity: 0; transition-
 /* One control, in the tab row while the detail view is open and in the nav
    while it is folded away. */
 .detail-toggle {
-  display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 4px 0 8px;
-  background: none; border: 0; cursor: pointer; color: var(--faint);
+  display: flex; align-items: center; justify-content: flex-end; gap: 7px;
+  height: 28px; padding: 0 4px 0 8px; min-width: 180px;
+  background: none; border: 0; cursor: pointer; color: var(--bar-muted);
   font: 700 10px/1 var(--font); letter-spacing: .1em; text-transform: uppercase;
 }
-.detail-toggle:hover { color: var(--text); }
+/* The slot holds the same box whichever label is in it, so the button does not
+   shuffle its neighbours when the state changes. */
+.detail-slot:empty { display: none; }
+.detail-toggle:hover { color: var(--bar-fg); }
 .detail-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tabs-end { display: flex; align-items: flex-end; }
 
