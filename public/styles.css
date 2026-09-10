@@ -296,22 +296,24 @@ main { padding: 0 0 48px; }
 .ss-team { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; gap: 2px; }
 .ss-team.opp { align-items: flex-end; text-align: right; }
 .ss-name { max-width: 100%; font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ss-tot { font-size: 28px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
+.ss-tot { font-size: 38px; line-height: 1.1; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
 .ss-tot.trail { color: var(--muted); }
 .ss-proj { font-size: 11px; color: var(--muted); }
+/* Pre-kickoff the caption labels the number above it, so the label reads as a
+   label and not as another value. */
+.ss-cap-lbl { text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
 .ss-outlook { text-align: center; }
 .ss-outlook-label { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .ss-chances { display: block; font-size: 17px; line-height: 1.5; color: var(--muted); }
 .ss-chances > span { padding: 0 7px; color: var(--faint); font-weight: 400; }
 .ss-chances .favored { color: var(--accent); }
-.ss-edge { display: block; font-size: 10px; color: var(--muted); }
 .ss-gap { font-size: 15px; font-weight: 800; }
 .ss-meta { display: block; margin-top: 3px; font-size: 9px; color: var(--faint); }
 @media (max-width: 520px) {
   .ss-line { gap: 8px; }
   .ss-name { font-size: 11px; }
-  .ss-tot { font-size: 24px; }
-  .ss-proj, .ss-edge { font-size: 9px; }
+  .ss-tot { font-size: 32px; }
+  .ss-proj { font-size: 9px; }
   .ss-chances { font-size: 15px; }
 }
 .ss-wp { height: 3px; background: var(--line); margin-top: 6px; }
@@ -431,9 +433,13 @@ main { padding: 0 0 48px; }
 .p-line { font-size: 11px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
 .p-state.live { color: var(--live); animation: pulse 1.6s infinite; }
 .p-state.final { color: var(--faint); }
-.p-pts { font-weight: 800; font-size: 17px; text-align: right; white-space: nowrap; }
-.side.b .p-pts { text-align: left; }
-.p-pts.pre { color: var(--faint); font-weight: 700; }
+.p-score { min-width: 0; text-align: right; }
+.side.b .p-score { text-align: left; }
+.p-pts { font-weight: 800; font-size: 17px; white-space: nowrap; }
+/* A score that is still a placeholder zero sits back, and the projection under
+   it takes the weight of a caption. */
+.p-pts.pre { color: var(--faint); font-size: 16px; }
+.p-proj { font-size: 9.5px; line-height: 1.3; color: var(--muted); white-space: nowrap; }
 .p-pts.flash { animation: flash 1.1s ease-out; }
 
 .gutter { padding: 4px 8px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); align-self: stretch; display: flex; flex-direction: column; justify-content: center; }

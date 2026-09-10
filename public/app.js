@@ -217,7 +217,10 @@ function patchNumbers() {
     if (el.textContent !== next) { el.textContent = next; el.classList.remove('flash', 'pre'); void el.offsetWidth; el.classList.add('flash'); }
   }
   for (const el of app.querySelectorAll('.ss-tot[data-total]')) {
-    const next = fmt(teamPts(Number(el.dataset.total)));
+    // A header still showing a projected total takes its update from the
+    // projection, or every tick would bump it back to the live zero.
+    const rid = Number(el.dataset.total);
+    const next = fmt(el.classList.contains('proj') ? teamExp(rid) ?? 0 : teamPts(rid));
     if (el.textContent !== next) { el.textContent = next; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   }
   for (const el of app.querySelectorAll('.gb-tot[data-tot-a]')) {
@@ -231,8 +234,12 @@ function patchNumbers() {
   }
   for (const el of app.querySelectorAll('[data-swing]')) {
     const [a, b] = el.dataset.swing.split('|').map((x) => x.split(':'));
-    const d = playerPts(a[1], Number(a[0])) - playerPts(b[1], Number(b[0]));
-    const compact = el.classList.contains('mini-row') ? { digits: 1, tieAsNumber: true } : {};
+    // A slot still short of its first snap is showing projected edge, and stays
+    // on that source until a game state change forces a full re-render.
+    const d = el.hasAttribute('data-swing-proj')
+      ? (playerProj(a[1]) - playerProj(b[1]))
+      : (playerPts(a[1], Number(a[0])) - playerPts(b[1], Number(b[0])));
+    const compact = el.classList.contains('mini-row') ? { digits: 1, tieAsNumber: true } : { digits: 2 };
     const span = $('.diff', el);
     if (span) span.outerHTML = diffHtml(d, SWING_CLAMP, compact);
     const bar = $('.swing', el);
@@ -329,6 +336,7 @@ function teamPts(rosterId) {
   if (t) return t.pts;
   return S.data.matchups.find((x) => x.roster_id === rosterId)?.points ?? 0;
 }
+function playerProj(pid) { return S.data.scored?.players?.[pid]?.proj ?? 0; }
 function teamExp(rosterId) { return S.data.scored?.teams?.[rosterId]?.exp ?? null; }
 function expText(rosterId) {
   const e = teamExp(rosterId);
@@ -522,8 +530,18 @@ function renderScoreboardDynamic() {
   const p = current();
   if (!p) return;
   const ap = teamPts(p.a.m.roster_id), bp = p.b ? teamPts(p.b.m.roster_id) : 0;
-  app.querySelectorAll('.ss-tot[data-total]').forEach((el) => el.classList.remove('trail'));
-  if (p.b && ap !== bp) $(`.ss-tot[data-total="${ap > bp ? p.b.m.roster_id : p.a.m.roster_id}"]`)?.classList.add('trail');
+  // Before the matchup's first snap the big number is the projected total and
+  // the live zero rides in the caption; at first snap the two swap slots, so
+  // one number moves and nothing around it reflows.
+  const pre = !pairGameState(p).started && teamExp(p.a.m.roster_id) != null;
+  const shown = (rid) => (pre ? teamExp(rid) ?? 0 : teamPts(rid));
+  for (const el of app.querySelectorAll('.ss-tot[data-total]')) {
+    el.classList.remove('trail');
+    el.classList.toggle('proj', pre);
+    el.textContent = fmt(shown(Number(el.dataset.total)));
+  }
+  const la = shown(p.a.m.roster_id), lb = p.b ? shown(p.b.m.roster_id) : 0;
+  if (p.b && la !== lb) $(`.ss-tot[data-total="${la > lb ? p.b.m.roster_id : p.a.m.roster_id}"]`)?.classList.add('trail');
   const gap = $('#ss-gap');
   if (gap) {
     const d = ap - bp;
@@ -535,6 +553,10 @@ function renderScoreboardDynamic() {
   if (meta) {
     const sa = sideSummary(p.a), sb = p.b ? sideSummary(p.b) : { left: 0, total: 0 };
     const bits = [];
+    const ea = teamExp(p.a.m.roster_id), eb = p.b ? teamExp(p.b.m.roster_id) : null;
+    // The edge belongs under the win chance it explains rather than on a line
+    // of its own: the stack reads "60% / 40%", then what makes it so.
+    if (ea != null && eb != null && fmt(ea) !== fmt(eb)) bits.push(`${diffText(ea - eb, 2)} edge`);
     bits.push(`${sa.left + sb.left} of ${sa.total + sb.total} starters left`);
     meta.textContent = bits.join(' \u00b7 ');
   }
@@ -548,12 +570,15 @@ function renderScoreboardDynamic() {
     const ea = teamExp(p.a.m.roster_id), eb = teamExp(p.b.m.roster_id);
     const tied = fmt(ea) === fmt(eb);
     const chanceA = tied ? 50 : Math.round(wp * 100);
-    projA.textContent = `${fmt(ea)} projected`;
-    projB.textContent = `${fmt(eb)} projected`;
-    const edge = tied ? 'Even projection' : `${ea > eb ? '← ' : ''}${fmt(Math.abs(ea - eb))} projected edge${eb > ea ? ' →' : ''}`;
+    // Pre-kickoff the caption names the number above it and parks the live
+    // zero; once the clock is running it carries the projection instead.
+    const caption = (rid) => (pre
+      ? `<span class="ss-cap-lbl">Projected</span> · live ${fmt(teamPts(rid))}`
+      : `${fmt(rid === p.a.m.roster_id ? ea : eb)} projected`);
+    projA.innerHTML = caption(p.a.m.roster_id);
+    projB.innerHTML = caption(p.b.m.roster_id);
     projection.innerHTML = `<span class="ss-outlook-label">Est. win chance</span>
-      <span class="ss-chances"><b class="${ea >= eb ? 'favored' : ''}">${chanceA}%</b><span> / </span><b class="${eb >= ea ? 'favored' : ''}">${100 - chanceA}%</b></span>
-      <span class="ss-edge">${edge}</span>`;
+      <span class="ss-chances"><b class="${ea >= eb ? 'favored' : ''}">${chanceA}%</b><span> / </span><b class="${eb >= ea ? 'favored' : ''}">${100 - chanceA}%</b></span>`;
     projection.setAttribute('aria-label', `${p.a.name}: ${chanceA}% win chance, projected ${fmt(ea)}. ${p.b.name}: ${100 - chanceA}% win chance, projected ${fmt(eb)}.`);
   }
   const fill = $('#ss-wp-fill');
@@ -740,11 +765,21 @@ function renderUpdated() {
 }
 
 // --- Swing gutter (shared by both views) -----------------------------------
+// Until a slot has had its first snap both scores are zero, and a bar pinned at
+// "even" said only that no football had been played. Pre-kickoff the bar reads
+// the projected edge instead, on the same scale; at the slot's first snap the
+// source switches to the live delta and the geometry carries on unchanged.
+function slotSwing(a, b) {
+  const live = [a, b].some((x) => x.game && x.game.state !== 'pre');
+  if (live || !S.data.proj) return { d: (a.pts || 0) - (b.pts || 0), proj: false };
+  return { d: (a.proj || 0) - (b.proj || 0), proj: true };
+}
+
 function gutterHtml(slot, a, b, ridA, ridB) {
   const has = !!(a && b);
-  const d = has ? (a.pts || 0) - (b.pts || 0) : 0;
-  return `<div class="gutter" ${has ? `data-swing="${ridA}:${a.id}|${ridB}:${b.id}"` : ''}>
-      <div class="gutter-top">${slot}${has ? diffHtml(d) : '<span class="diff"></span>'}</div>
+  const { d, proj } = has ? slotSwing(a, b) : { d: 0, proj: false };
+  return `<div class="gutter" ${has ? `data-swing="${ridA}:${a.id}|${ridB}:${b.id}"${proj ? ' data-swing-proj=""' : ''}` : ''}>
+      <div class="gutter-top">${slot}${has ? diffHtml(d, SWING_CLAMP, { digits: 2 }) : '<span class="diff"></span>'}</div>
       ${swingBar(has ? d : 0)}
     </div>`;
 }
@@ -1465,7 +1500,13 @@ function sideHtml(pl, rosterId, sideKey, { bench = false, compact = false } = {}
     + `<div class="p-name">${nameCell}${pl.injury ? `<span class="inj">${escape(injAbbr(pl.injury))}</span>` : ''}</div>`
     + `<div class="p-line"><span class="p-pos">${escape(posLabel)}</span>${line ? ` · <span class="p-state ${cls}">${escape(line)}</span>` : ''}</div>`
     + `</div>`;
-  const pts = `<div class="p-pts ${pre && !pl.pts ? 'pre' : ''}" data-pts="${rosterId}:${pl.id}">${fmt(pl.pts)}</div>`;
+  // Before kickoff the score is a placeholder zero, so the cell carries the
+  // projection under it - that is the only number with anything to say yet.
+  // Once his game is on, the projection line goes and the score brightens.
+  const placeholder = pre && !pl.pts;
+  const projLine = placeholder && S.data.proj && pl.proj != null
+    ? `<div class="p-proj">${fmt(pl.proj)} proj</div>` : '';
+  const pts = `<div class="p-score"><div class="p-pts ${placeholder ? 'pre' : ''}" data-pts="${rosterId}:${pl.id}">${fmt(pl.pts)}</div>${projLine}</div>`;
   const chev = `<span class="p-chev" aria-hidden="true">▾</span>`;
   const cells = sideKey === 'a' ? [av, who, pts, chev] : [chev, pts, who, av];
   return `<div class="side ${sideKey} ${compact ? 'compact' : ''} ${isLive && !compact ? 'live' : ''} ${bench ? 'bench' : ''}" data-sheet-for="${rosterId}:${pl.id}" tabindex="0" role="button" aria-expanded="false">${cells.join('')}</div>`;
