@@ -392,7 +392,10 @@ main { padding: 0 0 48px; }
 .tabs { display: flex; gap: 20px; font-size: 13px; font-weight: 700; }
 .tabs button { background: transparent; border: 0; padding: 0 0 5px; color: var(--faint); font-weight: 600; }
 .tabs button.active { color: var(--text); font-weight: 700; border-bottom: 3px solid var(--accent); display: inline-block; }
-.tabs-hint { font-size: 10px; color: var(--dim); font-weight: 400; letter-spacing: .08em; text-transform: uppercase; }
+/* The hint shares the tabs' baseline: they carry 5px of padding and a 3px
+   underline beneath their text, so without its own padding it sat that much
+   lower than the row it belongs to. */
+.tabs-hint { padding-bottom: 8px; font-size: 10px; color: var(--dim); font-weight: 400; letter-spacing: .08em; text-transform: uppercase; }
 .tabs-hint.on { color: var(--live); font-weight: 700; }
 .tabs-hint.online::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--live-fill); margin-right: 6px; vertical-align: 1px; animation: pulse 1.6s infinite; }
 
@@ -791,15 +794,25 @@ body.theater aside.rail {
   background: none; box-shadow: none;
   border: 0; border-right: 1px solid var(--line); padding: 0 20px 0 0;
 }
-/* The three tables read as one list without a rule apiece, so every section
-   head carries its own: 18px of air above, a 6px gap below, one hairline. */
+/* The three tables read as one list without a rule apiece, so every section head
+   carries its own, on one rhythm: 18px of air above, 6px down to a hairline,
+   7px from the hairline to the first row. The rule runs the column's full inner
+   width - out through the 20px padding - so it lands on the divider instead of
+   stopping short of it. */
 body.theater .rail-head,
 body.theater .switch-hd,
-body.theater .mini-hd { margin-top: 18px; padding-top: 0; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+body.theater .mini-hd {
+  margin: 18px -20px 7px 0; padding: 0 20px 6px 0;
+  border-bottom: 1px solid var(--line);
+}
 body.theater .rail-head { margin-top: 0; }
 body.theater #rail-games { margin-top: 0; }
-/* At 380px the six tracks give the names room for "B. Robinson" whole. */
-body.theater .mini-row { grid-template-columns: 26px minmax(0, 1fr) 42px 50px 42px minmax(0, 1fr); }
+/* At 380px the six tracks give the names room for "B. Robinson" whole, and the
+   swing keeps a 50px track: the bar is 46px of it, under its signed delta
+   rather than butted against it. */
+body.theater .mini-row { grid-template-columns: 26px minmax(0, 1fr) 42px 50px 42px minmax(0, 1fr); column-gap: 5px; min-height: 33px; }
+body.theater .mini-gut { gap: 3px; }
+body.theater .mini-bar .swing { width: 46px; }
 /* Nothing follows the player in theater, so the page's tail padding goes. */
 body.theater main { padding-bottom: 12px; }
 /* 12a's header: in theater the score strip is one line, not a three-deck block.
