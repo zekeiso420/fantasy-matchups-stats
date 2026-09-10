@@ -876,8 +876,18 @@ body.theater .watch .watch-hd,
 body.theater .video-bar,
 body.theater .pl-band,
 body.theater .pl-chrome { flex: none; }
-body.theater .player { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-body.theater .video-box { flex: 1; min-height: 0; width: auto; max-width: 100%; align-self: center; margin: 0 auto; }
+/* The unit is what holds the shape, not the picture inside it: with the ratio
+   on the box alone, the border, the score strip and the chrome bar kept the
+   column's full width while the picture centred inside them, so the strip ran
+   a hundred-odd pixels past its own image on each side. Sizing the outer block
+   means strip, picture and controls are one width and centre together; the
+   iframe simply fills it. */
+body.theater .player {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  aspect-ratio: 16 / 9; height: 100%; width: auto; max-width: 100%;
+  align-self: center; margin: 0 auto;
+}
+body.theater .video-box { flex: 1; min-height: 0; width: 100%; max-width: none; aspect-ratio: auto; margin: 0; }
 body.theater aside.rail > .panel { padding-right: 0; }
 
 /* The game list is a vertical list in every layout. The horizontal strip is
@@ -949,8 +959,10 @@ aside.rail {
 /* Two columns need roughly 1100px. Below that the player stacks above the rows
    so the names get the full width rather than a 100px cell. */
 @media (max-width: 1100px) {
-  .matchup-body,
-  body.theater .matchup-body { grid-template-columns: minmax(0, 880px); justify-content: center; }
+  /* Theater keeps its two columns here: 380px and what is left still holds a
+     usable stage, and stacking them would put the picture below the fold on the
+     one layout whose whole point is that nothing scrolls. */
+  .matchup-body { grid-template-columns: minmax(0, 880px); justify-content: center; }
   .matchup-body > aside.rail { grid-column: 1; grid-row: 1; }
   .matchup-body > aside.watch { grid-column: 1; grid-row: 2; min-width: 0; }
   .matchup-body > .panel { grid-column: 1; grid-row: 3; }
