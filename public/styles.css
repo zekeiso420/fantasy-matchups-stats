@@ -632,24 +632,6 @@ main { padding: 0 0 48px; }
 @keyframes pl-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pl-ring { animation-duration: 3s; } }
 
-/* Chrome bar, 44px: stop, volume and the live pill flush left, cast, PiP and
-   fullscreen flush right, each control a 32px hit area on a 17px icon. Stop
-   and fullscreen are ours to drive - one tears the frame down, the other asks
-   our own box for fullscreen. Volume, cast and PiP belong to the player inside
-   a cross-origin frame, so they hold their place disabled and say why on hover
-   rather than looking live and doing nothing. */
-.pl-chrome { display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 8px; background: var(--bg); border-top: 1px solid var(--line); }
-.pl-btn.dead { color: var(--dim); cursor: default; }
-.pl-btn.dead:hover { background: none; color: var(--dim); }
-.pl-live { display: flex; align-items: center; gap: 7px; margin-left: 8px; font-size: 10px; letter-spacing: .12em; font-weight: 700; color: var(--live); text-transform: uppercase; }
-.pl-dot { width: 6px; height: 6px; background: var(--live-fill); border-radius: 50%; }
-.pl-off { margin-left: 8px; font-size: 10px; letter-spacing: .12em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
-.pl-right { margin-left: auto; display: flex; gap: 2px; }
-.pl-btn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; background: none; border: 0; color: var(--muted); cursor: pointer; }
-.pl-btn svg { width: 17px; height: 17px; }
-.pl-btn:hover { background: var(--surface-2); color: var(--text); }
-.pl-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-
 /* Toolbar under the player. */
 .video-bar { position: relative; display: flex; align-items: center; gap: 8px; padding-top: 10px; }
 .vb-btn { flex: none; white-space: nowrap; height: 32px; padding: 0 14px; background: none; border: 1px solid var(--line-strong); color: var(--text); font: 700 10.5px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
@@ -871,8 +853,7 @@ body.theater .matchup-body > aside.rail { overflow-y: auto; min-height: 0; }
 body.theater aside.watch { display: flex; flex-direction: column; min-height: 0; }
 body.theater .watch .watch-hd,
 body.theater .video-bar,
-body.theater .pl-band,
-body.theater .pl-chrome { flex: none; }
+body.theater .pl-band { flex: none; }
 /* The stream's title above and the exit/source bar below line up with the
    picture, not with the column: --stage-w is the player's measured width. */
 body.theater .watch .watch-hd,
