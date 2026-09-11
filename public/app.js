@@ -1600,26 +1600,39 @@ function bindLaterToggle(p) {
   }));
 }
 
-// The stage cannot be sized in CSS. Its height is what the flex column has left
-// over and its width follows from that, but aspect-ratio can only work the
-// other way: on a height-driven column it has no width to feed back to the
-// parent and the unit collapses to the width of the score strip's text. So the
-// width is measured - the picture's height times 16/9, clamped to the column -
-// and set on the unit, which the score strip, the chrome bar, the watching line
-// and the source bar all take their width from. Transitioning that width is
-// also what lets the picture grow along with the collapsing rail.
-const STRIP_H = 34, CHROME_H = 44;
+// Fit the video and its scoreboard into the space between the watching line
+// and source controls. The outer player must not stretch past the picture.
 let stageSizer = null;
 function sizeStage() {
   const unit = $('.player'), watch = $('aside.watch');
   if (!unit || !watch) return;
-  if (!S.theater) { unit.style.width = ''; watch.style.removeProperty('--stage-w'); return; }
-  const picH = unit.clientHeight - STRIP_H - CHROME_H;
-  if (picH <= 0) return;
-  const w = Math.min(Math.round(picH * 16 / 9), unit.parentElement.clientWidth);
-  if (unit.style.width === `${w}px`) return;
-  unit.style.width = `${w}px`;
-  watch.style.setProperty('--stage-w', `${w}px`);
+  if (!S.theater) {
+    unit.style.width = '';
+    unit.style.height = '';
+    watch.style.removeProperty('--stage-w');
+    return;
+  }
+  const css = getComputedStyle(watch);
+  const px = (value) => parseFloat(value) || 0;
+  const visible = [...watch.children].filter((el) => getComputedStyle(el).display !== 'none');
+  const occupied = visible.reduce((total, el) => {
+    if (el === unit) return total;
+    const style = getComputedStyle(el);
+    return total + el.getBoundingClientRect().height + px(style.marginTop) + px(style.marginBottom);
+  }, 0);
+  const available = watch.clientHeight - px(css.paddingTop) - px(css.paddingBottom)
+    - occupied - Math.max(0, visible.length - 1) * px(css.rowGap);
+  const border = getComputedStyle(unit);
+  const borderX = px(border.borderLeftWidth) + px(border.borderRightWidth);
+  const borderY = px(border.borderTopWidth) + px(border.borderBottomWidth);
+  const bandH = $('.pl-band', unit)?.getBoundingClientRect().height || 0;
+  const maxWidth = watch.clientWidth - px(css.paddingLeft) - px(css.paddingRight);
+  const pictureWidth = Math.max(0, Math.min(maxWidth - borderX, (available - bandH - borderY) * 16 / 9));
+  const width = pictureWidth + borderX;
+  const height = pictureWidth * 9 / 16 + bandH + borderY;
+  unit.style.width = `${width}px`;
+  unit.style.height = `${height}px`;
+  watch.style.setProperty('--stage-w', `${width}px`);
 }
 
 function trackStageWidth() {
