@@ -1250,13 +1250,20 @@ const scoreLineHtml = (g) => `<span class="ps-t">${g.away}</span><span class="ps
 
 function switchListHtml(withGame, watched) {
   const cell = (bk) => {
-    const gg = bk.game, count = bk.a.length + bk.b.length;
+    const gg = bk.game;
     const active = watched && gg.id === watched.game.id;
     const state = gg.state === 'live' ? '<span class="si-state live">LIVE</span>'
       : gg.state === 'final' ? '<span class="si-state">FINAL</span>'
       : `<span class="si-state">${escape(shortKick(gg.kickoff))}</span>`;
-    const sub = `${active ? 'Watching · ' : ''}${count} player${count !== 1 ? 's' : ''}`;
-    return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state === 'live' ? 'is-live' : ''}" data-watch="${gg.id}"><span class="si-top"><span class="si-name">${gg.away} @ ${gg.home}</span>${state}</span><span class="si-sub">${escape(sub)}</span></button>`;
+    const p = current();
+    const summary = (players, name) => {
+      const starters = players.filter((x) => !x.bench).length;
+      const bench = players.length - starters;
+      const names = players.map((x) => `${x.name}${x.bench ? ' (bench)' : ''}`).join(', ') || 'No players';
+      return `<span title="${escape(names)}">${escape(name)}: ${starters} starter${starters !== 1 ? 's' : ''}${bench ? ` · ${bench} bench` : ''}</span>`;
+    };
+    const sub = summary(bk.a, p.a.name) + (p.b ? summary(bk.b, p.b.name) : '');
+    return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state === 'live' ? 'is-live' : ''}" data-watch="${gg.id}"><span class="si-top"><span class="si-name">${gg.away} @ ${gg.home}</span>${state}</span><span class="si-sub">${sub}</span></button>`;
   };
   const empty = '<div class="empty-col">No games with players in this matchup</div>';
   // Live games first; the rest sit behind a count, since a dock column has no
@@ -1755,20 +1762,20 @@ function sheetBodyHtml(pid, rosterId) {
   // reads the projection until he is actually on.
   const team = S.players?.[pid]?.t;
   const game = team ? S.data.games?.[team] : null;
-  const live = !!game && game.state !== 'pre' && !!st && breakdown(st, scoring).length > 0;
-  const rows = panelRows(live ? st : proj, scoring, pos);
+  const started = !!game && game.state !== 'pre';
+  const rows = panelRows(started ? st : proj, scoring, pos);
   if (!rows.length) {
     return `<div class="sp-empty">${S.data.statsAvailable === false
       ? `Live stat feed unavailable; showing Sleeper's points.`
-      : 'No projection for this player.'}</div>`;
+      : started ? 'No scoring breakdown available.' : 'No projection for this player.'}</div>`;
   }
-  const total = live ? playerPts(pid, rosterId) : (sc?.proj ?? (proj ? scorePlayer(proj, scoring) : 0));
+  const total = started ? playerPts(pid, rosterId) : (sc?.proj ?? (proj ? scorePlayer(proj, scoring) : 0));
   const cells = rows.map((r) => `<div class="sp-cell">`
     + `<div class="sp-lbl">${escape(r.key === 'rec' ? 'Receptions' : r.label)}</div>`
     + `<div class="sp-val">${fmtStat(r.value)}<span class="sp-pts ${r.points > 0 ? 'up' : r.points < 0 ? 'down' : 'zero'}">`
     + `${r.points > 0 ? '+' : r.points < 0 ? '−' : ''}${fmt(Math.abs(r.points))}</span></div>`
     + `</div>`).join('');
-  return `<div class="sp-hd"><span class="sp-hd-lbl">${live ? 'Live' : 'Projected'}</span>`
+  return `<div class="sp-hd"><span class="sp-hd-lbl">${game?.state === 'final' ? 'Final' : started ? 'Live' : 'Projected'}</span>`
     + `<span class="sp-hd-val">${fmt(total)}</span><span class="sp-hd-unit">pts</span></div>`
     + `<div class="sp-grid">${cells}</div>`;
 }
