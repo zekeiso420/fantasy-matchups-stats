@@ -933,7 +933,8 @@ body.theater aside.rail > .panel { padding-right: 0; }
 /* The game list is a vertical list in every layout. The horizontal strip is
    gone: it sat between the video and the rows and pushed them off screen. */
 .switch-item { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px; }
-.si-sub { margin-left: auto; margin-top: 0; }
+.si-sub { margin-left: auto; margin-top: 0; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.si-sub > span { display: block; }
 .sr-fade, .sh-more { display: none; }
 
 /* All matchups floats at the left in theater rather than taking a column or
