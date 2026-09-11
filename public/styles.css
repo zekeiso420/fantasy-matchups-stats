@@ -923,9 +923,8 @@ body.theater .matchup-body[data-collapsed] .rail-inner { opacity: 0; transition-
    means strip, picture and controls are one width and centre together; the
    iframe simply fills it. */
 body.theater .player {
-  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  flex: 0 0 auto; min-height: 0; display: flex; flex-direction: column;
   max-width: 100%; align-self: center; margin: 0 auto;
-  transition: width .22s cubic-bezier(.4, 0, .2, 1);
 }
 body.theater .video-box { flex: 1; min-height: 0; width: 100%; max-width: none; aspect-ratio: auto; margin: 0; }
 body.theater aside.rail > .panel { padding-right: 0; }
