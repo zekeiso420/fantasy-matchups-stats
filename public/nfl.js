@@ -70,6 +70,12 @@ export function summarizeGames(scoreboard) {
       clock: comp.status?.displayClock || '',
       period: comp.status?.period || 0,
     };
+    const possession = comp.situation?.possession;
+    const possessor = possession != null
+      ? comp.competitors.find((c) => String(c.id ?? c.team?.id) === String(possession))
+      : null;
+    game.possession = game.state === 'live' && !game.halftime && possessor
+      ? norm(possessor.team?.abbreviation) || null : null;
     for (const t of [game.home, game.away]) {
       games[t] = game;
       for (const k of EXTRA_KEYS[t] || []) games[k] = game;

@@ -19,7 +19,7 @@ function renderers(state) {
   };
   runInNewContext(
     section('const PANEL_STATS =', 'const fmtStat =') +
-    section('function switchListHtml(', '// --- Video controls') +
+    section('function possessionTeamHtml(', '// --- Video controls') +
     ';this.render = {sheetBodyHtml, switchListHtml};', context);
   return context.render;
 }
@@ -57,5 +57,14 @@ test('switch game shows halftime and then live in normal and theater views', () 
     bk.game.halftime=false;
     assert.match(render.switchListHtml([bk],bk),/si-state live">LIVE/);
     assert.doesNotMatch(render.switchListHtml([bk],bk),/HALFTIME/);
+  }
+});
+
+test('switch game attaches an SVG marker to the possessing team', () => {
+  const bk={game:{id:'g',state:'live',possession:'SEA',home:'SEA',away:'NE'},a:[],b:[]};
+  for(const theater of [false,true]) {
+    const html=renderers({theater}).switchListHtml([bk],bk);
+    assert.match(html,/title="SEA has possession">SEA<svg/);
+    assert.doesNotMatch(html,/title="NE has possession"/);
   }
 });

@@ -1048,3 +1048,7 @@ body.theater .video-box iframe {
   width: 100%;
   height: 100%;
 }
+
+/* Possession marker shared by game lists and grouped roster headings. */
+.possession-team { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.possession-ball { width: 13px; height: 13px; flex: none; color: var(--accent); vertical-align: middle; }

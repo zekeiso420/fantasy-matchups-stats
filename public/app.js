@@ -215,7 +215,7 @@ function applyUpdate(msg) {
 
 // Anything that affects layout rather than numbers.
 function structureKey() {
-  const g = Object.values(S.data.games || {}).map((x) => `${x.id}:${x.state}:${!!x.halftime}`).sort().join(',');
+  const g = Object.values(S.data.games || {}).map((x) => `${x.id}:${x.state}:${!!x.halftime}:${x.possession || ''}`).sort().join(',');
   const s = S.data.matchups.map((m) => `${m.roster_id}:${(m.starters || []).join('.')}`).join('|');
   return g + '#' + s;
 }
@@ -943,7 +943,7 @@ function byGameColumnHtml(pair) {
       `<div class="bg-row">${half(mine[i], false)}${half(theirs[i], true)}</div>`).join('');
     return `<div class="bg-group">`
       + `<button type="button" class="bg-head ${g.state === 'live' ? 'live' : ''} ${watched ? 'watched' : ''}" data-watch="${g.id}" aria-pressed="${watched}">`
-      + `<span class="bg-line"><span class="bg-score">${g.away} ${g.awayScore} @ ${g.home} ${g.homeScore}</span>${state}</span>`
+      + `<span class="bg-line"><span class="bg-score">${possessionTeamHtml(g, g.away)} ${g.awayScore} @ ${possessionTeamHtml(g, g.home)} ${g.homeScore}</span>${state}</span>`
       + `<span class="bg-swing">${diffHtml(d, GAME_CLAMP, { digits: 1, tieAsNumber: true })}</span>`
       + `</button>${rows}</div>`;
   };
@@ -1119,9 +1119,9 @@ function gameBarHtml(bk, startersA, startersB, totA, totB) {
     <div class="game-bar ${g.state === 'live' ? 'live' : ''}">
       <div class="gb-line">
         ${espnLinkHtml(g, 'gb-fix', `
-          <img class="gb-logo" src="${logo(g.away)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.away}</span> <span class="gb-score" data-game-score="${g.away}:away">${g.awayScore}</span>
+          <img class="gb-logo" src="${logo(g.away)}" alt="" onerror="this.remove()"><span class="gb-abbr">${possessionTeamHtml(g, g.away)}</span> <span class="gb-score" data-game-score="${g.away}:away">${g.awayScore}</span>
           <span class="gb-at">@</span>
-          <img class="gb-logo" src="${logo(g.home)}" alt="" onerror="this.remove()"><span class="gb-abbr">${g.home}</span> <span class="gb-score" data-game-score="${g.home}:home">${g.homeScore}</span>
+          <img class="gb-logo" src="${logo(g.home)}" alt="" onerror="this.remove()"><span class="gb-abbr">${possessionTeamHtml(g, g.home)}</span> <span class="gb-score" data-game-score="${g.home}:home">${g.homeScore}</span>
         `)}
         <span class="gb-clock ${g.state === 'live' ? '' : 'pre'}" data-game-status="${g.home}">${gameStatusText(g)}</span>
       </div>
@@ -1144,7 +1144,7 @@ const gameSwingHtml = (d) => `${diffHtml(d, GAME_CLAMP)}${swingBar(d, GAME_CLAMP
 // One collapsed line per non-live game (upcoming, final, bye, free agents).
 function laterLineHtml(bk) {
   const g = bk.game;
-  const name = g ? `${g.away} @ ${g.home}` : (bk.team ? `${escape(bk.team)} bye` : 'Free agents');
+  const name = g ? `${possessionTeamHtml(g, g.away)} @ ${possessionTeamHtml(g, g.home)}` : (bk.team ? `${escape(bk.team)} bye` : 'Free agents');
   const isFinal = g && g.state === 'final';
   const time = g ? (isFinal ? 'FINAL' : shortKick(g.kickoff)) : '';
   const who = [...bk.a, ...bk.b].map((x) => `${escape(shortName(x))}${x.pts ? ` ${fmt(x.pts)}` : ''}`).join(' · ');
@@ -1248,6 +1248,13 @@ function playerHtml(g) {
 
 const scoreLineHtml = (g) => `<span class="ps-t">${g.away}</span><span class="ps-n">${g.awayScore}</span><span class="ps-x">·</span><span class="ps-t">${g.home}</span><span class="ps-n">${g.homeScore}</span>`;
 
+// A monochrome SVG keeps possession legible without platform emoji styling.
+function possessionTeamHtml(game, team) {
+  const name = escape(team);
+  if (game.state !== 'live' || game.halftime || game.possession !== team) return name;
+  return `<span class="possession-team" title="${name} has possession">${name}<svg class="possession-ball" viewBox="0 0 22 22" role="img" aria-label="Has possession"><ellipse cx="11" cy="11" rx="9" ry="5.5" transform="rotate(-35 11 11)" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M7 14 15 8M9 11l2 2M11 9.5l2 2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></span>`;
+}
+
 function switchListHtml(withGame, watched) {
   const cell = (bk) => {
     const gg = bk.game;
@@ -1264,7 +1271,7 @@ function switchListHtml(withGame, watched) {
       return `<span title="${escape(names)}">${escape(name)}: ${starters} starter${starters !== 1 ? 's' : ''}${bench ? ` · ${bench} bench` : ''}</span>`;
     };
     const sub = summary(bk.a, p.a.name) + (p.b ? summary(bk.b, p.b.name) : '');
-    return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state === 'live' ? 'is-live' : ''}" data-watch="${gg.id}"><span class="si-top"><span class="si-name">${gg.away} @ ${gg.home}</span>${state}</span><span class="si-sub">${sub}</span></button>`;
+    return `<button type="button" class="switch-item ${active ? 'active' : ''} ${gg.state === 'live' ? 'is-live' : ''}" data-watch="${gg.id}"><span class="si-top"><span class="si-name">${possessionTeamHtml(gg, gg.away)} @ ${possessionTeamHtml(gg, gg.home)}</span>${state}</span><span class="si-sub">${sub}</span></button>`;
   };
   const empty = '<div class="empty-col">No games with players in this matchup</div>';
   // Live games first; the rest sit behind a count, since a dock column has no
