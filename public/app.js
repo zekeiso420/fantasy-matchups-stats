@@ -1252,7 +1252,7 @@ const scoreLineHtml = (g) => `<span class="ps-t">${g.away}</span><span class="ps
 function possessionTeamHtml(game, team) {
   const name = escape(team);
   if (game.state !== 'live' || game.halftime || game.possession !== team) return name;
-  return `<span class="possession-team" title="${name} has possession"><svg class="possession-ball" viewBox="0 0 18 12" role="img" aria-label="Has possession"><path d="M1 6Q9-2 17 6Q9 14 1 6Z" fill="#965c43" stroke="#c9977e" stroke-width="1"/><path d="M6 6h6M8 4.8v2.4M10 4.8v2.4" fill="none" stroke="#f1dfce" stroke-width=".8" stroke-linecap="round"/></svg>${name}</span>`;
+  return `<span class="possession-team" title="${name} has possession"><img class="possession-ball" src="./football-icon.svg" width="12" height="8" alt="Has possession">${name}</span>`;
 }
 
 function switchListHtml(withGame, watched) {

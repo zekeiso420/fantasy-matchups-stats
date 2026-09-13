@@ -1051,4 +1051,4 @@ body.theater .video-box iframe {
 
 /* Possession marker shared by game lists and grouped roster headings. */
 .possession-team { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.possession-ball { width: 14px; height: 10px; flex: none; vertical-align: middle; }
+.possession-ball { width: 12px; height: 8px; flex: none; vertical-align: middle; }

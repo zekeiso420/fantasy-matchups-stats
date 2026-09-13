@@ -23,12 +23,12 @@ test('marker is SVG and moving possession refreshes the UI',()=>{
   const start=source.indexOf('function possessionTeamHtml(');
   const render=runInNewContext(source.slice(start,source.indexOf('function switchListHtml(',start))+';possessionTeamHtml',{escape:String});
   const game={id:'1',state:'live',possession:'SEA'};
-  assert.match(render(game,'SEA'),/<svg/);
-  assert.doesNotMatch(render(game,'NE'),/<svg/);
+  assert.match(render(game,'SEA'),/<img/);
+  assert.doesNotMatch(render(game,'NE'),/<img/);
   const k=source.indexOf('function structureKey()');
   const key=runInNewContext(source.slice(k,source.indexOf('function patchNumbers()',k))+';structureKey',{S:{data:{games:{SEA:game},matchups:[]}}});
   const before=key();game.possession='NE';assert.notEqual(key(),before);
-  assert.doesNotMatch(render(game,'SEA'),/<svg/);
-  assert.match(render(game,'NE'),/<svg/);
-  game.halftime=true;assert.doesNotMatch(render(game,'NE'),/<svg/);
+  assert.doesNotMatch(render(game,'SEA'),/<img/);
+  assert.match(render(game,'NE'),/<img/);
+  game.halftime=true;assert.doesNotMatch(render(game,'NE'),/<img/);
 });
