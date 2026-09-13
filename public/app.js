@@ -1248,11 +1248,11 @@ function playerHtml(g) {
 
 const scoreLineHtml = (g) => `<span class="ps-t">${g.away}</span><span class="ps-n">${g.awayScore}</span><span class="ps-x">·</span><span class="ps-t">${g.home}</span><span class="ps-n">${g.homeScore}</span>`;
 
-// A monochrome SVG keeps possession legible without platform emoji styling.
+// Small horizontal football, placed before the team that has possession.
 function possessionTeamHtml(game, team) {
   const name = escape(team);
   if (game.state !== 'live' || game.halftime || game.possession !== team) return name;
-  return `<span class="possession-team" title="${name} has possession">${name}<svg class="possession-ball" viewBox="0 0 22 22" role="img" aria-label="Has possession"><ellipse cx="11" cy="11" rx="9" ry="5.5" transform="rotate(-35 11 11)" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M7 14 15 8M9 11l2 2M11 9.5l2 2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></span>`;
+  return `<span class="possession-team" title="${name} has possession"><svg class="possession-ball" viewBox="0 0 18 12" role="img" aria-label="Has possession"><path d="M1 6Q9-2 17 6Q9 14 1 6Z" fill="#965c43" stroke="#c9977e" stroke-width="1"/><path d="M6 6h6M8 4.8v2.4M10 4.8v2.4" fill="none" stroke="#f1dfce" stroke-width=".8" stroke-linecap="round"/></svg>${name}</span>`;
 }
 
 function switchListHtml(withGame, watched) {

@@ -64,7 +64,7 @@ test('switch game attaches an SVG marker to the possessing team', () => {
   const bk={game:{id:'g',state:'live',possession:'SEA',home:'SEA',away:'NE'},a:[],b:[]};
   for(const theater of [false,true]) {
     const html=renderers({theater}).switchListHtml([bk],bk);
-    assert.match(html,/title="SEA has possession">SEA<svg/);
+    assert.match(html,/title="SEA has possession"><svg.*?<\/svg>SEA<\/span>/);
     assert.doesNotMatch(html,/title="NE has possession"/);
   }
 });
