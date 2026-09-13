@@ -64,10 +64,18 @@ export function summarizeGames(scoreboard) {
       homeScore: Number(home.score ?? 0),
       awayScore: Number(away.score ?? 0),
       state: st.state === 'in' ? 'live' : st.completed ? 'final' : 'pre', // pre | live | final
+      halftime: st.state === 'in' && !st.completed && (st.name === 'STATUS_HALFTIME'
+        || [st.shortDetail, st.detail, st.description].some((text) => /^half[ -]?time$/i.test(text || ''))),
       detail: st.shortDetail || '',
       clock: comp.status?.displayClock || '',
       period: comp.status?.period || 0,
     };
+    const possession = comp.situation?.possession;
+    const possessor = possession != null
+      ? comp.competitors.find((c) => String(c.id ?? c.team?.id) === String(possession))
+      : null;
+    game.possession = game.state === 'live' && !game.halftime && possessor
+      ? norm(possessor.team?.abbreviation) || null : null;
     for (const t of [game.home, game.away]) {
       games[t] = game;
       for (const k of EXTRA_KEYS[t] || []) games[k] = game;
