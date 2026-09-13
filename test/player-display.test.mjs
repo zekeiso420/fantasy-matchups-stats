@@ -48,3 +48,14 @@ test('SF/LAR opponent bench player is identified separately from my starters', (
     assert.match(html, /Davante Adams \(bench\)/);
   }
 });
+
+test('switch game shows halftime and then live in normal and theater views', () => {
+  for (const theater of [false,true]) {
+    const bk={game:{id:'g',state:'live',halftime:true,home:'SEA',away:'NE'},a:[],b:[]};
+    const render=renderers({theater});
+    assert.match(render.switchListHtml([bk],bk),/si-state halftime">HALFTIME/);
+    bk.game.halftime=false;
+    assert.match(render.switchListHtml([bk],bk),/si-state live">LIVE/);
+    assert.doesNotMatch(render.switchListHtml([bk],bk),/HALFTIME/);
+  }
+});

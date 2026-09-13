@@ -679,6 +679,7 @@ main { padding: 0 0 48px; }
 .switch-item.active .si-name { font-weight: 800; color: var(--text); }
 .si-state { font-size: 9.5px; letter-spacing: .1em; font-weight: 700; color: var(--faint); text-transform: uppercase; }
 .si-state.live { color: var(--live); }
+.si-state.halftime { color: var(--accent); }
 .si-sub { display: block; font-size: 11px; color: var(--faint); margin-top: 2px; }
 .switch-item.active .si-sub { color: var(--muted); }
 

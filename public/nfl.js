@@ -64,6 +64,8 @@ export function summarizeGames(scoreboard) {
       homeScore: Number(home.score ?? 0),
       awayScore: Number(away.score ?? 0),
       state: st.state === 'in' ? 'live' : st.completed ? 'final' : 'pre', // pre | live | final
+      halftime: st.state === 'in' && !st.completed && (st.name === 'STATUS_HALFTIME'
+        || [st.shortDetail, st.detail, st.description].some((text) => /^half[ -]?time$/i.test(text || ''))),
       detail: st.shortDetail || '',
       clock: comp.status?.displayClock || '',
       period: comp.status?.period || 0,

@@ -215,7 +215,7 @@ function applyUpdate(msg) {
 
 // Anything that affects layout rather than numbers.
 function structureKey() {
-  const g = Object.values(S.data.games || {}).map((x) => `${x.id}:${x.state}`).sort().join(',');
+  const g = Object.values(S.data.games || {}).map((x) => `${x.id}:${x.state}:${!!x.halftime}`).sort().join(',');
   const s = S.data.matchups.map((m) => `${m.roster_id}:${(m.starters || []).join('.')}`).join('|');
   return g + '#' + s;
 }
@@ -1252,7 +1252,8 @@ function switchListHtml(withGame, watched) {
   const cell = (bk) => {
     const gg = bk.game;
     const active = watched && gg.id === watched.game.id;
-    const state = gg.state === 'live' ? '<span class="si-state live">LIVE</span>'
+    const state = gg.state === 'live' && gg.halftime ? '<span class="si-state halftime">HALFTIME</span>'
+      : gg.state === 'live' ? '<span class="si-state live">LIVE</span>'
       : gg.state === 'final' ? '<span class="si-state">FINAL</span>'
       : `<span class="si-state">${escape(shortKick(gg.kickoff))}</span>`;
     const p = current();
