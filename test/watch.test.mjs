@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {createWatch,boxes,toggleFeatured} from '../public/watch.js';
@@ -48,4 +49,12 @@ test('single panel and details collapse independently without replacing player',
 test('empty schedule and matchup changes release old streams safely',()=>{
  const t=setup(0);t.watch.open('multi');assert.equal(t.$('[data-id="empty"]').hidden,false);assert.equal(t.$('iframe'),null);t.watch.close();t.dom.window.close();
  const u=setup();u.watch.open('multi');const frame=u.$('iframe');u.data.context='L:2:1';u.watch.update();assert.equal(frame.isConnected,false);u.watch.close();u.dom.window.close();
+});
+
+test('watch CSS shows expanded performance and hides collapsed controls',()=>{
+ const t=setup();const style=document.createElement('style');style.textContent=readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');document.head.append(style);t.watch.open();
+ const css=e=>t.dom.window.getComputedStyle(e);
+ assert.equal(css(t.$('.w-perf')).opacity,'1');assert.equal(css(t.$('.w-show-details')).display,'none');
+ t.click('[data-action="collapse"]');assert.equal(css(t.$('.w-rail')).width,'46px');assert.equal(css(t.$('.w-details')).width,'260px');
+ t.click('[data-action="hideDetails"]');assert.equal(css(t.$('.w-show-details')).display,'flex');t.watch.close();t.dom.window.close();
 });
