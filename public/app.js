@@ -1,3 +1,4 @@
+import { createWatch } from './watch.js';
 // Matchup: a Sleeper fantasy matchup tracker
 // Data flows one way: fetch → state → render(). Live updates patch state and
 // either re-render or touch only the numbers, depending on what changed.
@@ -45,6 +46,27 @@ const S = {
   online: false,
 };
 
+// Unified watch surface shares the existing selected matchup and data feed.
+const watchSurface = createWatch({
+  getData: () => {
+    if (!S.data) return null;
+    const p = current(); if (!p) return null;
+    const sideData = a => a ? ({name:a.name, points:teamPts(a.m.roster_id), mine:a.m.roster_id===myRoster()?.roster_id}) : null;
+    const list = gameBuckets(p);
+    const rank = {live:0,pre:1,final:2};
+    const games = [...new Map(Object.values(S.data.games || {}).map(g => [String(g.id), {...g,id:String(g.id)}])).values()]
+      .sort((a,b) => rank[a.state]-rank[b.state] || new Date(a.kickoff)-new Date(b.kickoff));
+    return {context:`${S.leagueId}:${S.week}:${p.id}`, watching:S.watchGameId || watchedOf(list).game?.id,
+      games, buckets:list.map(b=>({...b,game:b.game?{...b.game,id:String(b.game.id)}:null})), teams:[sideData(p.a),sideData(p.b)],
+      matchups:pairs().map(x=>({id:x.id,a:sideData(x.a),b:sideData(x.b)}))};
+  },
+  getStream: key => backend.getStream(key),
+  onWatch: id => { S.watchGameId=id; },
+  onEnter: () => { srcState.key=null; const f=$('#video-frame'); if(f)f.src='about:blank'; },
+  onExit: id => { S.watchGameId=id; S.theater=false; save({theater:false}); srcState.key=null; render(); },
+  onMatchup: id => { S.viewMatchupId=Number(id); watchSurface.update(); }
+});
+
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
@@ -74,6 +96,7 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName) || e.target?.isContentEditable) return;
   const k = e.key.toLowerCase();
+  if (watchSurface.active) { if (e.key === 'Escape' || k === 't') { e.preventDefault(); watchSurface.close(); } return; }
   if (k === 'd' && S.theater) { e.preventDefault(); return setDetailOpen(!S.detailOpen); }
   if (e.key === 'Escape' && S.theater) { e.preventDefault(); return setTheater(false); }
   if (k !== 't' && k !== 'r') return;
@@ -125,12 +148,14 @@ async function signIn(username, { remember = prefs.remember !== false, silent = 
 }
 
 function signOut() {
+  if(watchSurface.active) watchSurface.close();
   disconnectLive();
   Object.assign(S, { user: null, leagues: [], leagueId: null, week: null, data: null, viewMatchupId: null });
   save({ username: null, leagueId: null });
   history.replaceState(null, '', location.pathname);
   $('#controls').hidden = true;
   $('#user-chip').hidden = true;
+  watchSurface.update();
   renderSetup();
 }
 
@@ -147,6 +172,7 @@ async function selectLeague(leagueId, week = null) {
 async function selectWeek(week) {
   week = clampWeek(week);
   if (!week) return;
+  if(watchSurface.active) watchSurface.close();
   S.week = week;
   syncUrl();
   disconnectLive();
@@ -211,6 +237,7 @@ function applyUpdate(msg) {
   S.liveAt = msg.at;
   if (structureKey() !== before) render({ keepVideo: true }); // a game changed state → ordering/labels change
   else patchNumbers();
+  watchSurface.update();
 }
 
 // Anything that affects layout rather than numbers.
@@ -444,6 +471,8 @@ function renderLoading() {
 
 function render({ keepVideo = false } = {}) {
   if (!S.data) return;
+  watchSurface.update();
+  if (watchSurface.active) { renderControls(); return; }
   renderControls();
   const cur = current();
   // The player sits in the frame, outside #content, so repainting rows or
@@ -499,6 +528,7 @@ function render({ keepVideo = false } = {}) {
   renderContent(cur);
   syncStream(watchedGame);
   renderUpdated();
+  if (S.theater) watchSurface.open('single');
 }
 
 // Switching tabs repaints the rows and nothing else.
@@ -1295,21 +1325,9 @@ function switchListHtml(withGame, watched) {
 
 // --- Video controls ---------------------------------------------------------
 function setTheater(on) {
-  S.theater = !!on;
-  save({ theater: S.theater });
-  document.body.classList.toggle('theater', S.theater);
-  const btn = $('[data-vid="theater"]');
-  if (btn) { btn.textContent = S.theater ? 'Exit theater' : 'Theater'; btn.setAttribute('aria-pressed', String(S.theater)); }
-  placePanel();
-  applyDetail();
-  renderNavScore();
-  renderDetailControl();
-  const cur = current();
-  if (cur) { renderContent(cur); updateWatchAside(cur); }
-  renderRailHead();
-  renderRail();
-  if (cur) renderRailGames(cur);
-  syncRailHint();
+  S.theater=!!on; save({theater:S.theater});
+  if(on) watchSurface.open('single');
+  else if(watchSurface.active) watchSurface.close();
 }
 
 // --- Theater's detail view ---------------------------------------------------
