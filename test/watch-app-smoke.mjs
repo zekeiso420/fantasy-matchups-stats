@@ -1,0 +1,20 @@
+// Integration smoke test against `npm run mock`; no third-party streams load.
+import {JSDOM} from 'jsdom';
+import {readFile} from 'node:fs/promises';
+import {createWatch} from '../public/watch.js';
+import * as scoring from '../public/scoring.js';
+import * as video from '../public/video.js';
+import assert from 'node:assert/strict';
+const dom=new JSDOM(await readFile(new URL('../public/index.html',import.meta.url),'utf8'),{url:'http://localhost:3000/?u=caleb',runScripts:'outside-only',pretendToBeVisual:true});
+globalThis.document=dom.window.document;
+const api=async p=>(await fetch('http://localhost:3000'+p)).json();
+Object.assign(dom.window,{createWatch,...scoring,...video,ResizeObserver:class{observe(){} disconnect(){}},matchMedia:()=>({matches:true}),backend:{detect:async()=>{},getPlayers:()=>api('/api/players'),getState:()=>api('/api/state'),getUser:()=>api('/api/user/caleb'),getUserLeagues:()=>api('/api/user/u1/leagues'),getWeekData:(l,w)=>api(`/api/league/${l}/week/${w}`),subscribeLive:()=>()=>{},getStream:async()=>({sources:[]})}});
+dom.window.eval((await readFile(new URL('../public/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,''));
+await new Promise(r=>setTimeout(r,600));
+const $=s=>dom.window.document.querySelector(s);
+assert.ok($('.tabs'),dom.window.document.body.textContent);assert.equal($('.watch-mode').hidden,false);
+$('[data-mode="multi"]').click();assert.ok($('.watch-surface.w-is-multi'));assert.ok($('.w-tile iframe'));
+$('[data-mode="single"]').click();assert.ok($('.watch-surface.w-is-single'));
+$('[data-action="exit"]').click();assert.equal($('.watch-surface'),null);assert.ok($('#video-frame'));
+await new Promise(r=>setTimeout(r,50));
+console.log('App boot, multiview, single view and return to roster passed.');dom.window.close();
