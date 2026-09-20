@@ -303,7 +303,12 @@ function createScoringBand(wrapper,anchorOf){
   }
 
   function exit(after){
-    at(after,()=>{band.classList.remove('sf-on','sf-held');at(500,()=>{showing=false;next();});});
+    at(after,()=>{
+      // Leaving is its own gesture, not the arrival run backwards: the whole
+      // band fades while the flag draws back in, then it resets.
+      band.classList.add('sf-out');
+      at(420,()=>{band.classList.remove('sf-on','sf-held','sf-out');at(80,()=>{showing=false;next();});});
+    });
   }
   function next(){ if(!showing&&queue.length)show(queue.shift()); }
 
@@ -318,7 +323,7 @@ function createScoringBand(wrapper,anchorOf){
       return;
     }
     showing=true;clear();
-    band.classList.remove('sf-on','sf-held');
+    band.classList.remove('sf-on','sf-held','sf-out');
     // The face is already on screen: the player's own tile in the rail. The flag
     // unfurls from its right edge rather than a second portrait appearing in the
     // corner, so the thing that lights up is the thing you were already looking
@@ -386,7 +391,7 @@ function createScoringBand(wrapper,anchorOf){
       }
     },
     show,
-    reset(){last.clear();queue.length=0;clear();showing=false;band.classList.remove('sf-on','sf-held');},
+    reset(){last.clear();queue.length=0;clear();showing=false;band.classList.remove('sf-on','sf-held','sf-out');},
     destroy(){clear();band.remove();live.remove();},
   };
 }
