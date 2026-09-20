@@ -79,3 +79,41 @@ test('theater aliases the shared matchup palette',()=>{
  assert.match(css,/--gold:\s+var\(--accent\)/);
  assert.doesNotMatch(css,/--bg:\s*#[0-9a-f]/i);
 });
+
+test('watch stage avoids page main offsets and keeps Show details with the player',()=>{
+ const t=setup();const style=document.createElement('style');
+ style.textContent=readFileSync(new URL('../public/styles.css',import.meta.url),'utf8')+readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');
+ document.head.append(style);t.watch.open();
+ assert.equal(t.$('.w-stage').tagName,'DIV');
+ assert.equal(t.$('.w-show-details').parentElement,t.$('.w-chrome'));
+ document.body.classList.add('theater');
+ assert.equal(t.dom.window.getComputedStyle(t.$('.w-stage')).marginLeft,'400px');
+ t.click('[data-action="collapse"]');
+ assert.equal(t.dom.window.getComputedStyle(t.$('.w-stage')).marginLeft,'306px');
+ t.click('[data-action="hideDetails"]');
+ assert.equal(t.dom.window.getComputedStyle(t.$('.w-stage')).marginLeft,'46px');
+ t.click('[data-mode="multi"]');
+ assert.equal(t.dom.window.getComputedStyle(t.$('[data-mode="multi"]')).borderLeftStyle,'solid');
+ t.watch.close();t.dom.window.close();
+});
+
+test('Single returns to the view used to enter Multi',()=>{
+ const t=setup();t.watch.update();
+ t.click('[data-mode="single"]');assert.equal(t.watch.active,false);
+ t.click('[data-mode="multi"]');assert.equal(t.watch.active,true);
+ t.click('[data-mode="single"]');assert.equal(t.watch.active,false);assert.equal(t.exitId,'0');
+ t.watch.open('single');t.click('[data-mode="multi"]');t.click('[data-mode="single"]');
+ assert.equal(t.watch.active,true);assert.equal(t.watch.mode,'single');
+ t.watch.close();t.dom.window.close();
+});
+
+test('rail scores scroll in a separate region above the collapse footer',()=>{
+ const t=setup();const style=document.createElement('style');style.textContent=readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');document.head.append(style);t.watch.open();
+ const css=e=>t.dom.window.getComputedStyle(e);
+ assert.equal(css(t.$('.w-rail-inner')).overflow,'hidden');
+ assert.equal(css(t.$('.w-sec--single')).overflowY,'auto');
+ assert.equal(css(t.$('.w-sec--single')).minHeight,'0px');
+ assert.equal(css(t.$('.w-rail-foot')).position,'static');
+ assert.equal(css(t.$('.w-rail-foot')).flexShrink,'0');
+ t.watch.close();t.dom.window.close();
+});
