@@ -104,7 +104,9 @@ function createPlayerRails(wrapper) {
     for(const [key,b] of buttons)b.setAttribute('aria-pressed',String(key===selected));
     const p=players.get(selected);
     strip.classList.toggle('pv-up',!!p);strip.inert=!p;
-    if(!p)return;
+    // A closed card forgets it was drawn, so opening the same player again
+    // plays the bar from the left rather than snapping to the finished line.
+    if(!p){painted=null;return;}
     strip.classList.toggle('pv-mine',p.side==='mine');strip.classList.toggle('pv-opp',p.side==='opp');
     strip.querySelector('.pv-name').textContent=p.name;
     const role=p.bench?'BENCH':'STARTER';
@@ -142,21 +144,33 @@ function createPlayerRails(wrapper) {
     projEl.classList.toggle('over',over);
     strip.querySelector('.pv-bar').classList.toggle('none',proj==null);
     const tickPct=over?(proj/pts)*100:100;
-    fill.style.width=proj?`${Math.min(over?tickPct:(pts/proj)*100,100)}%`:'0%';
     fill.classList.toggle('over',over);
     // The overage band and its tick fade rather than appear, on the same easing
     // as the fill that grows under them: hiding them outright made the moment a
     // player passed their projection a flicker instead of a move.
     strip.querySelector('.pv-bar').classList.toggle('over',over);
-    // It grows the way the fill does - from its own left edge, rightwards. The
-    // band is anchored to the tick and given width, not stretched leftwards
-    // from the end of the track, which read as filling backwards. On a fresh
-    // card the anchor is placed without a transition so the width is the only
-    // thing that moves; on a live tick both slide, because the tick really is
-    // walking left as the lead grows.
+    // Opening a card draws one stream, left to right: the solid fill runs out
+    // from zero, reaches the projection, and the tick and the hatched overage
+    // take over from exactly there. So on a fresh card everything is placed at
+    // the left edge with no transition, and the two overage pieces wait out the
+    // fill's run before they move - otherwise the band grew at the same time as
+    // the fill and the tick slid in from the end of the track, which read as
+    // two things happening rather than one line arriving.
     const fresh=painted!==selected; painted=selected;
-    if(fresh){hatch.style.transition='none';hatch.style.left=`${tickPct}%`;hatch.style.width='0%';void hatch.offsetWidth;hatch.style.transition='';}
-    hatch.style.left=`${tickPct}%`;hatch.style.width=`${Math.max(0,100-tickPct)}%`;
+    const span=`${Math.max(0,100-tickPct)}%`;
+    if(fresh){
+      for(const el of [fill,hatch,tick])el.style.transition='none';
+      fill.style.width='0%';hatch.style.left=`${tickPct}%`;hatch.style.width='0%';tick.style.left=`${tickPct}%`;
+      // The tick is unlit too: the strip is one element that outlives each card,
+      // so without this it carries the last player's lit tick into the next one.
+      hatch.style.opacity='0';tick.style.opacity='0';
+      void fill.offsetWidth;
+      for(const el of [fill,hatch,tick])el.style.transition='';
+      hatch.style.opacity='';tick.style.opacity='';
+    }
+    for(const el of [hatch,tick])el.style.transitionDelay=fresh&&over?'.4s':'';
+    fill.style.width=proj?`${Math.min(over?tickPct:(pts/proj)*100,100)}%`:'0%';
+    hatch.style.left=`${tickPct}%`;hatch.style.width=span;
     tick.style.left=`${tickPct}%`;
   }
 

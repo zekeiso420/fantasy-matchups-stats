@@ -9,7 +9,9 @@
 //          matching the tiered keys that make up one cell
 //   line   'P' for points from the league's own scoring settings, or a
 //          function returning a context string (null when it is not knowable)
-//   cond   the cell only appears once its stat reaches 1, and then stays
+//   flags  'cond' - the cell only appears once its stat reaches 1, then stays
+//          'loss' - the stat is a loss for the player who owns it, so it reads
+//                   red whatever the league pays for it
 const pct = (a, b) => (b ? `${((a / b) * 100).toFixed(1)}%` : null);
 const per = (a, b) => (b ? `${(a / b).toFixed(1)} avg` : null);
 const num = (s, k) => (typeof s?.[k] === 'number' ? s[k] : 0);
@@ -22,14 +24,14 @@ const groups = {
       ['C/ATT', (s) => pair(s, 'pass_cmp', 'pass_att'), (s) => pct(num(s, 'pass_cmp'), num(s, 'pass_att'))],
       ['YDS', 'pass_yd', 'P'],
       ['TD', 'pass_td', 'P'],
-      ['INT', 'pass_int', 'P'],
+      ['INT', 'pass_int', 'P', 'loss'],
     ]],
     ['RUSHING', [
       ['CAR', 'rush_att', (s) => per(num(s, 'rush_yd'), num(s, 'rush_att'))],
       ['YDS', 'rush_yd', 'P'],
       ['TD', 'rush_td', 'P'],
       ['LONG', 'rush_lng', none],
-      ['FUM LOST', 'fum_lost', 'P', 'cond'],
+      ['FUM LOST', 'fum_lost', 'P', 'cond loss'],
     ]],
   ],
   RB: [
@@ -38,7 +40,7 @@ const groups = {
       ['YDS', 'rush_yd', 'P'],
       ['TD', 'rush_td', 'P'],
       ['LONG', 'rush_lng', none],
-      ['FUM LOST', 'fum_lost', 'P', 'cond'],
+      ['FUM LOST', 'fum_lost', 'P', 'cond loss'],
     ]],
     ['RECEIVING', [
       ['TGT', 'rec_tgt', (s) => pct(num(s, 'rec'), num(s, 'rec_tgt'))],
@@ -67,7 +69,7 @@ const groups = {
       ['LONG', 'fgm_lng', (s) => (num(s, 'fgm_lng') ? `${num(s, 'fgm_lng')} yds` : null)],
       ['XP', (s) => pair(s, 'xpm', 'xpa'), none],
       ['FG PTS', /^(fgm|xpm)/, 'P'],
-      ['MISS', /^(fgmiss|xpmiss)/, 'P', 'cond'],
+      ['MISS', /^(fgmiss|xpmiss)/, 'P', 'cond loss'],
     ]],
   ],
   DEF: [
@@ -79,7 +81,9 @@ const groups = {
       ['SAFETY', 'safe', 'P', 'cond'],
     ]],
     ['ALLOWED', [
-      ['PTS', /^pts_allow/, 'P'],
+      // The number is the points a defence gave up; what it is worth is the
+      // tier that number falls into, which is a different set of keys.
+      ['PTS', { value: 'pts_allow', points: /^pts_allow/ }, 'P'],
       ['YDS', 'yds_allow', none],
     ]],
   ],
@@ -98,6 +102,7 @@ const groups = {
 // to print, so it prints what it is worth instead and leaves the value to its
 // points line.
 function cellValue(stats, key) {
+  if (key && key.value) return num(stats, key.value);
   if (typeof key === 'function') return key(stats || {});
   if (key instanceof RegExp) return null;
   return num(stats, key);
@@ -106,6 +111,7 @@ function cellValue(stats, key) {
 // What a cell is worth under this league's settings. A pattern gathers the
 // tiered keys - pts_allow_0_6, fgm_40_49 - that are one cell between them.
 function cellPoints(stats, scoring, key) {
+  if (key && key.points) key = key.points;
   if (!stats || !scoring || typeof key === 'function') return null;
   let total = 0, seen = false;
   for (const k in scoring) {
@@ -118,6 +124,7 @@ function cellPoints(stats, scoring, key) {
 }
 
 const happened = (stats, key) => {
+  if (key && key.value) key = key.value;
   if (typeof key === 'function' || !stats) return false;
   if (key instanceof RegExp) return Object.keys(stats).some((k) => key.test(k) && stats[k] >= 1);
   return num(stats, key) >= 1;
@@ -140,17 +147,21 @@ export function railGroups(position, stats, scoring) {
   const table = groups[position === 'TE' ? 'WR' : position] || groups.IDP;
   const out = [];
   for (const [label, cells, cond] of table) {
-    if (cond && !cells.some(([, key]) => happened(stats, key))) continue;
+    if (cond && !cells.some(([, key]) => happened(stats, key))) continue;   // a whole group can be conditional too
     const rendered = [];
-    for (const [cellLabel, key, line, cellCond] of cells) {
-      if (cellCond && !happened(stats, key)) continue;
+    for (const [cellLabel, key, line, flags = ''] of cells) {
+      if (/cond/.test(flags) && !happened(stats, key)) continue;
       const value = cellValue(stats, key);
+      const third = thirdLine(stats, scoring, key, line);
       rendered.push({
         label: cellLabel,
         value: value == null ? '—' : value,
-        // Inherently negative stats read red the moment they happen.
-        bad: /INT|FUM LOST|MISS/.test(cellLabel) && value > 0,
-        line: thirdLine(stats, scoring, key, line),
+        // Red is what a stat costs its owner, not what it is called: a
+        // quarterback's interception is a loss, a defence's is a takeaway. The
+        // ones marked as losses read red even in a league that pays nothing for
+        // them, because a lost fumble is still a lost fumble.
+        bad: /loss/.test(flags) ? value > 0 : third.kind === 'neg',
+        line: third,
       });
     }
     if (rendered.length) out.push({ label, cells: rendered });
