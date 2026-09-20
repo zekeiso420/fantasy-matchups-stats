@@ -79,7 +79,7 @@ function createPlayerRails(wrapper) {
   const overlay=doc.createElement('div');overlay.className='pv-overlay';
   overlay.innerHTML=`<span class="pv-zone pv-zone-l" aria-hidden="true"></span><span class="pv-zone pv-zone-r" aria-hidden="true"></span>
     <div class="pv-rail pv-mine" aria-label="My players"></div><div class="pv-rail pv-opp" aria-label="Opponent players"></div>
-    <section class="pv-strip" aria-label="Player statistics"><div class="pv-header"><span class="pv-avatar pv-portrait"></span><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-total"><span>PTS</span><strong></strong></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-grid">${Array.from({length:6},()=>'<div class="pv-cell"><span></span><strong></strong></div>').join('')}</div></section>`;
+    <section class="pv-strip" aria-label="Player statistics"><div class="pv-header"><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-total"><span>PTS</span><strong></strong></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-grid">${Array.from({length:6},()=>'<div class="pv-cell"><span></span><strong></strong></div>').join('')}</div></section>`;
   wrapper.append(overlay);wrapper.classList.add('pv-picture');
   const strip=overlay.querySelector('.pv-strip'), close=overlay.querySelector('.pv-close');
   function portrait(host,p){
@@ -106,7 +106,6 @@ function createPlayerRails(wrapper) {
     strip.classList.toggle('pv-up',!!p);strip.inert=!p;
     if(!p)return;
     strip.classList.toggle('pv-mine',p.side==='mine');strip.classList.toggle('pv-opp',p.side==='opp');
-    portrait(strip.querySelector('.pv-portrait'),p);
     strip.querySelector('.pv-name').textContent=p.name;
     strip.querySelector('.pv-meta').textContent=`${p.position} · ${p.nflTeam} · ${p.side==='mine'?'MY':'OPPONENT'} ${p.bench?'BENCH':'STARTER'}`;
     strip.querySelector('.pv-total strong').textContent=fmt(p.points);
