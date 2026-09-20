@@ -1080,6 +1080,10 @@ body.theater .video-box iframe {
    downscaled edge showed. Framing the head fills the square with the part that
    reads at this size, and a hair of blur takes the aliasing off the rest. */
 .pv-avatar img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center top; transform:scale(1.22); transform-origin:center top; filter:blur(.15px); }
+/* A logo is not a photograph: already square, already centred, and nothing to
+   frame - cropping to a head takes a bite out of it and the blur only smears
+   its edges. It gets the whole square, whole. */
+.pv-avatar.pv-logo img { object-fit:contain; object-position:center; transform:none; filter:none; padding:4px; box-sizing:border-box; }
 .pv-player[aria-pressed="true"] .pv-avatar { border-color:var(--pv-accent); box-shadow:0 0 0 2px rgba(10,15,12,.9); }
 .pv-points { width:44px; padding:3px 0; background:rgba(10,15,12,.8); text-align:center; font-size:10.5px; line-height:14px; font-weight:800; }
 .pv-mine .pv-points { color:var(--accent-warm); }

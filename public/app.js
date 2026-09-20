@@ -85,6 +85,9 @@ function createPlayerRails(wrapper) {
   function portrait(host,p){
     if(host.dataset.player===p.id)return;
     host.dataset.player=p.id;host.textContent=p.initials;
+    // A defence carries its team's logo, which wants the whole square and none
+    // of the treatment a photograph of a face needs.
+    host.classList.toggle('pv-logo',p.position==='DEF');
     if(!p.headshotUrl)return;
     const img=doc.createElement('img');img.alt='';
     let fallback=p.fallbackUrl;
