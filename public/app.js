@@ -81,6 +81,7 @@ function createPlayerRails(wrapper) {
     <div class="pv-rail pv-mine" aria-label="My players"></div><div class="pv-rail pv-opp" aria-label="Opponent players"></div>
     <section class="pv-strip" aria-label="Player statistics"><div class="pv-header"><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-context"><span class="pv-cscore"></span><span class="pv-cstatus"></span></span><span class="pv-right"><span class="pv-nums"><strong class="pv-total"></strong><span class="pv-proj"></span></span><span class="pv-bar"><i class="pv-fill"></i><i class="pv-hatch"></i><i class="pv-tick"></i></span></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-groups"></div></section>`;
   wrapper.append(overlay);wrapper.classList.add('pv-picture');
+  const band=createScoringBand(wrapper);
   const strip=overlay.querySelector('.pv-strip'), close=overlay.querySelector('.pv-close');
   function portrait(host,p){
     if(host.dataset.player===p.id)return;
@@ -230,7 +231,8 @@ function createPlayerRails(wrapper) {
   coarse.addEventListener?.('change',wake);
   return {
     update(nextContext,sides){
-      if(context!==nextContext){leave();context=nextContext;}
+      if(context!==nextContext){leave();band.reset();context=nextContext;}
+      band.watch(sides.mine||[]);
       players.clear();
       for(const side of ['mine','opp']){
         const rail=overlay.querySelector(`.pv-rail.pv-${side}`);
@@ -247,7 +249,126 @@ function createPlayerRails(wrapper) {
       paint();
     },
     setEnabled(value){if(enabled!==value){enabled=value;leave();}},
-    destroy(){leave();wrapper.removeEventListener('mouseenter',wake);wrapper.removeEventListener('mousemove',wake);wrapper.removeEventListener('mouseleave',leave);coarse.removeEventListener?.('change',wake);wrapper.classList.remove('pv-picture','pv-enabled');overlay.remove();}
+    fireScore:(e)=>band.show(e),
+    destroy(){leave();band.destroy();wrapper.removeEventListener('mouseenter',wake);wrapper.removeEventListener('mousemove',wake);wrapper.removeEventListener('mouseleave',leave);coarse.removeEventListener?.('change',wake);wrapper.classList.remove('pv-picture','pv-enabled');overlay.remove();}
+  };
+}
+
+// --- Scoring flag (22b) -------------------------------------------------------
+// When one of your players scores, his face pops onto the video, a flag extends
+// out of it, and the numbers roll into place: what the play was worth, and the
+// team total it just changed. It answers "what just happened to my score"
+// without the user looking away from the game. Per SCORING_FLAG_SPEC.md.
+const SF_HOLD=6000, SF_CUT=600;
+function createScoringBand(wrapper){
+  const doc=wrapper.ownerDocument, win=doc.defaultView;
+  const reduced=win.matchMedia('(prefers-reduced-motion: reduce)');
+  const band=doc.createElement('div');
+  band.className='sf-band';band.setAttribute('aria-hidden','true');
+  band.innerHTML=`<div class="sf-face"></div><div class="sf-flag"><div class="sf-row">`
+    + `<div class="sf-id"><strong class="sf-name"></strong><span class="sf-meta"></span></div><i class="sf-div"></i>`
+    + `<div class="sf-nums"><span class="sf-stack"><span class="sf-lbl">This play</span><span class="sf-play"></span></span>`
+    + `<span class="sf-stack sf-end"><span class="sf-lbl">Your total</span><span class="sf-total"></span></span></div></div></div>`;
+  // The band duplicates what the tables already say, so it is hidden from
+  // screen readers and the event is announced once, here, instead.
+  const live=doc.createElement('div');live.className='sf-live';live.setAttribute('role','status');live.setAttribute('aria-live','polite');
+  wrapper.append(band,live);
+  const last=new Map(); const queue=[]; let showing=false, timers=[];
+  const at=(ms,fn)=>timers.push(win.setTimeout(fn,ms));
+  // A forced reflow rather than a frame callback: requestAnimationFrame does not
+  // run in a background tab, so a score that landed while the user was in
+  // another tab left the band half-open - held, but never shown. Flushing layout
+  // commits the start state, and the class change after it still animates.
+  const flush=(el)=>{void el.offsetWidth;};
+  const clear=()=>{timers.forEach((t)=>win.clearTimeout(t));timers=[];};
+
+  // Each numeral is its own column: a one-line window over a strip of 0-9 twice,
+  // so landing on a digit runs it through a full cycle first. The dot and the
+  // plus are static cells - a decimal point that travels reads as a glitch.
+  function roll(host,text,lineH,stagger,base){
+    host.innerHTML='';host.style.setProperty('--sf-lh',`${lineH}px`);
+    [...String(text)].forEach((ch,i)=>{
+      if(!/[0-9]/.test(ch)){host.insertAdjacentHTML('beforeend',`<span class="sf-ch">${escape(ch)}</span>`);return;}
+      const col=doc.createElement('span');col.className='sf-col';
+      const strip=doc.createElement('span');strip.className='sf-strip';
+      for(let k=0;k<20;k++){const cell=doc.createElement('span');cell.className='sf-cell';cell.textContent=String(k%10);strip.append(cell);}
+      col.append(strip);host.append(col);
+      const land=`translateY(-${(Number(ch)+10)*lineH}px)`;
+      if(reduced.matches){strip.style.transition='none';strip.style.transform=land;return;}
+      flush(strip);strip.style.transitionDelay=`${base+i*stagger}s`;strip.style.transform=land;
+    });
+  }
+
+  function exit(after){
+    at(after,()=>{band.classList.remove('sf-on','sf-held');at(500,()=>{showing=false;next();});});
+  }
+  function next(){ if(!showing&&queue.length)show(queue.shift()); }
+
+  function show(e){
+    if(!e)return;
+    if(showing){
+      // One at a time. Mid-open it waits its turn; mid-hold it cuts the hold
+      // short. Two deep, then the oldest goes - a twenty-second-old score is
+      // not news.
+      queue.push(e); if(queue.length>2)queue.shift();
+      if(band.classList.contains('sf-held')){clear();exit(SF_CUT);}
+      return;
+    }
+    showing=true;clear();
+    band.classList.remove('sf-on','sf-held');
+    const face=band.querySelector('.sf-face');
+    face.style.backgroundImage=e.headshotUrl?`url("${e.headshotUrl}")`:'';
+    face.classList.toggle('sf-logo',!!e.logo);
+    band.querySelector('.sf-name').textContent=e.name;
+    band.querySelector('.sf-meta').textContent=`${e.position} ${e.nflTeam} · ${e.playText}`;
+    live.textContent=`${e.name}, ${e.playText.toLowerCase()}, ${e.points} points. Your total ${e.teamTotal}.`;
+    roll(band.querySelector('.sf-play'),e.points,20,.06,.42);
+    roll(band.querySelector('.sf-total'),e.teamTotal,46,.07,.56);
+    flush(band);band.classList.add('sf-on');
+    const settled=reduced.matches?150:1700;
+    at(settled,()=>band.classList.add('sf-held'));
+    exit(settled+SF_HOLD);
+  }
+
+  // What the play was, from what changed in the cells. The feed gives us
+  // cumulative stats, not plays, so the description is derived: a touchdown
+  // first, then yardage, then the fact of it.
+  const snapshot=(p)=>Object.fromEntries((p.groups||[]).flatMap(g=>g.cells.map(c=>[`${g.label} ${c.label}`,Number(String(c.value).split('/')[0])||0])));
+  const KIND={PASSING:'PASS',RUSHING:'RUSH',RECEIVING:'REC',KICKING:'FG',DEFENSE:'DEF',ALLOWED:'DEF'};
+  function describe(before,after){
+    const up=(k)=>(after[k]||0)-(before[k]||0);
+    for(const g of ['RUSHING','RECEIVING','PASSING','DEFENSE','KICKING']){
+      if(up(`${g} TD`)>0){const yd=Math.round(up(`${g} YDS`));return `${yd>0?`${yd} YD `:''}${KIND[g]} TD`.slice(0,18);}
+    }
+    for(const g of ['RUSHING','RECEIVING','PASSING']){const yd=Math.round(up(`${g} YDS`));if(yd>0)return `${yd} YD ${KIND[g]}`.slice(0,18);}
+    if(up('KICKING FG')>0)return 'FIELD GOAL';
+    if(up('KICKING XP')>0)return 'EXTRA POINT';
+    if(up('DEFENSE SACK')>0)return 'SACK';
+    if(up('DEFENSE INT')>0)return 'INTERCEPTION';
+    return 'SCORING PLAY';
+  }
+
+  // A defence or a kicker earns the screen for anything it does - their whole
+  // game is a handful of plays. Everyone else needs a point in it. A reversal
+  // never fires: a delta has to be positive to be a play.
+  const earns=(p,delta)=>delta>0&&(p.position==='DEF'||p.position==='K'||delta>=1);
+
+  return {
+    watch(mine){
+      for(const p of mine){
+        const was=last.get(p.id);
+        const now={pts:Number(p.points)||0,cells:snapshot(p)};
+        last.set(p.id,now);
+        if(!was)continue;                                  // first sight is a baseline, not a play
+        const delta=Math.round((now.pts-was.pts)*100)/100;
+        if(!earns(p,delta))continue;
+        show({name:p.name,position:p.position,nflTeam:p.nflTeam,headshotUrl:p.headshotUrl,logo:p.position==='DEF',
+          playText:describe(was.cells,now.cells),points:`+${delta.toFixed(2)}`,teamTotal:fmt(p.teamTotal==null?now.pts:p.teamTotal)});
+      }
+    },
+    show,
+    reset(){last.clear();queue.length=0;clear();showing=false;band.classList.remove('sf-on','sf-held');},
+    destroy(){clear();band.remove();live.remove();},
   };
 }
 

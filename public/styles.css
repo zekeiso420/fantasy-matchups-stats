@@ -1211,5 +1211,63 @@ body.theater .video-box iframe {
   :root:not([data-theme="dark"]) .pv-hatch { background:repeating-linear-gradient(135deg, #2f7d32 0 2px, rgba(47,125,50,.22) 2px 5px); }
   :root:not([data-theme="dark"]) .pv-tick { background:#201e1d; }
 }
+/* ==========================================================================
+   Scoring flag (22b): a player of yours scores and says so over the video
+   ========================================================================== */
+/* Anchored bottom-left of the picture, width of the face plus the flag, so the
+   right end is a hard edge inside the frame rather than a band across it. The
+   2px rule runs unbroken over both, which is what makes them one object. */
+.sf-band {
+  position:absolute; left:0; bottom:0; z-index:4; display:flex; align-items:stretch;
+  pointer-events:none; font-variant-numeric:tabular-nums; color:var(--text);
+}
+.pv-picture:has(.pv-strip.pv-up) .sf-band { bottom:152px; }   /* never over an open stat card */
+.sf-face {
+  flex:none; width:76px; height:78px; box-sizing:border-box;
+  border-top:2px solid var(--good, #5fd47e); background:var(--surface-2) center top / cover no-repeat;
+  opacity:0; transform:scale(.55) translateY(10px); transform-origin:left bottom;
+  transition:opacity .18s ease, transform .34s cubic-bezier(.2,1.5,.4,1);
+}
+.sf-face.sf-logo { background-size:70%; background-position:center; }
+.sf-flag { flex:none; height:78px; width:0; overflow:hidden; transition:width .46s cubic-bezier(.16,1,.28,1) .26s; }
+/* The row is a fixed width inside a clipping flag, so nothing reflows while it opens. */
+.sf-row {
+  width:512px; height:78px; box-sizing:border-box; display:flex; align-items:stretch;
+  background:rgba(6,10,7,.94); border-top:2px solid var(--good, #5fd47e);
+}
+.sf-band.sf-on .sf-face { opacity:1; transform:none; }
+.sf-band.sf-on .sf-flag { width:512px; }
+.sf-id { flex:1; min-width:0; padding:13px 14px; display:flex; flex-direction:column; justify-content:center; gap:4px; }
+.sf-name { font-size:17px; font-weight:800; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sf-meta { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#7d7979; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sf-div { flex:none; width:1px; background:var(--line); }
+.sf-nums { flex:none; width:210px; padding:11px 16px; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between; }
+.sf-stack { display:flex; flex-direction:column; gap:2px; }
+.sf-stack.sf-end { align-items:flex-end; }
+.sf-lbl { font-size:9px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#7d7979; }
+/* The total is the larger number on purpose: the play's points are the cause,
+   the total is the thing being tracked. */
+.sf-play { display:flex; font-size:16px; font-weight:800; line-height:20px; color:var(--good, #5fd47e); }
+.sf-total { display:flex; font-size:36px; font-weight:800; line-height:46px; letter-spacing:-.03em; }
+.sf-col { display:inline-block; height:var(--sf-lh); overflow:hidden; }
+.sf-strip { display:block; transform:translateY(0); transition:transform .95s cubic-bezier(.16,1,.26,1); }
+.sf-cell { display:block; height:var(--sf-lh); line-height:var(--sf-lh); text-align:center; }
+.sf-ch { display:inline-block; height:var(--sf-lh); line-height:var(--sf-lh); }
+.sf-live { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+/* Narrow frames: the meta line goes first, then the numbers tighten, and below
+   380px the band does not run at all - the roster row is the fallback. */
+@container (max-width:479px) {
+  .sf-meta { display:none; }
+  .sf-nums { width:170px; padding:11px 12px; }
+  .sf-row, .sf-band.sf-on .sf-flag { width:440px; }
+}
+@container (max-width:379px) { .sf-band { display:none; } }
+@media (prefers-reduced-motion:reduce) {
+  .sf-face { transition:opacity .15s ease; transform:none; }
+  .sf-flag { transition:none; }
+  .sf-band.sf-on .sf-flag { width:512px; }
+  .sf-strip { transition:none; }
+}
+
 @media (pointer:coarse) { .pv-overlay .pv-rail { opacity:1; pointer-events:auto; } }
 @media (prefers-reduced-motion:reduce) { .pv-rail,.pv-player { transition:none; } }
