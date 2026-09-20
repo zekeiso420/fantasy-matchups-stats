@@ -1060,21 +1060,24 @@ body.theater .video-box iframe {
    at all. Instead two invisible strips stand where the rails are, down the
    edges and clear of the provider's control bar, so the approach is caught and
    the rest of the picture stays live. */
-.pv-zone { position:absolute; top:0; bottom:52px; width:72px; pointer-events:auto; }
+.pv-zone { position:absolute; top:0; bottom:52px; width:calc(var(--pv-face) + 28px); pointer-events:auto; }
 .pv-zone-l { left:0; }
 .pv-zone-r { right:0; }
-.pv-overlay { position:absolute; inset:0; z-index:3; pointer-events:none; --accent-warm:#f0c543; --text:#eaefe6; --surface-2:#1a231d; --line:#2c3830; --line-strong:#46593f; }
+/* One face size drives the rails: the buttons, their score plates, the width of
+   the columns and the inset the strip keeps clear of them. At 66px the photo is
+   downscaled about 3.8x instead of 5.8x, which is most of why it reads softer. */
+.pv-overlay { --pv-face:66px; position:absolute; inset:0; z-index:3; pointer-events:none; --accent-warm:#f0c543; --text:#eaefe6; --surface-2:#1a231d; --line:#2c3830; --line-strong:#46593f; }
 .pv-overlay[hidden] { display:none; }
-.pv-rail { position:absolute; top:18px; bottom:18px; width:48px; display:flex; flex-direction:column; justify-content:safe center; gap:10px; overflow-y:auto; scrollbar-width:none; opacity:0; transition:opacity 180ms ease; pointer-events:none; padding:2px; box-sizing:border-box; max-height:450px; margin-block:auto; }
+.pv-rail { position:absolute; top:18px; bottom:18px; width:calc(var(--pv-face) + 4px); display:flex; flex-direction:column; justify-content:safe center; gap:10px; overflow-y:auto; scrollbar-width:none; opacity:0; transition:opacity 180ms ease; pointer-events:none; padding:2px; box-sizing:border-box; max-height:450px; margin-block:auto; }
 .pv-rail::-webkit-scrollbar { display:none; }
 .pv-rail.pv-mine { left:12px; }
 .pv-rail.pv-opp { right:12px; }
 .pv-hot .pv-rail { opacity:1; pointer-events:auto; }
 .pv-mine { --pv-accent:var(--accent-warm); }
 .pv-opp { --pv-accent:var(--text); }
-.pv-player { display:flex; flex-direction:column; gap:2px; flex:none; width:44px; padding:0; border:0; border-radius:0; background:none; opacity:.55; transition:opacity .15s ease; cursor:pointer; color:#cfd6cb; white-space:nowrap; }
+.pv-player { display:flex; flex-direction:column; gap:2px; flex:none; width:var(--pv-face); padding:0; border:0; border-radius:0; background:none; opacity:.55; transition:opacity .15s ease; cursor:pointer; color:#cfd6cb; white-space:nowrap; }
 .pv-player:hover,.pv-player:focus-visible,.pv-player[aria-pressed="true"] { opacity:1; }
-.pv-avatar { position:relative; display:grid; place-items:center; width:44px; height:44px; box-sizing:border-box; flex:none; overflow:hidden; background:var(--surface-2); border:2px solid rgba(234,239,230,.28); border-radius:0; font-size:13px; font-weight:800; color:var(--text); }
+.pv-avatar { position:relative; display:grid; place-items:center; width:var(--pv-face); height:var(--pv-face); box-sizing:border-box; flex:none; overflow:hidden; background:var(--surface-2); border:2px solid rgba(234,239,230,.28); border-radius:0; font-size:13px; font-weight:800; color:var(--text); }
 /* These are 1000px portraits landing in a 44px square, and the default crop
    kept the whole torso - so the face was a dozen pixels of it and every
    downscaled edge showed. Framing the head fills the square with the part that
@@ -1085,12 +1088,12 @@ body.theater .video-box iframe {
    its edges. It gets the whole square, whole. */
 .pv-avatar.pv-logo img { object-fit:contain; object-position:center; transform:none; filter:none; padding:4px; box-sizing:border-box; }
 .pv-player[aria-pressed="true"] .pv-avatar { border-color:var(--pv-accent); box-shadow:0 0 0 2px rgba(10,15,12,.9); }
-.pv-points { width:44px; padding:3px 0; background:rgba(10,15,12,.8); text-align:center; font-size:10.5px; line-height:14px; font-weight:800; }
+.pv-points { width:var(--pv-face); padding:3px 0; background:rgba(10,15,12,.8); text-align:center; font-size:10.5px; line-height:14px; font-weight:800; }
 .pv-mine .pv-points { color:var(--accent-warm); }
 /* The strip rises out of the player's bottom edge rather than cutting in: it
    stays mounted so there is something to animate, and is taken out of reach
    while it is down. */
-.pv-strip { position:absolute; left:76px; right:76px; bottom:0; z-index:2; background:rgba(10,15,12,.93); border-top:1px solid var(--line-strong); padding:11px 16px 13px; pointer-events:auto; color:var(--text); white-space:nowrap;
+.pv-strip { position:absolute; left:calc(var(--pv-face) + 32px); right:calc(var(--pv-face) + 32px); bottom:0; z-index:2; background:rgba(10,15,12,.93); border-top:1px solid var(--line-strong); padding:11px 16px 13px; pointer-events:auto; color:var(--text); white-space:nowrap;
   transform:translateY(100%); opacity:0; visibility:hidden;
   transition:transform .22s cubic-bezier(.4,0,.2,1), opacity .16s, visibility 0s .22s; }
 .pv-strip.pv-up { transform:translateY(0); opacity:1; visibility:visible; transition:transform .22s cubic-bezier(.4,0,.2,1), opacity .16s, visibility 0s; }
