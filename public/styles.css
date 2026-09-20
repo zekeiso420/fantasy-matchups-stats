@@ -1066,7 +1066,13 @@ body.theater .video-box iframe {
 /* One face size drives the rails: the buttons, their score plates, the width of
    the columns and the inset the strip keeps clear of them. At 66px the photo is
    downscaled about 3.8x instead of 5.8x, which is most of why it reads softer. */
-.pv-overlay { --pv-face:66px; position:absolute; inset:0; z-index:3; pointer-events:none; --accent-warm:#f0c543; --text:#eaefe6; --surface-2:#1a231d; --line:#2c3830; --line-strong:#46593f; }
+/* The overlay carries its own palette because it sits over video rather than
+   over the page, and it keeps its own copies of the app's tokens so a light
+   theme can re-point all of them at once. */
+.pv-overlay { --pv-face:66px; position:absolute; inset:0; z-index:3; pointer-events:none;
+  --accent-warm:#f0c543; --text:#eaefe6; --surface-2:#1a231d; --line:#2c3830; --line-strong:#46593f;
+  --pv-ground:rgba(10,15,12,.94); --pv-plate:rgba(10,15,12,.8); --pv-ring:rgba(10,15,12,.9);
+  --pv-face-ink:#cfd6cb; --pv-avatar-edge:rgba(234,239,230,.28); }
 .pv-overlay[hidden] { display:none; }
 .pv-rail { position:absolute; top:18px; bottom:18px; width:calc(var(--pv-face) + 4px); display:flex; flex-direction:column; justify-content:safe center; gap:10px; overflow-y:auto; scrollbar-width:none; opacity:0; transition:opacity 180ms ease; pointer-events:none; padding:2px; box-sizing:border-box; max-height:450px; margin-block:auto; }
 .pv-rail::-webkit-scrollbar { display:none; }
@@ -1075,9 +1081,9 @@ body.theater .video-box iframe {
 .pv-hot .pv-rail { opacity:1; pointer-events:auto; }
 .pv-mine { --pv-accent:var(--accent-warm); }
 .pv-opp { --pv-accent:var(--text); }
-.pv-player { display:flex; flex-direction:column; gap:2px; flex:none; width:var(--pv-face); padding:0; border:0; border-radius:0; background:none; opacity:.55; transition:opacity .15s ease; cursor:pointer; color:#cfd6cb; white-space:nowrap; }
+.pv-player { display:flex; flex-direction:column; gap:2px; flex:none; width:var(--pv-face); padding:0; border:0; border-radius:0; background:none; opacity:.55; transition:opacity .15s ease; cursor:pointer; color:var(--pv-face-ink); white-space:nowrap; }
 .pv-player:hover,.pv-player:focus-visible,.pv-player[aria-pressed="true"] { opacity:1; }
-.pv-avatar { position:relative; display:grid; place-items:center; width:var(--pv-face); height:var(--pv-face); box-sizing:border-box; flex:none; overflow:hidden; background:var(--surface-2); border:2px solid rgba(234,239,230,.28); border-radius:0; font-size:13px; font-weight:800; color:var(--text); }
+.pv-avatar { position:relative; display:grid; place-items:center; width:var(--pv-face); height:var(--pv-face); box-sizing:border-box; flex:none; overflow:hidden; background:var(--surface-2); border:2px solid var(--pv-avatar-edge); border-radius:0; font-size:13px; font-weight:800; color:var(--text); }
 /* These are 1000px portraits landing in a 44px square, and the default crop
    kept the whole torso - so the face was a dozen pixels of it and every
    downscaled edge showed. Framing the head fills the square with the part that
@@ -1087,8 +1093,8 @@ body.theater .video-box iframe {
    frame - cropping to a head takes a bite out of it and the blur only smears
    its edges. It gets the whole square, whole. */
 .pv-avatar.pv-logo img { object-fit:contain; object-position:center; transform:none; filter:none; padding:4px; box-sizing:border-box; }
-.pv-player[aria-pressed="true"] .pv-avatar { border-color:var(--pv-accent); box-shadow:0 0 0 2px rgba(10,15,12,.9); }
-.pv-points { width:var(--pv-face); padding:3px 0; background:rgba(10,15,12,.8); text-align:center; font-size:10.5px; line-height:14px; font-weight:800; }
+.pv-player[aria-pressed="true"] .pv-avatar { border-color:var(--pv-accent); box-shadow:0 0 0 2px var(--pv-ring); }
+.pv-points { width:var(--pv-face); padding:3px 0; background:var(--pv-plate); text-align:center; font-size:10.5px; line-height:14px; font-weight:800; }
 .pv-mine .pv-points { color:var(--accent-warm); }
 /* The strip rises out of the player's bottom edge rather than cutting in: it
    stays mounted so there is something to animate, and is taken out of reach
@@ -1099,7 +1105,7 @@ body.theater .video-box iframe {
    the cap or the rails' own insets. The strip is its own query container, so
    everything width-conditional below measures the strip rather than the window:
    the same window gives different strip widths in single and multi view. */
-.pv-strip { position:absolute; left:calc(var(--pv-face) + 32px); right:calc(var(--pv-face) + 32px); bottom:0; z-index:2; height:152px; max-width:1100px; margin-inline:auto; container:strip / inline-size; box-sizing:border-box; background:rgba(10,15,12,.94); border-top:2px solid var(--pv-accent); pointer-events:auto; color:var(--text); white-space:nowrap; font-variant-numeric:tabular-nums;
+.pv-strip { position:absolute; left:calc(var(--pv-face) + 32px); right:calc(var(--pv-face) + 32px); bottom:0; z-index:2; height:152px; max-width:1100px; margin-inline:auto; container:strip / inline-size; box-sizing:border-box; background:var(--pv-ground); border-top:2px solid var(--pv-accent); pointer-events:auto; color:var(--text); white-space:nowrap; font-variant-numeric:tabular-nums;
   transform:translateY(100%); opacity:0; visibility:hidden;
   transition:transform .22s cubic-bezier(.4,0,.2,1), opacity .16s, visibility 0s .22s; }
 .pv-strip.pv-up { transform:translateY(0); opacity:1; visibility:visible; transition:transform .22s cubic-bezier(.4,0,.2,1), opacity .16s, visibility 0s; }
@@ -1176,6 +1182,34 @@ body.theater .video-box iframe {
   .pv-group { padding:10px; }
   .pv-clabel,.pv-meta { font-size:8px; letter-spacing:.06em; }
   .pv-value { font-size:15px; }
+}
+/* Light mode. The strip is a white card over the video rather than a dark one,
+   with the green and orange the handoff specified for this ground - the dark
+   theme's #5fd47e and #ff7a5c are illegible on white. Both the chosen theme and
+   the system one are covered, the same way the page's own palette is. */
+:root[data-theme="light"] .pv-overlay {
+  --accent-warm:#b08a00; --text:#201e1d; --surface-2:#eaece4; --line:#e4e1de; --line-strong:#b9b4b4;
+  --pv-ground:rgba(255,255,255,.96); --pv-plate:rgba(255,255,255,.88); --pv-ring:rgba(255,255,255,.9);
+  --pv-face-ink:#3c3a39; --pv-avatar-edge:rgba(32,30,29,.18);
+}
+:root[data-theme="light"] .pv-strip {
+  --good:#2f7d32; --bad:#c2410c; --label:#605d5d; --dim-total:#605d5d; --ctx:#8a8585;
+  box-shadow:0 -6px 20px rgba(32,30,29,.18);
+}
+:root[data-theme="light"] .pv-hatch { background:repeating-linear-gradient(135deg, #2f7d32 0 2px, rgba(47,125,50,.22) 2px 5px); }
+:root[data-theme="light"] .pv-tick { background:#201e1d; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .pv-overlay {
+    --accent-warm:#b08a00; --text:#201e1d; --surface-2:#eaece4; --line:#e4e1de; --line-strong:#b9b4b4;
+    --pv-ground:rgba(255,255,255,.96); --pv-plate:rgba(255,255,255,.88); --pv-ring:rgba(255,255,255,.9);
+    --pv-face-ink:#3c3a39; --pv-avatar-edge:rgba(32,30,29,.18);
+  }
+  :root:not([data-theme="dark"]) .pv-strip {
+    --good:#2f7d32; --bad:#c2410c; --label:#605d5d; --dim-total:#605d5d; --ctx:#8a8585;
+    box-shadow:0 -6px 20px rgba(32,30,29,.18);
+  }
+  :root:not([data-theme="dark"]) .pv-hatch { background:repeating-linear-gradient(135deg, #2f7d32 0 2px, rgba(47,125,50,.22) 2px 5px); }
+  :root:not([data-theme="dark"]) .pv-tick { background:#201e1d; }
 }
 @media (pointer:coarse) { .pv-overlay .pv-rail { opacity:1; pointer-events:auto; } }
 @media (prefers-reduced-motion:reduce) { .pv-rail,.pv-player { transition:none; } }
