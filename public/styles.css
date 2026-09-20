@@ -1221,7 +1221,14 @@ body.theater .video-box iframe {
   position:absolute; left:0; bottom:0; z-index:4; display:flex; align-items:stretch;
   pointer-events:none; font-variant-numeric:tabular-nums; color:var(--text);
 }
-.pv-picture:has(.pv-strip.pv-up) .sf-band { bottom:152px; }   /* never over an open stat card */
+.pv-picture:has(.pv-strip.pv-up) .sf-band:not(.sf-anchored) { bottom:152px; }   /* never over an open stat card */
+/* Anchored to a rail tile: the band drops its own portrait, takes the tile's
+   height, and its left edge is placed at the tile's right edge in script - the
+   rail scrolls, so the position is measured, not assumed. */
+.sf-band.sf-anchored { bottom:auto; }
+.sf-band.sf-anchored .sf-face { display:none; }
+.sf-band.sf-anchored .sf-flag,
+.sf-band.sf-anchored .sf-row { height:var(--sf-h, 66px); }
 .sf-face {
   flex:none; width:76px; height:78px; box-sizing:border-box;
   border-top:2px solid var(--good, #5fd47e); background:var(--surface-2) center top / cover no-repeat;
@@ -1237,6 +1244,8 @@ body.theater .video-box iframe {
 }
 .sf-band.sf-on .sf-face { opacity:1; transform:none; }
 .sf-band.sf-on .sf-flag { width:512px; }
+.sf-band.sf-anchored .sf-id { padding:9px 14px; }
+.sf-band.sf-anchored .sf-nums { padding:8px 16px; }
 .sf-id { flex:1; min-width:0; padding:13px 14px; display:flex; flex-direction:column; justify-content:center; gap:4px; }
 .sf-name { font-size:17px; font-weight:800; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .sf-meta { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#7d7979; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

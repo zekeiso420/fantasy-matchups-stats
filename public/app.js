@@ -81,7 +81,10 @@ function createPlayerRails(wrapper) {
     <div class="pv-rail pv-mine" aria-label="My players"></div><div class="pv-rail pv-opp" aria-label="Opponent players"></div>
     <section class="pv-strip" aria-label="Player statistics"><div class="pv-header"><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-context"><span class="pv-cscore"></span><span class="pv-cstatus"></span></span><span class="pv-right"><span class="pv-nums"><strong class="pv-total"></strong><span class="pv-proj"></span></span><span class="pv-bar"><i class="pv-fill"></i><i class="pv-hatch"></i><i class="pv-tick"></i></span></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-groups"></div></section>`;
   wrapper.append(overlay);wrapper.classList.add('pv-picture');
-  const band=createScoringBand(wrapper);
+  // The rail holds the faces, so it is the rail that tells the band where a
+  // scoring player already is - and wakes, so the tile is lit when the flag
+  // comes out of it.
+  const band=createScoringBand(wrapper,(p)=>{const b=buttons.get(`mine:${p.id}`);if(b)wake();return b||null;});
   const strip=overlay.querySelector('.pv-strip'), close=overlay.querySelector('.pv-close');
   function portrait(host,p){
     if(host.dataset.player===p.id)return;
@@ -260,7 +263,7 @@ function createPlayerRails(wrapper) {
 // team total it just changed. It answers "what just happened to my score"
 // without the user looking away from the game. Per SCORING_FLAG_SPEC.md.
 const SF_HOLD=6000, SF_CUT=600;
-function createScoringBand(wrapper){
+function createScoringBand(wrapper,anchorOf){
   const doc=wrapper.ownerDocument, win=doc.defaultView;
   const reduced=win.matchMedia('(prefers-reduced-motion: reduce)');
   const band=doc.createElement('div');
@@ -316,6 +319,21 @@ function createScoringBand(wrapper){
     }
     showing=true;clear();
     band.classList.remove('sf-on','sf-held');
+    // The face is already on screen: the player's own tile in the rail. The flag
+    // unfurls from its right edge rather than a second portrait appearing in the
+    // corner, so the thing that lights up is the thing you were already looking
+    // at. Only a player with no tile - one whose game you are not watching -
+    // brings his own face, in the bottom corner.
+    const tile=e.anchor&&e.anchor.isConnected?e.anchor:null;
+    band.classList.toggle('sf-anchored',!!tile);
+    if(tile){
+      const a=tile.getBoundingClientRect(), box=wrapper.getBoundingClientRect();
+      band.style.top=`${Math.round(a.top-box.top)}px`;
+      band.style.left=`${Math.round(a.right-box.left)}px`;
+      band.style.setProperty('--sf-h',`${Math.round(a.height)}px`);
+    } else {
+      band.style.top='';band.style.left='';band.style.removeProperty('--sf-h');
+    }
     const face=band.querySelector('.sf-face');
     face.style.backgroundImage=e.headshotUrl?`url("${e.headshotUrl}")`:'';
     face.classList.toggle('sf-logo',!!e.logo);
@@ -363,6 +381,7 @@ function createScoringBand(wrapper){
         const delta=Math.round((now.pts-was.pts)*100)/100;
         if(!earns(p,delta))continue;
         show({name:p.name,position:p.position,nflTeam:p.nflTeam,headshotUrl:p.headshotUrl,logo:p.position==='DEF',
+          anchor:anchorOf?anchorOf(p):null,
           playText:describe(was.cells,now.cells),points:`+${delta.toFixed(2)}`,teamTotal:fmt(p.teamTotal==null?now.pts:p.teamTotal)});
       }
     },
