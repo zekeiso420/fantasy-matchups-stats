@@ -148,7 +148,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     const bk=bucket(g),reverse=data.teams[1]?.mine;
     // The fantasy team rides along with each player: you can be watching a
     // matchup that is not yours, where "my" and "opponent" name nobody.
-    const railSide=(key,i)=>(bk[key]||[]).filter(p=>p.rail).map(p=>({...p.rail,bench:p.bench,slot:p.slot,fantasyTeam:data.teams[i]?.name||'',state:g?.state,kick:g?.kickoff})).sort((a,b)=>Number(a.bench)-Number(b.bench)||a.slot-b.slot);
+    const railSide=(key,i)=>(bk[key]||[]).filter(p=>p.rail).map(p=>({...p.rail,bench:p.bench,slot:p.slot,fantasyTeam:data.teams[i]?.name||'',state:g?.state,kick:g?.kickoff,ctx:g?{away:g.away,home:g.home,as:g.awayScore,hs:g.homeScore,state:g.state,kick:g.kickoff,half:g.halftime,period:g.period,clock:g.clock,detail:g.detail}:null})).sort((a,b)=>Number(a.bench)-Number(b.bench)||a.slot-b.slot);
     playerRails?.update(`${data.context}:${g?.id}`,{mine:railSide(reverse?'b':'a',reverse?1:0),opp:railSide(reverse?'a':'b',reverse?0:1)});
     if(multi)renderGrid();else if(g){const m=ensureMedia(g);placeMedia(m,$('singleMedia'));sourceOptions(m);}
     $('empty').hidden=!multi||s.order.length>0;

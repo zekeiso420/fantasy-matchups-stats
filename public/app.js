@@ -79,7 +79,7 @@ function createPlayerRails(wrapper) {
   const overlay=doc.createElement('div');overlay.className='pv-overlay';
   overlay.innerHTML=`<span class="pv-zone pv-zone-l" aria-hidden="true"></span><span class="pv-zone pv-zone-r" aria-hidden="true"></span>
     <div class="pv-rail pv-mine" aria-label="My players"></div><div class="pv-rail pv-opp" aria-label="Opponent players"></div>
-    <section class="pv-strip" aria-label="Player statistics"><div class="pv-header"><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-right"><span class="pv-nums"><strong class="pv-total"></strong><span class="pv-proj"></span></span><span class="pv-bar"><i class="pv-fill"></i><i class="pv-hatch"></i><i class="pv-tick"></i></span></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-groups"></div></section>`;
+    <section class="pv-strip" aria-label="Player statistics"><div class="pv-header"><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-context"><span class="pv-cscore"></span><span class="pv-cstatus"></span></span><span class="pv-right"><span class="pv-nums"><strong class="pv-total"></strong><span class="pv-proj"></span></span><span class="pv-bar"><i class="pv-fill"></i><i class="pv-hatch"></i><i class="pv-tick"></i></span></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-groups"></div></section>`;
   wrapper.append(overlay);wrapper.classList.add('pv-picture');
   const strip=overlay.querySelector('.pv-strip'), close=overlay.querySelector('.pv-close');
   function portrait(host,p){
@@ -110,10 +110,14 @@ function createPlayerRails(wrapper) {
     strip.classList.toggle('pv-mine',p.side==='mine');strip.classList.toggle('pv-opp',p.side==='opp');
     strip.querySelector('.pv-name').textContent=p.name;
     const role=p.bench?'BENCH':'STARTER';
-    // The meta line ends with where the game is: a kickoff time before it, the
-    // word FINAL after it, and nothing while it is being played.
-    const tail=p.state==='pre'&&p.kick?` · ${shortKick(p.kick)}`:p.state==='final'?' · FINAL':'';
-    strip.querySelector('.pv-meta').textContent=`${p.position} · ${p.nflTeam} · ${p.fantasyTeam?`${p.fantasyTeam.toUpperCase()} ${role}`:role}${tail}`;
+    // Where the game is gets said once. Wide enough and it is the centred score
+    // in the header; narrower and the header drops it and the meta line picks
+    // the status back up as its last segment. Never both - which is a container
+    // query on the strip, so the two can never disagree.
+    const st=gameStatus(p.ctx||p);
+    strip.querySelector('.pv-meta').innerHTML=`${escape(`${p.position} · ${p.nflTeam} · ${p.fantasyTeam?`${p.fantasyTeam.toUpperCase()} ${role}`:role}`)}`
+      + (st?`<span class="pv-mstatus"> · ${escape(st)}</span>`:'');
+    paintContext(p.ctx);
     paintHeader(p);
     strip.querySelector('.pv-groups').innerHTML=(p.groups||[]).map(g=>`<div class="pv-group"><span class="pv-glabel">${escape(g.label)}</span><div class="pv-cells">`
       + g.cells.map(c=>`<div class="pv-cell"><span class="pv-clabel">${escape(c.label)}</span>`
@@ -128,6 +132,22 @@ function createPlayerRails(wrapper) {
   // the bar keeps saying how far past pace the player is instead of pinning at
   // full and going silent. Before kickoff there is nothing to fill: a bare
   // track, and a grey total, because gold means points have been scored.
+  // Away team first, the way the rails write a fixture. Before kickoff there is
+  // no score to give, so the pairing carries the time instead.
+  function gameStatus(g){
+    if(!g||!g.state)return '';
+    if(g.state==='pre')return g.kick?shortKick(g.kick):'';
+    if(g.half)return 'HALFTIME';
+    if(g.state==='final')return (g.period||0)>4?'FINAL · OT':'FINAL';
+    return g.clock&&g.period?`Q${g.period} · ${g.clock}`:(g.detail||'LIVE').toUpperCase();
+  }
+  function paintContext(g){
+    const box=strip.querySelector('.pv-context');
+    box.querySelector('.pv-cscore').textContent=!g||!g.away?'':g.state==='pre'
+      ? `${g.away} @ ${g.home}` : `${g.away} ${g.as} @ ${g.home} ${g.hs}`;
+    box.querySelector('.pv-cstatus').textContent=gameStatus(g);
+  }
+
   let painted=null;
   function paintHeader(p){
     const total=strip.querySelector('.pv-total'), projEl=strip.querySelector('.pv-proj');
