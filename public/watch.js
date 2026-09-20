@@ -72,19 +72,22 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
   // finished since. A game that ends while you are watching it stays put; that
   // is the grid you are looking at, and yanking tiles out from under it is
   // worse than a dark one.
+  // The only large tile in the grid is the expanded one. Reading that off the
+  // layout rather than off a flag means the arrow is right whatever put the
+  // grid in that shape - a fresh seed, a restore, or the featured toggle.
+  const isSolo=(id)=>s.count===1&&s.order[0]===id&&s.order.length>1;
   function stillLive(order=[],repl={}){return order.filter(id=>{const g=game(repl[id]||id);return g&&g.state==='live';});}
   function restoreInto(saved){
     const order=stillLive(saved.order,saved.repl||{});
     if(!order.length)return false;
     const repl=Object.fromEntries(Object.entries(saved.repl||{}).filter(([k])=>order.includes(k)));
-    const solo=saved.solo&&order.includes(saved.solo)?saved.solo:null;
-    const pre=solo&&saved.preExpand?{order:(saved.preExpand.order||[]).filter(id=>order.includes(id)),count:saved.preExpand.count}:null;
-    Object.assign(s,{order,repl,count:Math.max(1,Math.min(saved.count||1,order.length)),watching:saved.watching,pin:!!saved.pin,solo,preExpand:pre});
+    const pre=saved.preExpand?{order:(saved.preExpand.order||[]).filter(id=>order.includes(id)),count:saved.preExpand.count}:null;
+    Object.assign(s,{order,repl,count:Math.max(1,Math.min(saved.count||1,order.length)),watching:saved.watching,pin:!!saved.pin,preExpand:pre});
     return true;
   }
   function persistLayout(isActive=active){
     if(!data || s.mode!=='multi' || restorePending)return;
-    const value=JSON.stringify({active:isActive,order:s.order,count:s.count,repl:s.repl,watching:s.watching,pin:s.pin,solo:s.solo,preExpand:s.preExpand,returnToTheater});
+    const value=JSON.stringify({active:isActive,order:s.order,count:s.count,repl:s.repl,watching:s.watching,pin:s.pin,preExpand:s.preExpand,returnToTheater});
     try{const key=storageKey();if(lastSaved!==key+value){storage.setItem(key,value);lastSaved=key+value;}}catch{/* Private browsing or full storage must not break playback. */}
   }
   const s={mode:'single',watching:null,expanded:null,order:[],count:1,repl:{},edit:false,pin:false,hover:false,rail:true,details:true,all:false,more:false,drag:null,pool:null,audio:null};
@@ -161,13 +164,18 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     const exp=e.target.closest('[data-expand]');
     if(exp){
       const id=exp.dataset.expand;
-      if(s.solo===id){
+      if(isSolo(id)){
+        // Collapsing the one big stream evens the grid out - that is the
+        // smaller size the arrow points at. A layout that had more than one
+        // large tile is worth putting back instead, since evening it out would
+        // throw away an arrangement the user built by hand.
         const back=(s.preExpand?.order||[]).filter(x=>s.order.includes(x));
-        if(back.length)Object.assign(s,{order:[...back,...s.order.filter(x=>!back.includes(x))],count:Math.max(1,Math.min(s.preExpand.count||1,s.order.length))});
-        s.solo=null;s.preExpand=null;
+        if(back.length&&s.preExpand.count>1)Object.assign(s,{order:[...back,...s.order.filter(x=>!back.includes(x))],count:Math.min(s.preExpand.count,s.order.length)});
+        else s.count=Math.max(1,Math.min(4,s.order.length));
+        s.preExpand=null;
       } else {
         s.preExpand={order:[...s.order],count:s.count};
-        s.order=[id,...s.order.filter(x=>x!==id)];s.count=1;s.solo=id;
+        s.order=[id,...s.order.filter(x=>x!==id)];s.count=1;
       }
       render();return;
     }
@@ -176,7 +184,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     if(drop&&s.edit){
       const id=drop.dataset.drop;
       if(s.order.length>1){s.order=s.order.filter(x=>x!==id);delete s.repl[id];
-        if(s.solo===id){s.solo=null;s.preExpand=null;}
+        if(isSolo(id))s.preExpand=null;
         s.count=Math.max(1,Math.min(s.count,s.order.length));
         if(s.audio===id)s.audio=s.order[0];
         render();}
@@ -196,7 +204,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
       const chosen=data.games.some(g=>g.state==='live')?game(s.watching):null;
       const seeded=[...(chosen?[chosen]:[]),...candidates].filter((g,i,a)=>a.findIndex(x=>x.id===g.id)===i).slice(0,6);
       if(!seeded.length)seeded.push(...data.games.filter(g=>g.state==='live').slice(0,6));
-      s.order=seeded.map(g=>g.id);s.count=1;s.repl={};s.audio=s.order[0];s.pin=s.hover=false;s.solo=null;s.preExpand=null;
+      s.order=seeded.map(g=>g.id);s.count=1;s.repl={};s.audio=s.order[0];s.pin=s.hover=false;s.preExpand=null;
       const saved=savedLayout();if(saved)restoreInto(saved);   // anything finished falls away, leaving the freshly seeded live games
     }
     render();
@@ -282,7 +290,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
       const [x,y,w,h]=layout[i];Object.assign(t.style,{left:x/width*100+'%',top:y/height*100+'%',width:w/width*100+'%',height:h/height*100+'%'});
       t.draggable=s.edit;t.tabIndex=s.edit?0:-1;t.setAttribute('aria-label',`${title(g)}, ${i<s.count?'large':'small'}, slot ${i+1}`);
       t.classList.toggle('w-is-feat',i<s.count);t.classList.toggle('w-is-big',i<s.count);t.classList.toggle('w-is-target',!!s.pool);t.classList.toggle('w-is-dragging',s.drag===id);
-      const exp=t.querySelector('.w-tile-exp'), solo=s.solo===id;
+      const exp=t.querySelector('.w-tile-exp'), solo=isSolo(id);
       exp.innerHTML=solo
         ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10 3 21"/><path d="M10 21H3v-7"/></svg>`
         : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14 21 3"/><path d="M14 3h7v7"/></svg>`;

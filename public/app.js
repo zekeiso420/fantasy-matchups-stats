@@ -1,4 +1,4 @@
-import { createWatch } from './watch.js?v=20260920-8';
+import { createWatch } from './watch.js?v=20260920-9';
 // Matchup: a Sleeper fantasy matchup tracker
 // Data flows one way: fetch → state → render(). Live updates patch state and
 // either re-render or touch only the numbers, depending on what changed.
