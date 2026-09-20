@@ -46,7 +46,7 @@ function line(g) {
 // replacing media or the source of an active drag.
 export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,createPlayerRails}) {
   let data,root=null,active=false,context=null,returnToTheater=true;
-  let playerRails=null;
+  let playerRails=null, railHost=null;
   let restoreChecked=false,lastSaved='',restorePending=false;
   const page=document.defaultView;
   const refreshInMulti=new URL(page.location.href).searchParams.get('view')==='multi';
@@ -109,7 +109,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     root=document.createElement('section');root.className='watch-surface w-app';root.setAttribute('aria-label','Matchup watch');
     root.innerHTML=`<div class="w-body"><aside class="w-rail" data-id="rail"><button class="w-rail-tab" data-action="panel" aria-label="Open matchup panel">›<span class="w-rail-tab-label">THIS MATCHUP</span></button><div class="w-rail-inner" data-id="railInner"><div class="w-rail-head"><span class="w-eyebrow">THIS MATCHUP</span><button class="w-rail-link" data-action="all">All matchups ▾</button></div><div class="w-rail-all" data-id="all" hidden></div><div class="w-mine" data-id="mine"></div><section class="w-sec w-sec--single"><div class="w-rail-head w-rail-head--mid"><span class="w-eyebrow">SWITCH GAME</span></div><button class="w-watch-all" data-action="multi">${gridIcon}<span data-id="liveCount"></span><span class="w-watch-all-tag">MULTI-VIEW</span></button><div class="w-switch-list" data-id="switch"></div></section><section class="w-sec w-sec--multi"><div class="w-rail-head w-rail-head--mid"><span class="w-eyebrow" data-id="gridCount"></span><span class="w-drop-hint" data-id="drop" hidden>DROP TO REPLACE</span></div><div data-id="rows"></div><button class="w-rail-more" data-action="more" data-id="moreBtn"></button><div class="w-rail-pool" data-id="pool"></div></section><footer class="w-rail-foot"><span data-id="audioName"></span><button class="w-rail-link" data-action="pin" data-id="pin">Pin panel</button><button class="w-rail-collapse" data-action="collapse">Collapse panel ‹</button></footer></div></aside><aside class="w-details" data-id="details"><button class="w-details-tab" data-action="showDetails" aria-label="Open in this game panel">›<span class="w-rail-tab-label">IN THIS GAME</span></button><div class="w-details-head"><span class="w-eyebrow">IN THIS GAME</span><button class="w-rail-link" data-action="hideDetails">Collapse ‹</button></div><div class="w-details-game" data-id="detailsGame"></div><div class="w-perf-body" data-id="detailsBody"></div></aside><div class="w-stage"><div class="w-stage-head"><span class="w-stage-title" data-id="stageTitle"></span><span class="w-head-ctl"><span class="w-edit-hint" data-id="hint"></span><button class="w-edit-btn" data-action="edit" data-id="edit">Edit grid layout</button></span></div><div class="w-single"><div class="w-player"><div class="w-player-top"><span class="w-player-clock" data-id="clock"></span><span class="w-player-score" data-id="score"></span></div><div class="w-well w-well--player" data-id="singleMedia"></div><div class="w-chrome"><button class="w-btn" data-action="exit">Exit theater</button><label class="w-eyebrow" for="watch-source">SOURCE</label><select id="watch-source" class="w-source" data-id="source" aria-label="Stream source"></select></div></div></div><div class="w-grid-space"><div class="w-grid" data-id="grid"></div></div><div class="w-grid-empty" data-id="empty" hidden>No live games right now. Choose Single to watch another game.</div></div></div>`;
     document.body.append(root);
-    playerRails=createPlayerRails?.($('singleMedia'));
+    railHost=$('singleMedia');playerRails=createPlayerRails?.(railHost);
     root.addEventListener('click',click);
     root.addEventListener('keydown',e=>{const tile=e.target.closest('[data-tile]');if(tile&&s.edit&&(e.key==='Enter'||e.key===' ')){e.preventDefault();Object.assign(s,toggleFeatured(s.order,s.count,tile.dataset.tile));render();return;}if(e.key==='Escape'){e.stopPropagation();clearDrag();if(s.edit){s.edit=false;render();}else close();}});
     $('rail').addEventListener('mouseenter',()=>{if(s.mode==='multi'){s.hover=true;render();}});
@@ -194,8 +194,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
   }
   function setMode(mode){
     if(mode==='single'&&s.mode==='multi')persistLayout(false);
-    if(mode==='multi')playerRails?.setEnabled(false);
-    else playerRails?.setEnabled(true);
+    // Which stream the rails belong to is decided in render, off the layout.
     if(mode==='single' && s.mode==='multi' && !returnToTheater){close();return;}
     if(mode===s.mode){render();return;}
     s.mode=mode;s.edit=false;s.pool=s.drag=null;
@@ -220,7 +219,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
         if(!active){onEnter();active=true;document.body.classList.add('watch-open');mount();}
         if(saved&&restoreInto(saved))s.mode='multi';
         else {s.mode='single';setMode('multi');}
-        playerRails?.setEnabled(false);render();return;
+        render();return;
       }
     }
     if(context!==data.context){const wasMulti=s.mode==='multi';context=data.context;s.order=[];s.repl={};s.watching=data.watching;s.expanded=s.watching;destroyMedia();if(root)$('grid').replaceChildren();switches.clear();if(root)$('switch').replaceChildren();if(active&&wasMulti){s.mode='single';setMode('multi');}}
@@ -234,7 +233,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     if(!active){returnToTheater=mode!=='multi';onEnter();active=true;document.body.classList.add('watch-open');mount();s.mode='single';}
     setMode(mode);
   }
-  function close(){active=false;restorePending=false;persistLayout();playerRails?.destroy();playerRails=null;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
+  function close(){active=false;restorePending=false;persistLayout();playerRails?.destroy();playerRails=null;railHost=null;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
   function syncMode(){
     modeHost.querySelectorAll('[data-mode]').forEach(b=>{const on=b.dataset.mode===s.mode;b.classList.toggle('w-is-on',on);b.setAttribute('aria-pressed',String(on));});
     const url=new URL(page.location.href);
@@ -256,11 +255,25 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     $('hint').textContent=multi&&s.edit?(s.count===4?'Four large · deselect one to add another · drag to swap · × removes':'Select up to four large games · drag to swap · × removes'):'';
     $('edit').textContent=s.edit?'Done':'Edit grid layout';$('edit').setAttribute('aria-pressed',String(s.edit));$('drop').hidden=!s.pool;
     renderSwitch();
-    const bk=bucket(g),reverse=data.teams[1]?.mine;
+    // A single expanded stream is a single stream: it gets the same overlay the
+    // single view has - the rails of faces, the stat card, the scoring flag.
+    // A grid of equals gets none of it; there is no one stream it would belong
+    // to, and four sets of rails over four tiles is noise.
+    const soloId=multi&&s.count===1&&s.order.length>1?s.order[0]:null;
+    const railGame=multi?(soloId?slot(soloId):null):g;
+    const wantHost=multi?(soloId?tiles.get(soloId)?.querySelector('.w-well'):null):$('singleMedia');
+    if(wantHost&&wantHost!==railHost){
+      // The overlay binds to the element it was built on, so moving it between
+      // streams means building it again where it now lives.
+      playerRails?.destroy();railHost=wantHost;playerRails=createPlayerRails?.(wantHost);
+    }
+    playerRails?.setEnabled(!!railGame);
+    const bk=bucket(railGame||g),reverse=data.teams[1]?.mine;
     // The fantasy team rides along with each player: you can be watching a
     // matchup that is not yours, where "my" and "opponent" name nobody.
-    const railSide=(key,i)=>(bk[key]||[]).filter(p=>p.rail).map(p=>({...p.rail,bench:p.bench,slot:p.slot,fantasyTeam:data.teams[i]?.name||'',state:g?.state,kick:g?.kickoff,ctx:g?{away:g.away,home:g.home,as:g.awayScore,hs:g.homeScore,state:g.state,kick:g.kickoff,half:g.halftime,period:g.period,clock:g.clock,detail:g.detail}:null})).sort((a,b)=>Number(a.bench)-Number(b.bench)||a.slot-b.slot);
-    playerRails?.update(`${data.context}:${g?.id}`,{mine:railSide(reverse?'b':'a',reverse?1:0),opp:railSide(reverse?'a':'b',reverse?0:1)});
+    const rg=railGame||g;
+    const railSide=(key,i)=>(bk[key]||[]).filter(p=>p.rail).map(p=>({...p.rail,bench:p.bench,slot:p.slot,fantasyTeam:data.teams[i]?.name||'',state:rg?.state,kick:rg?.kickoff,ctx:rg?{away:rg.away,home:rg.home,as:rg.awayScore,hs:rg.homeScore,state:rg.state,kick:rg.kickoff,half:rg.halftime,period:rg.period,clock:rg.clock,detail:rg.detail}:null})).sort((a,b)=>Number(a.bench)-Number(b.bench)||a.slot-b.slot);
+    playerRails?.update(`${data.context}:${rg?.id}`,{mine:railSide(reverse?'b':'a',reverse?1:0),opp:railSide(reverse?'a':'b',reverse?0:1)});
     if(multi)renderGrid();else if(g){const m=ensureMedia(g);placeMedia(m,$('singleMedia'));sourceOptions(m);}
     $('empty').hidden=!multi||s.order.length>0;
     const needed=new Set(multi?s.order.map(id=>slot(id)?.id):[g?.id]);
