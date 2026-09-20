@@ -2,7 +2,7 @@ import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
-import {createWatch,boxes,toggleFeatured} from '../public/watch.js';
+import {createWatch,boxes,gridLayout,toggleFeatured} from '../public/watch.js';
 
 function setup(count=8,saved=null){
  const dom=new JSDOM('<div class="topbar-right"></div>',{url:'http://localhost/'});globalThis.document=dom.window.document;
@@ -20,6 +20,16 @@ test('all featured layouts preserve 16:9 and selection constraints',()=>{
  for(const id of ['b','c','d'])a=toggleFeatured(a.order,a.count,id);
  assert.equal(a.count,4);assert.deepEqual(toggleFeatured(a.order,a.count,'e'),a);
  a=toggleFeatured(a.order,a.count,'d');assert.equal(a.count,3);
+});
+test('grid fills its occupied bounds at every stream count without stretching video',()=>{
+ for(let count=1;count<=6;count++)for(let featured=1;featured<=Math.min(4,count);featured++){
+  const g=gridLayout(featured,count);
+  assert.equal(Math.min(...g.tiles.map(b=>b[0])),0);assert.equal(Math.min(...g.tiles.map(b=>b[1])),0);
+  assert.equal(Math.max(...g.tiles.map(b=>b[0]+b[2])),g.width);assert.equal(Math.max(...g.tiles.map(b=>b[1]+b[3])),g.height);
+  for(const [x,y,w,h] of g.tiles)assert.ok(Math.abs(w/h-16/9)<0.0001);
+ }
+ const g=gridLayout(2,3);const scale=Math.min(1960/g.width,820/g.height);
+ assert.ok(g.tiles[0][2]*scale>900,'large streams use the wide screen instead of the old 1342px cap');
 });
 
 test('refresh restores multi games, replacements, expanded tiles and return mode',()=>{
