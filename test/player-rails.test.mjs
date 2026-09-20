@@ -14,7 +14,7 @@ function setup(coarse=false){
  w.matchMedia=()=>({matches:coarse});w.fmt=n=>Number(n||0).toFixed(2);w.eval(factory);
  const picture=w.document.querySelector('#picture'),rails=w.createPlayerRails(picture);
  const player=railPlayer('1',{n:'Josh Allen',p:'QB',t:'BUF'},14,25,{pass_yd:120,pass_td:2});
- const sides={mine:[player],opp:[{...player,id:'2',name:'Opponent'}]};rails.update('game1',sides);
+ const sides={mine:[{...player,fantasyTeam:'Odenton Overtime'}],opp:[{...player,id:'2',name:'Opponent',fantasyTeam:'The Replacements'}]};rails.update('game1',sides);
  const $=s=>picture.querySelector(s),fire=type=>picture.dispatchEvent(new w.MouseEvent(type));
  return {w,dom,picture,rails,sides,$,fire,expire:()=>timer?.(),hasTimer:()=>!!timer};
 }
@@ -36,7 +36,7 @@ test('keyboard, opponent selection, coarse input and stream controls',()=>{
  t.sides.mine.push({...t.sides.mine[0],id:'3'});t.rails.update('game1',t.sides);
  const face=t.$('.pv-player');face.focus();face.dispatchEvent(new t.w.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
  assert.equal(t.w.document.activeElement.dataset.key,'mine:3');
- t.$('.pv-opp .pv-player').click();assert.ok(t.$('.pv-strip.pv-opp'));assert.match(t.$('.pv-meta').textContent,/OPPONENT STARTER/);
+ t.$('.pv-opp .pv-player').click();assert.ok(t.$('.pv-strip.pv-opp'));assert.match(t.$('.pv-meta').textContent,/THE REPLACEMENTS STARTER/);
  t.$('.pv-close').dispatchEvent(new t.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(t.$('.pv-strip').classList.contains('pv-up'),false);
  assert.equal(t.hasTimer(),false);t.rails.setEnabled(false);assert.equal(t.$('.pv-overlay').hidden,true);assert.ok(!t.picture.classList.contains('pv-enabled'));
  t.rails.setEnabled(true);assert.equal(t.$('.pv-overlay').hidden,false);t.rails.update('game2',{mine:[],opp:[]});assert.equal(t.$('.pv-overlay').hidden,true);

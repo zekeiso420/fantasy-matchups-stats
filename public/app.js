@@ -107,7 +107,8 @@ function createPlayerRails(wrapper) {
     if(!p)return;
     strip.classList.toggle('pv-mine',p.side==='mine');strip.classList.toggle('pv-opp',p.side==='opp');
     strip.querySelector('.pv-name').textContent=p.name;
-    strip.querySelector('.pv-meta').textContent=`${p.position} · ${p.nflTeam} · ${p.side==='mine'?'MY':'OPPONENT'} ${p.bench?'BENCH':'STARTER'}`;
+    const role=p.bench?'BENCH':'STARTER';
+    strip.querySelector('.pv-meta').textContent=`${p.position} · ${p.nflTeam} · ${p.fantasyTeam?`${p.fantasyTeam.toUpperCase()} ${role}`:role}`;
     strip.querySelector('.pv-total strong').textContent=fmt(p.points);
     strip.querySelectorAll('.pv-cell').forEach((cell,i)=>{cell.firstChild.textContent=p.stats[i]?.key||'—';cell.lastChild.textContent=p.stats[i]?.value??'—';});
   }

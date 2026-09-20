@@ -146,8 +146,10 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     $('edit').textContent=s.edit?'Done':'Edit grid layout';$('edit').setAttribute('aria-pressed',String(s.edit));$('drop').hidden=!s.pool;
     renderSwitch();
     const bk=bucket(g),reverse=data.teams[1]?.mine;
-    const railSide=key=>(bk[key]||[]).filter(p=>p.rail).map(p=>({...p.rail,bench:p.bench})).sort((a,b)=>Number(a.bench)-Number(b.bench));
-    playerRails?.update(`${data.context}:${g?.id}`,{mine:railSide(reverse?'b':'a'),opp:railSide(reverse?'a':'b')});
+    // The fantasy team rides along with each player: you can be watching a
+    // matchup that is not yours, where "my" and "opponent" name nobody.
+    const railSide=(key,i)=>(bk[key]||[]).filter(p=>p.rail).map(p=>({...p.rail,bench:p.bench,fantasyTeam:data.teams[i]?.name||''})).sort((a,b)=>Number(a.bench)-Number(b.bench));
+    playerRails?.update(`${data.context}:${g?.id}`,{mine:railSide(reverse?'b':'a',reverse?1:0),opp:railSide(reverse?'a':'b',reverse?0:1)});
     if(multi)renderGrid();else if(g){const m=ensureMedia(g);placeMedia(m,$('singleMedia'));sourceOptions(m);}
     $('empty').hidden=!multi||s.order.length>0;
     const needed=new Set(multi?s.order.map(id=>slot(id)?.id):[g?.id]);
