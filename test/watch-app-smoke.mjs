@@ -16,6 +16,7 @@ assert.ok($('.tabs'),dom.window.document.body.textContent);assert.equal($('.watc
 $('[data-mode="multi"]').click();assert.ok($('.watch-surface.w-is-multi'));assert.ok($('.w-tile iframe'));
 $('[data-mode="single"]').click();assert.equal($('.watch-surface'),null);assert.ok($('#video-frame'));
 $('[data-vid="theater"]').click();assert.ok($('.watch-surface.w-is-single'));
+assert.ok($('.pv-player'));$('.pv-player').click();assert.equal($('.pv-strip').hidden,false);assert.equal($('.pv-grid').children.length,6);
 $('[data-mode="multi"]').click();$('[data-mode="single"]').click();assert.ok($('.watch-surface.w-is-single'));
 $('[data-action="exit"]').click();assert.equal($('.watch-surface'),null);
 await new Promise(r=>setTimeout(r,50));

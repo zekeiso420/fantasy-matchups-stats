@@ -9,7 +9,7 @@
 // guarantee either API answers one. A plain fetch() stays a "simple
 // request" and skips preflight entirely.
 
-import { SLEEPER, ESPN, slimPlayers, scoreboardUrl, feedUrls, summarizeGames, normalizeStatFeed, scoreLeagueWeek } from './nfl.js';
+import { SLEEPER, ESPN, slimPlayers, scoreboardUrl, feedUrls, summarizeGames, normalizeStatFeed, scoreLeagueWeek } from './nfl.js?v=20260920-3';
 import { memo, memoPersist } from './memo.js';
 
 async function getJSON(url) {

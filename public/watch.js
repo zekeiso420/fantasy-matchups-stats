@@ -37,8 +37,9 @@ function line(g) {
 
 // Kept separate from roster rendering: live updates patch this surface without
 // replacing media or the source of an active drag.
-export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup}) {
+export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,createPlayerRails}) {
   let data,root=null,active=false,context=null,returnToTheater=true;
+  let playerRails=null, streamControls=false;
   const s={mode:'single',watching:null,expanded:null,order:[],count:1,repl:{},edit:false,pin:false,hover:false,rail:true,details:true,all:false,more:false,drag:null,pool:null,audio:null};
   const tiles=new Map(),switches=new Map(),media=new Map();
   const modeHost=document.createElement('div'); modeHost.className='watch-mode'; modeHost.hidden=true;
@@ -60,6 +61,12 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup}
     // Details belong to the player's controls, away from the overlay rail.
     root.querySelector('.w-chrome').append(root.querySelector('.w-show-details'));
     document.body.append(root);
+    playerRails=createPlayerRails?.($('singleMedia'));
+    if(playerRails){
+      const control=document.createElement('button');control.type='button';control.className='w-btn';control.textContent='Stream controls';control.setAttribute('aria-pressed','false');
+      control.addEventListener('click',()=>{streamControls=!streamControls;control.setAttribute('aria-pressed',String(streamControls));playerRails.setEnabled(!streamControls);});
+      root.querySelector('.w-chrome').append(control);
+    }
     root.addEventListener('click',click);
     root.addEventListener('keydown',e=>{const tile=e.target.closest('[data-tile]');if(tile&&s.edit&&(e.key==='Enter'||e.key===' ')){e.preventDefault();Object.assign(s,toggleFeatured(s.order,s.count,tile.dataset.tile));render();return;}if(e.key==='Escape'){e.stopPropagation();clearDrag();if(s.edit){s.edit=false;render();}else close();}});
     $('rail').addEventListener('mouseenter',()=>{if(s.mode==='multi'){s.hover=true;render();}});
@@ -102,6 +109,8 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup}
     const el=e.target.closest('[data-tile],[data-slot]');if(el&&s.edit){Object.assign(s,toggleFeatured(s.order,s.count,el.dataset.tile||el.dataset.slot));render();}
   }
   function setMode(mode){
+    if(mode==='multi')playerRails?.setEnabled(false);
+    else playerRails?.setEnabled(!streamControls);
     if(mode==='single' && s.mode==='multi' && !returnToTheater){close();return;}
     if(mode===s.mode){render();return;}
     s.mode=mode;s.edit=false;s.pool=s.drag=null;
@@ -128,7 +137,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup}
     if(!active){returnToTheater=mode!=='multi';onEnter();active=true;document.body.classList.add('watch-open');mount();s.mode='single';}
     setMode(mode);
   }
-  function close(){active=false;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
+  function close(){active=false;playerRails?.destroy();playerRails=null;streamControls=false;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
   function syncMode(){modeHost.querySelectorAll('[data-mode]').forEach(b=>{const on=b.dataset.mode===s.mode;b.classList.toggle('w-is-on',on);b.setAttribute('aria-pressed',String(on));});}
   function render(){
     if(!active||!root)return;syncMode();const multi=s.mode==='multi',g=game(s.watching);
@@ -145,6 +154,9 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup}
     $('hint').textContent=multi&&s.edit?(s.count===4?'Four large · deselect one to add another · drag to swap':'Select up to four large games · drag to swap'):'';
     $('edit').textContent=s.edit?'Done':'Edit grid layout';$('edit').setAttribute('aria-pressed',String(s.edit));$('drop').hidden=!s.pool;
     renderSwitch();
+    const bk=bucket(g),reverse=data.teams[1]?.mine;
+    const railSide=key=>(bk[key]||[]).filter(p=>p.rail).map(p=>({...p.rail,bench:p.bench})).sort((a,b)=>Number(a.bench)-Number(b.bench));
+    playerRails?.update(`${data.context}:${g?.id}`,{mine:railSide(reverse?'b':'a'),opp:railSide(reverse?'a':'b')});
     if(multi)renderGrid();else if(g){const m=ensureMedia(g);placeMedia(m,$('singleMedia'));sourceOptions(m);}
     $('empty').hidden=!multi||s.order.length>0;
     const needed=new Set(multi?s.order.map(id=>slot(id)?.id):[g?.id]);
