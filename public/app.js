@@ -140,11 +140,15 @@ function createPlayerRails(wrapper) {
     projEl.textContent=proj==null?'—':over?`+${fmt(pts-proj)} over proj`:`of ${fmt(proj)} proj`;
     projEl.classList.toggle('over',over);
     strip.querySelector('.pv-bar').classList.toggle('none',proj==null);
-    const tickPct=over?(proj/pts)*100:0;
+    const tickPct=over?(proj/pts)*100:100;
     fill.style.width=proj?`${Math.min(over?tickPct:(pts/proj)*100,100)}%`:'0%';
     fill.classList.toggle('over',over);
-    hatch.hidden=!over;tick.hidden=!over;
-    if(over){hatch.style.left=`${tickPct}%`;hatch.style.right='0';tick.style.left=`${tickPct}%`;}
+    // The overage band and its tick fade rather than appear, on the same easing
+    // as the fill that grows under them: hiding them outright made the moment a
+    // player passed their projection a flicker instead of a move. Their
+    // geometry is set either way, so they open from the track's right edge.
+    strip.querySelector('.pv-bar').classList.toggle('over',over);
+    hatch.style.left=`${tickPct}%`;hatch.style.right='0';tick.style.left=`${tickPct}%`;
   }
 
   function cancel(){win.clearTimeout(timer);timer=null;}
