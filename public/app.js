@@ -155,14 +155,17 @@ function createPlayerRails(wrapper) {
     const total=strip.querySelector('.pv-total'), projEl=strip.querySelector('.pv-proj');
     const fill=strip.querySelector('.pv-fill'), hatch=strip.querySelector('.pv-hatch'), tick=strip.querySelector('.pv-tick');
     const pts=Number(p.points)||0, proj=p.projection==null?null:Number(p.projection);
-    const over=proj!=null&&pts>proj, none=pts===0;
-    total.textContent=fmt(pts);
-    total.classList.toggle('over',over);total.classList.toggle('none',none&&!over);
+    const early=!!p.projected&&proj!=null;
+    const over=!early&&proj!=null&&pts>proj, none=pts===0;
+    // Before kickoff the number is the projection itself, and it stays grey:
+    // gold is for points that have actually been scored.
+    total.textContent=fmt(early?proj:pts);
+    total.classList.toggle('over',over);total.classList.toggle('none',early||(none&&!over));
     // An unprojected player is rare - Sleeper projects nearly everyone - so the
     // em dash marks the gap rather than hiding it, and the bar stands down
     // because there is no scale to draw. Its space is kept, so the header stays
     // the same height either way.
-    projEl.textContent=proj==null?'—':over?`+${fmt(pts-proj)} over proj`:`of ${fmt(proj)} proj`;
+    projEl.textContent=early?'projected':proj==null?'—':over?`+${fmt(pts-proj)} over proj`:`of ${fmt(proj)} proj`;
     projEl.classList.toggle('over',over);
     strip.querySelector('.pv-bar').classList.toggle('none',proj==null);
     const tickPct=over?(proj/pts)*100:100;
@@ -191,7 +194,7 @@ function createPlayerRails(wrapper) {
       hatch.style.opacity='';tick.style.opacity='';
     }
     for(const el of [hatch,tick])el.style.transitionDelay=fresh&&over?'.4s':'';
-    fill.style.width=proj?`${Math.min(over?tickPct:(pts/proj)*100,100)}%`:'0%';
+    fill.style.width=proj&&!early?`${Math.min(over?tickPct:(pts/proj)*100,100)}%`:'0%';
     hatch.style.left=`${tickPct}%`;hatch.style.width=span;
     tick.style.left=`${tickPct}%`;
   }

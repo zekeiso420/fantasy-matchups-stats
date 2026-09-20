@@ -118,7 +118,13 @@ export function scoreLeagueWeek({ league, matchups, rosters, stats, proj, games,
       const projected = proj?.[pid] ? scorePlayer(proj[pid], scoring) : 0;
       const exp = expectedPoints(pts, projected, game);
       out.players[pid] = { pts: round2(pts), proj: round2(projected), exp: round2(exp), src };
-      out.players[pid].rail = railPlayer(pid, players?.[pid], round2(pts), proj?.[pid] ? round2(projected) : null, stats?.[pid], scoring);
+      // Nothing has happened yet, so the card shows what is expected to: the
+      // projection's own stat line, and the projected score as its number. A
+      // column of zeroes over "of 20.33 proj" told the reader nothing they
+      // could not see from the rail.
+      const early = game?.state === 'pre' && proj?.[pid];
+      out.players[pid].rail = railPlayer(pid, players?.[pid], round2(pts), proj?.[pid] ? round2(projected) : null,
+        early ? proj[pid] : stats?.[pid], scoring, !!early);
       if ((m.starters || []).includes(pid)) { teamPts += pts; teamExp += exp; }
     }
     out.teams[m.roster_id] = { pts: round2(teamPts), exp: round2(teamExp) };

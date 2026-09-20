@@ -15,7 +15,10 @@
 const pct = (a, b) => (b ? `${((a / b) * 100).toFixed(1)}%` : null);
 const per = (a, b) => (b ? `${(a / b).toFixed(1)} avg` : null);
 const num = (s, k) => (typeof s?.[k] === 'number' ? s[k] : 0);
-const pair = (s, a, b) => `${num(s, a)}/${num(s, b)}`;
+// A denominator the feed does not carry is not a zero: projections have no
+// target count, and some live feeds drop attempts. Show the numerator alone
+// rather than "4/0", which reads as four catches on no targets.
+const pair = (s, a, b) => (num(s, b) ? `${num(s, a)}/${num(s, b)}` : `${num(s, a)}`);
 const none = () => null;
 
 const groups = {
@@ -168,14 +171,14 @@ export function railGroups(position, stats, scoring) {
   return out;
 }
 
-export function railPlayer(id, player, points, projection, stats, scoring) {
+export function railPlayer(id, player, points, projection, stats, scoring, projected = false) {
   const position = player?.p || '', name = player?.n || `Player ${id}`;
   return {
     id: String(id), name, position, nflTeam: player?.t || '',
     initials: name.split(/\s+/).map((s) => s[0]).slice(0, 2).join(''),
     headshotUrl: position === 'DEF' ? `https://sleepercdn.com/images/team_logos/nfl/${String(player.t).toLowerCase()}.png` : `https://sleepercdn.com/content/nfl/players/${encodeURIComponent(id)}.jpg`,
     fallbackUrl: player?.e ? `https://a.espncdn.com/i/headshots/nfl/players/full/${encodeURIComponent(player.e)}.png` : '',
-    points, projection: projection == null ? null : projection,
+    points, projection: projection == null ? null : projection, projected,
     groups: railGroups(position, stats, scoring),
   };
 }
