@@ -1056,7 +1056,7 @@ body.theater .video-box iframe {
 .pv-picture { container-type: inline-size; }
 .pv-picture.pv-enabled > iframe { pointer-events: none; }
 .pv-overlay { position:absolute; inset:0; z-index:3; pointer-events:none; --accent-warm:#f0c543; --text:#eaefe6; --surface-2:#1a231d; --line:#2c3830; --line-strong:#46593f; }
-.pv-overlay[hidden], .pv-strip[hidden] { display:none; }
+.pv-overlay[hidden] { display:none; }
 .pv-rail { position:absolute; top:18px; bottom:18px; width:48px; display:flex; flex-direction:column; justify-content:safe center; gap:10px; overflow-y:auto; scrollbar-width:none; opacity:0; transition:opacity 180ms ease; pointer-events:none; padding:2px; box-sizing:border-box; max-height:450px; margin-block:auto; }
 .pv-rail::-webkit-scrollbar { display:none; }
 .pv-rail.pv-mine { left:12px; }
@@ -1071,7 +1071,13 @@ body.theater .video-box iframe {
 .pv-player[aria-pressed="true"] .pv-avatar { border-color:var(--pv-accent); box-shadow:0 0 0 2px rgba(10,15,12,.9); }
 .pv-points { width:44px; padding:3px 0; background:rgba(10,15,12,.8); text-align:center; font-size:10.5px; line-height:14px; font-weight:800; }
 .pv-mine .pv-points { color:var(--accent-warm); }
-.pv-strip { position:absolute; left:76px; right:76px; bottom:0; z-index:2; background:rgba(10,15,12,.93); border-top:1px solid var(--line-strong); padding:11px 16px 13px; pointer-events:auto; color:var(--text); white-space:nowrap; }
+/* The strip rises out of the player's bottom edge rather than cutting in: it
+   stays mounted so there is something to animate, and is taken out of reach
+   while it is down. */
+.pv-strip { position:absolute; left:76px; right:76px; bottom:0; z-index:2; background:rgba(10,15,12,.93); border-top:1px solid var(--line-strong); padding:11px 16px 13px; pointer-events:auto; color:var(--text); white-space:nowrap;
+  transform:translateY(100%); opacity:0; visibility:hidden;
+  transition:transform .22s cubic-bezier(.4,0,.2,1), opacity .16s, visibility 0s .22s; }
+.pv-strip.pv-up { transform:translateY(0); opacity:1; visibility:visible; transition:transform .22s cubic-bezier(.4,0,.2,1), opacity .16s, visibility 0s; }
 .pv-header { display:flex; align-items:center; gap:11px; border-bottom:1px solid var(--line); padding-bottom:9px; }
 .pv-portrait { width:32px; height:32px; }
 .pv-identity { display:flex; flex-direction:column; gap:3px; min-width:0; }
@@ -1080,12 +1086,17 @@ body.theater .video-box iframe {
 .pv-total { margin-left:auto; display:flex; align-items:baseline; gap:6px; color:var(--pv-accent); }
 .pv-total span { font-size:9px; font-weight:700; letter-spacing:.12em; }
 .pv-total strong { font-size:20px; font-weight:800; }
-.pv-close { flex:none; width:26px; height:26px; border:1px solid var(--line-strong); background:transparent; color:var(--text); font-size:20px; padding:0; cursor:pointer; }
+/* A bare glyph: the box around it never sat square on the ×, and the strip's
+   own edge is frame enough. */
+.pv-close { flex:none; display:grid; place-items:center; width:26px; height:26px; border:0; background:transparent; color:var(--faint); font-size:20px; line-height:1; padding:0; cursor:pointer; }
+.pv-close:hover { color:var(--text); }
+.pv-close:focus-visible { outline:2px solid var(--accent-warm); outline-offset:2px; }
 .pv-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:1px; background:var(--line); }
 .pv-cell { background:#0a0f0c; padding:8px 10px; display:flex; flex-direction:column; gap:4px; }
 .pv-cell span { font-size:9px; font-weight:700; letter-spacing:.12em; color:var(--faint); white-space:nowrap; }
 .pv-cell strong { font-size:16px; font-weight:800; }
 .pv-away .pv-rail { opacity:0; transition:none; pointer-events:none; }
+@media (prefers-reduced-motion:reduce) { .pv-strip, .pv-strip.pv-up { transition:none; } }
 @container (max-width:700px) {
   .pv-strip { padding:8px 6px; }
   .pv-header { gap:5px; }

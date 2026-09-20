@@ -21,8 +21,8 @@ function setup(coarse=false){
 test('rails select, pin through idle, toggle, dismiss on leave and preserve nodes on live ticks',()=>{
  const t=setup(),face=t.$('.pv-player'),strip=t.$('.pv-strip'),frame=t.$('iframe');
  t.fire('mouseenter');assert.ok(t.$('.pv-hot'));t.expire();assert.equal(t.$('.pv-hot'),null);
- t.fire('mousemove');face.click();assert.equal(strip.hidden,false);assert.equal(t.$('.pv-grid').children.length,6);
- t.expire();assert.ok(t.$('.pv-hot'));assert.equal(strip.hidden,false);
+ t.fire('mousemove');face.click();assert.ok(strip.classList.contains('pv-up'));assert.equal(t.$('.pv-grid').children.length,6);
+ t.expire();assert.ok(t.$('.pv-hot'));assert.ok(strip.classList.contains('pv-up'));
  t.sides.mine[0].points=20;t.sides.mine[0].stats[0].value=180;t.rails.update('game1',t.sides);
  assert.equal(t.$('.pv-player'),face);assert.equal(t.$('.pv-strip'),strip);assert.equal(t.$('iframe'),frame);
  assert.equal(t.$('.pv-total strong').textContent,'20.00');assert.equal(t.$('.pv-cell strong').textContent,'180');
@@ -37,7 +37,7 @@ test('keyboard, opponent selection, coarse input and stream controls',()=>{
  const face=t.$('.pv-player');face.focus();face.dispatchEvent(new t.w.KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
  assert.equal(t.w.document.activeElement.dataset.key,'mine:3');
  t.$('.pv-opp .pv-player').click();assert.ok(t.$('.pv-strip.pv-opp'));assert.match(t.$('.pv-meta').textContent,/OPPONENT STARTER/);
- t.$('.pv-close').dispatchEvent(new t.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(t.$('.pv-strip').hidden,true);
+ t.$('.pv-close').dispatchEvent(new t.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(t.$('.pv-strip').classList.contains('pv-up'),false);
  assert.equal(t.hasTimer(),false);t.rails.setEnabled(false);assert.equal(t.$('.pv-overlay').hidden,true);assert.ok(!t.picture.classList.contains('pv-enabled'));
  t.rails.setEnabled(true);assert.equal(t.$('.pv-overlay').hidden,false);t.rails.update('game2',{mine:[],opp:[]});assert.equal(t.$('.pv-overlay').hidden,true);
  t.rails.destroy();t.dom.window.close();
@@ -54,6 +54,6 @@ test('watch integration suppresses multi rails and keeps the frame while scoring
  const t=setup();t.rails.destroy();
  const g={id:'g',state:'live',away:'BUF',home:'KC'},data={context:'1',watching:'g',games:[g],teams:[{name:'Mine',mine:true},{name:'Opp'}],matchups:[],buckets:[{game:g,a:[{rail:t.sides.mine[0],bench:false}],b:[]}]};
  const watch=createWatch({getData:()=>data,getStream:async()=>({sources:[]}),onWatch(){},onEnter(){},onExit(){},onMatchup(){},createPlayerRails:t.w.createPlayerRails});watch.open('single');
- const root=t.w.document.querySelector('.watch-surface'),frame=root.querySelector('iframe'),face=root.querySelector('.pv-player');face.click();watch.update();assert.equal(root.querySelector('iframe'),frame);assert.equal(root.querySelector('.pv-strip').hidden,false);
+ const root=t.w.document.querySelector('.watch-surface'),frame=root.querySelector('iframe'),face=root.querySelector('.pv-player');face.click();watch.update();assert.equal(root.querySelector('iframe'),frame);assert.ok(root.querySelector('.pv-strip').classList.contains('pv-up'));
  watch.open('multi');assert.equal(root.querySelector('.pv-overlay').hidden,true);watch.open('single');assert.equal(root.querySelector('.pv-overlay').hidden,false);watch.close();t.dom.window.close();
 });

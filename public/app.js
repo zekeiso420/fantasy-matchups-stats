@@ -97,7 +97,8 @@ function createPlayerRails(wrapper) {
     overlay.hidden=!enabled || !players.size;
     overlay.classList.toggle('pv-hot',hot || coarse.matches);
     for(const [key,b] of buttons)b.setAttribute('aria-pressed',String(key===selected));
-    const p=players.get(selected);strip.hidden=!p;
+    const p=players.get(selected);
+    strip.classList.toggle('pv-up',!!p);strip.inert=!p;
     if(!p)return;
     strip.classList.toggle('pv-mine',p.side==='mine');strip.classList.toggle('pv-opp',p.side==='opp');
     portrait(strip.querySelector('.pv-portrait'),p);
