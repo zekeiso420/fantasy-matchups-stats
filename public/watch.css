@@ -340,15 +340,6 @@
 }
 .w-details .w-perf-body { width: 260px; padding: 0 14px 8px; }
 
-.w-show-details {
-  display: none; align-items: center; gap: 6px;
-  height: 24px; padding: 0 8px 0 6px;
-  background: none; border: 1px solid var(--line-str); color: var(--dim);
-  font: 700 10px/1 "Archivo", system-ui, sans-serif;
-  letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
-}
-.w-show-details:hover { border-color: var(--gold); color: var(--gold); }
-.w-is-single.w-is-railshut:not(.w-has-details) .w-show-details { display: flex; }
 
 
 
@@ -566,7 +557,8 @@
 .watch-surface .w-rail-tab { border: 0; background: none; width: 46px; cursor: pointer; }
 .watch-surface .w-grid-empty { padding: 30px 0; color: var(--dim); }
 .watch-surface .w-media-error { position:absolute; inset:0; display:grid; place-content:center; text-align:center; gap:8px; color:var(--dim); font-size:12px; background:var(--well); }
-.watch-surface .w-source { color:var(--ink); background:var(--bg); border:1px solid var(--line-str); height:32px; max-width:160px; }
+.watch-surface .w-source { color:var(--ink); background:var(--bg); border:1px solid var(--line-str); height:32px; max-width:160px;
+  font: 700 10.5px/1 "Archivo", system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; padding: 0 6px; }
 .watch-surface .w-edit-hint { white-space:normal; }
 .watch-mode { display:flex; gap:8px; align-items:center; border-left:1px solid var(--line); padding-left:12px; }
 .watch-mode > span { font-size:10px; color:var(--muted); }

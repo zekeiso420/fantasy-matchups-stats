@@ -84,9 +84,13 @@ function createPlayerRails(wrapper) {
     if(host.dataset.player===p.id)return;
     host.dataset.player=p.id;host.textContent=p.initials;
     if(!p.headshotUrl)return;
-    const img=doc.createElement('img');img.alt='';img.src=p.headshotUrl;
+    const img=doc.createElement('img');img.alt='';
     let fallback=p.fallbackUrl;
-    img.onerror=()=>{if(fallback){img.src=fallback;fallback=null;}else img.remove();};host.append(img);
+    // The initials stand in until a headshot actually loads, and come back if
+    // none ever does - they are the fallback, not something to sit behind it.
+    img.onload=()=>{for(const node of [...host.childNodes])if(node!==img)node.remove();};
+    img.onerror=()=>{if(fallback){img.src=fallback;fallback=null;}else{img.remove();host.textContent=p.initials;}};
+    host.append(img);img.src=p.headshotUrl;
   }
   function paint(){
     wrapper.classList.toggle('pv-enabled',enabled&&players.size>0);

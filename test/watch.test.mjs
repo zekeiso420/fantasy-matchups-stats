@@ -42,9 +42,9 @@ test('pool replacement keeps slot size and clears cancellation feedback',()=>{
  const e=new t.dom.window.Event('dragstart',{bubbles:true});Object.defineProperty(e,'dataTransfer',{value:{setData(){}}});t.$('[data-pool="6"]').dispatchEvent(e);
  tile.dispatchEvent(new t.dom.window.Event('drop',{bubbles:true,cancelable:true}));assert.equal(tile.getAttribute('style'),style);assert.equal(t.$('[data-slot="3"] .w-swing-val').textContent,'—');assert.ok(!t.$('.w-is-pool'));t.watch.close();t.dom.window.close();
 });
-test('single panel and details collapse independently without replacing player',()=>{
+test('collapsing the rail reveals details without replacing the player',()=>{
  const t=setup();t.watch.open();const frame=t.$('.w-single iframe'),row=t.$('[data-game="0"]');t.click('[data-game="0"]');assert.equal(t.$('[data-game="0"]'),row);
- t.click('[data-action="collapse"]');assert.ok(t.$('.w-is-railshut.w-has-details'));t.click('[data-action="hideDetails"]');assert.ok(!t.$('.w-has-details'));t.click('[data-action="showDetails"]');assert.ok(t.$('.w-has-details'));assert.equal(t.$('.w-single iframe'),frame);t.watch.close();t.dom.window.close();
+ t.click('[data-action="collapse"]');assert.ok(t.$('.w-is-railshut.w-has-details'));assert.equal(t.$('.w-show-details'),null);assert.equal(t.$('.w-single iframe'),frame);t.watch.close();t.dom.window.close();
 });
 test('empty schedule and matchup changes release old streams safely',()=>{
  const t=setup(0);t.watch.open('multi');assert.equal(t.$('[data-id="empty"]').hidden,false);assert.equal(t.$('iframe'),null);t.watch.close();t.dom.window.close();
@@ -54,9 +54,9 @@ test('empty schedule and matchup changes release old streams safely',()=>{
 test('watch CSS shows expanded performance and hides collapsed controls',()=>{
  const t=setup();const style=document.createElement('style');style.textContent=readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');document.head.append(style);t.watch.open();
  const css=e=>t.dom.window.getComputedStyle(e);
- assert.equal(css(t.$('.w-perf')).opacity,'1');assert.equal(css(t.$('.w-show-details')).display,'none');
+ assert.equal(css(t.$('.w-perf')).opacity,'1');assert.equal(t.$('.w-show-details'),null);
  t.click('[data-action="collapse"]');assert.equal(css(t.$('.w-rail')).width,'46px');assert.equal(css(t.$('.w-details')).width,'260px');
- t.click('[data-action="hideDetails"]');assert.equal(css(t.$('.w-show-details')).display,'flex');t.watch.close();t.dom.window.close();
+ t.watch.close();t.dom.window.close();
 });
 
 test('single-player chrome stays inside the player and scrollbars are hidden',()=>{
@@ -80,18 +80,15 @@ test('theater aliases the shared matchup palette',()=>{
  assert.doesNotMatch(css,/--bg:\s*#[0-9a-f]/i);
 });
 
-test('watch stage avoids page main offsets and keeps Show details with the player',()=>{
+test('watch stage avoids page main offsets',()=>{
  const t=setup();const style=document.createElement('style');
  style.textContent=readFileSync(new URL('../public/styles.css',import.meta.url),'utf8')+readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');
  document.head.append(style);t.watch.open();
  assert.equal(t.$('.w-stage').tagName,'DIV');
- assert.equal(t.$('.w-show-details').parentElement,t.$('.w-chrome'));
  document.body.classList.add('theater');
  assert.equal(t.dom.window.getComputedStyle(t.$('.w-stage')).marginLeft,'400px');
  t.click('[data-action="collapse"]');
  assert.equal(t.dom.window.getComputedStyle(t.$('.w-stage')).marginLeft,'306px');
- t.click('[data-action="hideDetails"]');
- assert.equal(t.dom.window.getComputedStyle(t.$('.w-stage')).marginLeft,'46px');
  t.click('[data-mode="multi"]');
  assert.equal(t.dom.window.getComputedStyle(t.$('[data-mode="multi"]')).borderLeftStyle,'solid');
  t.watch.close();t.dom.window.close();

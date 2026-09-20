@@ -39,7 +39,7 @@ function line(g) {
 // replacing media or the source of an active drag.
 export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,createPlayerRails}) {
   let data,root=null,active=false,context=null,returnToTheater=true;
-  let playerRails=null, streamControls=false;
+  let playerRails=null;
   const s={mode:'single',watching:null,expanded:null,order:[],count:1,repl:{},edit:false,pin:false,hover:false,rail:true,details:true,all:false,more:false,drag:null,pool:null,audio:null};
   const tiles=new Map(),switches=new Map(),media=new Map();
   const modeHost=document.createElement('div'); modeHost.className='watch-mode'; modeHost.hidden=true;
@@ -57,16 +57,9 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
   const perf=g=>['a','b'].map((key,i)=>`<div class="w-perf-side ${i?'w-perf-side--them':''}"><div class="w-perf-head"><span class="w-perf-team">${esc(data.teams[i]?.name||'Bye')}</span><span class="w-perf-sum" style="color:${color(swing(g))}">${i?'':(swing(g)>0?'+':'')+num(swing(g))}</span></div>${bucket(g)[key].map(p=>`<div class="w-perf-row"><span class="w-pn"><span>${esc(p.name)}</span><span class="w-pp">${esc(p.pos)} ${esc(p.team)}${p.bench?' · BN':''}</span></span><span class="w-pt">${num(p.pts)}</span></div>`).join('')||'<div class="w-perf-none">—</div>'}</div>`).join('');
   function mount(){
     root=document.createElement('section');root.className='watch-surface w-app';root.setAttribute('aria-label','Matchup watch');
-    root.innerHTML=`<div class="w-body"><aside class="w-rail" data-id="rail"><button class="w-rail-tab" data-action="panel" aria-label="Open matchup panel">›<span class="w-rail-tab-label">THIS MATCHUP</span></button><div class="w-rail-inner" data-id="railInner"><div class="w-rail-head"><span class="w-eyebrow">THIS MATCHUP</span><button class="w-rail-link" data-action="all">All matchups ▾</button></div><div class="w-rail-all" data-id="all" hidden></div><div class="w-mine" data-id="mine"></div><section class="w-sec w-sec--single"><div class="w-rail-head w-rail-head--mid"><span class="w-eyebrow">SWITCH GAME</span></div><button class="w-watch-all" data-action="multi">${gridIcon}<span data-id="liveCount"></span><span class="w-watch-all-tag">MULTI-VIEW</span></button><div class="w-switch-list" data-id="switch"></div></section><section class="w-sec w-sec--multi"><div class="w-rail-head w-rail-head--mid"><span class="w-eyebrow" data-id="gridCount"></span><span class="w-drop-hint" data-id="drop" hidden>DROP TO REPLACE</span></div><div data-id="rows"></div><button class="w-rail-more" data-action="more" data-id="moreBtn"></button><div class="w-rail-pool" data-id="pool"></div></section><footer class="w-rail-foot"><span data-id="audioName"></span><button class="w-rail-link" data-action="pin" data-id="pin">Pin panel</button><button class="w-rail-collapse" data-action="collapse">Collapse panel ‹</button></footer></div></aside><aside class="w-details" data-id="details"><div class="w-details-head"><span class="w-eyebrow">IN THIS GAME</span><button class="w-rail-link" data-action="hideDetails">Collapse details</button></div><div class="w-details-game" data-id="detailsGame"></div><div class="w-perf-body" data-id="detailsBody"></div></aside><div class="w-stage"><div class="w-stage-head"><button class="w-show-details" data-action="showDetails">Show details ›</button><span class="w-stage-title" data-id="stageTitle"></span><span class="w-head-ctl"><span class="w-edit-hint" data-id="hint"></span><button class="w-edit-btn" data-action="edit" data-id="edit">Edit grid layout</button></span></div><div class="w-single"><div class="w-player"><div class="w-player-top"><span class="w-player-clock" data-id="clock"></span><span class="w-player-score" data-id="score"></span></div><div class="w-well w-well--player" data-id="singleMedia"></div><div class="w-chrome"><button class="w-btn" data-action="exit">Exit theater</button><label class="w-eyebrow" for="watch-source">SOURCE</label><select id="watch-source" class="w-source" data-id="source" aria-label="Stream source"></select></div></div></div><div class="w-grid" data-id="grid"></div><div class="w-grid-empty" data-id="empty" hidden>No live games right now. Choose Single to watch another game.</div></div></div>`;
-    // Details belong to the player's controls, away from the overlay rail.
-    root.querySelector('.w-chrome').append(root.querySelector('.w-show-details'));
+    root.innerHTML=`<div class="w-body"><aside class="w-rail" data-id="rail"><button class="w-rail-tab" data-action="panel" aria-label="Open matchup panel">›<span class="w-rail-tab-label">THIS MATCHUP</span></button><div class="w-rail-inner" data-id="railInner"><div class="w-rail-head"><span class="w-eyebrow">THIS MATCHUP</span><button class="w-rail-link" data-action="all">All matchups ▾</button></div><div class="w-rail-all" data-id="all" hidden></div><div class="w-mine" data-id="mine"></div><section class="w-sec w-sec--single"><div class="w-rail-head w-rail-head--mid"><span class="w-eyebrow">SWITCH GAME</span></div><button class="w-watch-all" data-action="multi">${gridIcon}<span data-id="liveCount"></span><span class="w-watch-all-tag">MULTI-VIEW</span></button><div class="w-switch-list" data-id="switch"></div></section><section class="w-sec w-sec--multi"><div class="w-rail-head w-rail-head--mid"><span class="w-eyebrow" data-id="gridCount"></span><span class="w-drop-hint" data-id="drop" hidden>DROP TO REPLACE</span></div><div data-id="rows"></div><button class="w-rail-more" data-action="more" data-id="moreBtn"></button><div class="w-rail-pool" data-id="pool"></div></section><footer class="w-rail-foot"><span data-id="audioName"></span><button class="w-rail-link" data-action="pin" data-id="pin">Pin panel</button><button class="w-rail-collapse" data-action="collapse">Collapse panel ‹</button></footer></div></aside><aside class="w-details" data-id="details"><div class="w-details-head"><span class="w-eyebrow">IN THIS GAME</span></div><div class="w-details-game" data-id="detailsGame"></div><div class="w-perf-body" data-id="detailsBody"></div></aside><div class="w-stage"><div class="w-stage-head"><span class="w-stage-title" data-id="stageTitle"></span><span class="w-head-ctl"><span class="w-edit-hint" data-id="hint"></span><button class="w-edit-btn" data-action="edit" data-id="edit">Edit grid layout</button></span></div><div class="w-single"><div class="w-player"><div class="w-player-top"><span class="w-player-clock" data-id="clock"></span><span class="w-player-score" data-id="score"></span></div><div class="w-well w-well--player" data-id="singleMedia"></div><div class="w-chrome"><button class="w-btn" data-action="exit">Exit theater</button><label class="w-eyebrow" for="watch-source">SOURCE</label><select id="watch-source" class="w-source" data-id="source" aria-label="Stream source"></select></div></div></div><div class="w-grid" data-id="grid"></div><div class="w-grid-empty" data-id="empty" hidden>No live games right now. Choose Single to watch another game.</div></div></div>`;
     document.body.append(root);
     playerRails=createPlayerRails?.($('singleMedia'));
-    if(playerRails){
-      const control=document.createElement('button');control.type='button';control.className='w-btn';control.textContent='Stream controls';control.setAttribute('aria-pressed','false');
-      control.addEventListener('click',()=>{streamControls=!streamControls;control.setAttribute('aria-pressed',String(streamControls));playerRails.setEnabled(!streamControls);});
-      root.querySelector('.w-chrome').append(control);
-    }
     root.addEventListener('click',click);
     root.addEventListener('keydown',e=>{const tile=e.target.closest('[data-tile]');if(tile&&s.edit&&(e.key==='Enter'||e.key===' ')){e.preventDefault();Object.assign(s,toggleFeatured(s.order,s.count,tile.dataset.tile));render();return;}if(e.key==='Escape'){e.stopPropagation();clearDrag();if(s.edit){s.edit=false;render();}else close();}});
     $('rail').addEventListener('mouseenter',()=>{if(s.mode==='multi'){s.hover=true;render();}});
@@ -95,8 +88,6 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
       if(action==='panel'){if(s.mode==='single')s.rail=true;else s.pin=!s.pin;}
       if(action==='collapse')s.rail=false;
       if(action==='pin')s.pin=!s.pin;
-      if(action==='hideDetails')s.details=false;
-      if(action==='showDetails')s.details=true;
       if(action==='all')s.all=!s.all;
       if(action==='more')s.more=!s.more;
       if(action==='edit'){s.edit=!s.edit;s.pool=s.drag=null;}
@@ -110,7 +101,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
   }
   function setMode(mode){
     if(mode==='multi')playerRails?.setEnabled(false);
-    else playerRails?.setEnabled(!streamControls);
+    else playerRails?.setEnabled(true);
     if(mode==='single' && s.mode==='multi' && !returnToTheater){close();return;}
     if(mode===s.mode){render();return;}
     s.mode=mode;s.edit=false;s.pool=s.drag=null;
@@ -137,7 +128,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     if(!active){returnToTheater=mode!=='multi';onEnter();active=true;document.body.classList.add('watch-open');mount();s.mode='single';}
     setMode(mode);
   }
-  function close(){active=false;playerRails?.destroy();playerRails=null;streamControls=false;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
+  function close(){active=false;playerRails?.destroy();playerRails=null;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
   function syncMode(){modeHost.querySelectorAll('[data-mode]').forEach(b=>{const on=b.dataset.mode===s.mode;b.classList.toggle('w-is-on',on);b.setAttribute('aria-pressed',String(on));});}
   function render(){
     if(!active||!root)return;syncMode();const multi=s.mode==='multi',g=game(s.watching);
