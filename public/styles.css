@@ -1082,7 +1082,7 @@ body.theater .video-box iframe {
 .pv-mine { --pv-accent:var(--accent-warm); }
 .pv-opp { --pv-accent:var(--text); }
 .pv-player { display:flex; flex-direction:column; gap:2px; flex:none; width:var(--pv-face); padding:0; border:0; border-radius:0; background:none; opacity:.55; transition:opacity .15s ease; cursor:pointer; color:var(--pv-face-ink); white-space:nowrap; }
-.pv-player:hover,.pv-player:focus-visible,.pv-player[aria-pressed="true"] { opacity:1; }
+.pv-player:hover,.pv-player:focus-visible,.pv-player[aria-pressed="true"],.pv-player.pv-scoring { opacity:1; }
 .pv-avatar { position:relative; display:grid; place-items:center; width:var(--pv-face); height:var(--pv-face); box-sizing:border-box; flex:none; overflow:hidden; background:var(--surface-2); border:2px solid var(--pv-avatar-edge); border-radius:0; font-size:13px; font-weight:800; color:var(--text); }
 /* These are 1000px portraits landing in a 44px square, and the default crop
    kept the whole torso - so the face was a dozen pixels of it and every

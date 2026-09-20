@@ -276,7 +276,10 @@ function createScoringBand(wrapper,anchorOf){
   // screen readers and the event is announced once, here, instead.
   const live=doc.createElement('div');live.className='sf-live';live.setAttribute('role','status');live.setAttribute('aria-live','polite');
   wrapper.append(band,live);
-  const last=new Map(); const queue=[]; let showing=false, timers=[];
+  const last=new Map(); const queue=[]; let showing=false, timers=[], litTile=null;
+  // A tile with a flag out of it comes up to full, the way it does on hover:
+  // the player being talked about should not be the dim one.
+  const lit=(tile)=>{litTile?.classList.remove('pv-scoring');litTile=tile;tile?.classList.add('pv-scoring');};
   const at=(ms,fn)=>timers.push(win.setTimeout(fn,ms));
   // A forced reflow rather than a frame callback: requestAnimationFrame does not
   // run in a background tab, so a score that landed while the user was in
@@ -304,10 +307,12 @@ function createScoringBand(wrapper,anchorOf){
 
   function exit(after){
     at(after,()=>{
-      // Leaving is its own gesture, not the arrival run backwards: the whole
-      // band fades while the flag draws back in, then it resets.
-      band.classList.add('sf-out');
-      at(420,()=>{band.classList.remove('sf-on','sf-held','sf-out');at(80,()=>{showing=false;next();});});
+      // Leaving is its own gesture, not the arrival run backwards. The fade and
+      // the collapse run together: fading first and collapsing after left the
+      // flag drawing itself back in at full opacity, which is the sliver of
+      // black and green that stayed on screen.
+      band.classList.add('sf-out');band.classList.remove('sf-on','sf-held');
+      at(420,()=>{band.classList.remove('sf-out');lit(null);at(80,()=>{showing=false;next();});});
     });
   }
   function next(){ if(!showing&&queue.length)show(queue.shift()); }
@@ -331,6 +336,7 @@ function createScoringBand(wrapper,anchorOf){
     // brings his own face, in the bottom corner.
     const tile=e.anchor&&e.anchor.isConnected?e.anchor:null;
     band.classList.toggle('sf-anchored',!!tile);
+    lit(tile);
     if(tile){
       const a=tile.getBoundingClientRect(), box=wrapper.getBoundingClientRect();
       band.style.top=`${Math.round(a.top-box.top)}px`;
@@ -391,8 +397,8 @@ function createScoringBand(wrapper,anchorOf){
       }
     },
     show,
-    reset(){last.clear();queue.length=0;clear();showing=false;band.classList.remove('sf-on','sf-held','sf-out');},
-    destroy(){clear();band.remove();live.remove();},
+    reset(){last.clear();queue.length=0;clear();showing=false;lit(null);band.classList.remove('sf-on','sf-held','sf-out');},
+    destroy(){clear();lit(null);band.remove();live.remove();},
   };
 }
 
