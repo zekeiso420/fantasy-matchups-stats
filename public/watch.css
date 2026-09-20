@@ -483,8 +483,16 @@
 .w-tile.w-is-hover .w-tile-bar, .w-is-edit .w-tile-bar { opacity: 1; }
 /* The bar itself takes no clicks, so the control inside it has to ask for
    them back. It sits at the corner it points to. */
-.w-tile-exp {
+.w-tile-rf {
   pointer-events: auto; margin-left: auto; flex: none;
+  display: grid; place-items: center; width: 24px; height: 24px;
+  background: none; border: 0; padding: 0; cursor: pointer; color: var(--dim);
+}
+.w-tile-rf svg { width: 14px; height: 14px; }
+.w-tile-rf:hover { color: var(--gold); }
+.w-tile-rf:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.w-tile-exp {
+  pointer-events: auto; flex: none;
   display: grid; place-items: center; width: 24px; height: 24px;
   background: none; border: 0; padding: 0; cursor: pointer; color: var(--dim);
 }

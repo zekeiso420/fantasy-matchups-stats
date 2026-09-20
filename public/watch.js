@@ -145,6 +145,16 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     const match=e.target.closest('[data-match]');if(match){onMatchup(match.dataset.match);return;}
     const row=e.target.closest('[data-game]');if(row){const id=row.dataset.game;s.expanded=s.watching===id&&s.expanded===id?null:id;s.watching=id;onWatch(id);render();return;}
     const audio=e.target.closest('[data-audio]');if(audio){s.audio=audio.dataset.audio;render();return;}
+    // A stream that has drifted - paused in a background tab, or just behind -
+    // only comes back to the live edge on a cold start: pointing the frame at
+    // the same address does nothing, and the provider's player would pick its
+    // own session up where it left off. about:blank first forces the reload.
+    const rf=e.target.closest('[data-reload]');
+    if(rf){
+      const g=slot(rf.dataset.reload), m=g&&media.get(g.id);
+      if(m){const src=m.el.src;if(src&&src!=='about:blank'){m.el.src='about:blank';setTimeout(()=>{if(media.get(g.id)===m)m.el.src=src;},60);}}
+      return;
+    }
     // One stream takes the room: the others drop to small and it becomes the
     // only large one. What the grid looked like before is kept, so the same
     // control puts it back rather than leaving you to rebuild it by hand.
@@ -268,7 +278,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     for(const [id,t] of tiles)if(!s.order.includes(id)){t.remove();tiles.delete(id);}
     s.order.forEach((id,i)=>{
       const g=slot(id);if(!g)return;
-      let t=tiles.get(id);if(!t){t=document.createElement('div');t.className='w-tile';t.dataset.tile=id;t.innerHTML=`<div class="w-well"><div class="w-media"></div><span class="w-grip"></span><button class="w-tile-x" data-drop="${esc(id)}" aria-label="Remove from grid" tabindex="-1">×</button><div class="w-tile-bar"><span class="w-name"></span><span class="w-status"></span><button class="w-tile-exp" data-expand="${esc(id)}" tabindex="-1"></button></div></div>`;t.querySelector('.w-media').style.cssText='position:absolute;inset:0';$('grid').append(t);tiles.set(id,t);}
+      let t=tiles.get(id);if(!t){t=document.createElement('div');t.className='w-tile';t.dataset.tile=id;t.innerHTML=`<div class="w-well"><div class="w-media"></div><span class="w-grip"></span><button class="w-tile-x" data-drop="${esc(id)}" aria-label="Remove from grid" tabindex="-1">×</button><div class="w-tile-bar"><span class="w-name"></span><span class="w-status"></span><button class="w-tile-rf" data-reload="${esc(id)}" aria-label="Jump this stream to live" title="Jump to live" tabindex="-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button><button class="w-tile-exp" data-expand="${esc(id)}" tabindex="-1"></button></div></div>`;t.querySelector('.w-media').style.cssText='position:absolute;inset:0';$('grid').append(t);tiles.set(id,t);}
       const [x,y,w,h]=layout[i];Object.assign(t.style,{left:x/width*100+'%',top:y/height*100+'%',width:w/width*100+'%',height:h/height*100+'%'});
       t.draggable=s.edit;t.tabIndex=s.edit?0:-1;t.setAttribute('aria-label',`${title(g)}, ${i<s.count?'large':'small'}, slot ${i+1}`);
       t.classList.toggle('w-is-feat',i<s.count);t.classList.toggle('w-is-big',i<s.count);t.classList.toggle('w-is-target',!!s.pool);t.classList.toggle('w-is-dragging',s.drag===id);
