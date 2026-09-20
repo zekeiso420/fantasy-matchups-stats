@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {createWatch,boxes,toggleFeatured} from '../public/watch.js';
 
-function setup(count=8){
+function setup(count=8,saved=null){
  const dom=new JSDOM('<div class="topbar-right"></div>',{url:'http://localhost/'});globalThis.document=dom.window.document;
+ if(saved)dom.window.localStorage.setItem('matchup.multi.v1:L:1:1',saved);
  const games=Array.from({length:count},(_,i)=>({id:String(i),away:'BUF',home:'KC',awayScore:14,homeScore:7,state:'live',detail:'3RD 8:00',kickoff:'2026-09-15T18:00:00Z'}));
  const data={context:'L:1:1',watching:'0',games,teams:[{name:'First team',points:25,mine:true},{name:'Opponent',points:22}],matchups:[],buckets:games.map((game,i)=>({game,a:i<6?[{id:'p'+i,name:'Player '+i,pos:'QB',team:'BUF',pts:5,bench:false}]:[],b:[]}))};
  let exitId;
@@ -19,6 +20,21 @@ test('all featured layouts preserve 16:9 and selection constraints',()=>{
  for(const id of ['b','c','d'])a=toggleFeatured(a.order,a.count,id);
  assert.equal(a.count,4);assert.deepEqual(toggleFeatured(a.order,a.count,'e'),a);
  a=toggleFeatured(a.order,a.count,'d');assert.equal(a.count,3);
+});
+
+test('refresh restores multi games, replacements, expanded tiles and return mode',()=>{
+ const t=setup();t.watch.open('multi');t.click('[data-action="edit"]');t.click('[data-tile="1"]');t.click('[data-tile="2"]');t.click('[data-action="edit"]');t.click('[data-action="more"]');
+ const drag=new t.dom.window.Event('dragstart',{bubbles:true});Object.defineProperty(drag,'dataTransfer',{value:{setData(){}}});t.$('[data-pool="6"]').dispatchEvent(drag);t.$('[data-tile="3"]').dispatchEvent(new t.dom.window.Event('drop',{bubbles:true,cancelable:true}));
+ const saved=t.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1');t.dom.window.close();
+ const r=setup(8,saved);r.data.games[0].state='final';r.watch.update();
+ assert.equal(r.watch.active,true);assert.equal(r.watch.mode,'multi');assert.equal(r.$('.w-grid').children.length,6);assert.equal(r.dom.window.document.querySelectorAll('.w-tile.w-is-feat').length,3);assert.match(r.$('[data-tile="3"] iframe').src,/./);assert.equal(JSON.parse(r.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1')).repl['3'],'6');
+ r.click('[data-mode="single"]');assert.equal(r.watch.active,false);const closed=r.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1');r.dom.window.close();
+ const back=setup(8,closed);back.watch.update();assert.equal(back.watch.active,false);back.dom.window.close();
+});
+
+test('restore discards unavailable games and handles invalid saved data',()=>{
+ const t=setup(3,JSON.stringify({active:true,order:['0','missing','1','2'],count:2,repl:{},returnToTheater:true}));t.watch.update();assert.equal(t.watch.mode,'multi');assert.equal(t.$('.w-grid').children.length,3);assert.equal(t.dom.window.document.querySelectorAll('.w-is-feat.w-tile').length,1);t.click('[data-mode="single"]');assert.equal(t.watch.active,true);assert.equal(JSON.parse(t.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1')).active,false);t.watch.close();t.dom.window.close();
+ const broken=setup(8,'{broken');broken.watch.update();assert.equal(broken.watch.active,false);broken.watch.open('multi');assert.equal(broken.watch.mode,'multi');broken.watch.close();broken.dom.window.close();
 });
 
 test('multi streams receive controls directly except during grid editing',()=>{
