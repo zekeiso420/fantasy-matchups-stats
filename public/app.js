@@ -1,4 +1,4 @@
-import { createWatch } from './watch.js?v=20260920-4';
+import { createWatch } from './watch.js?v=20260920-5';
 // Matchup: a Sleeper fantasy matchup tracker
 // Data flows one way: fetch → state → render(). Live updates patch state and
 // either re-render or touch only the numbers, depending on what changed.
@@ -58,7 +58,7 @@ const watchSurface = createWatch({
     const rank = {live:0,pre:1,final:2};
     const games = [...new Map(Object.values(S.data.games || {}).map(g => [String(g.id), {...g,id:String(g.id)}])).values()]
       .sort((a,b) => rank[a.state]-rank[b.state] || new Date(a.kickoff)-new Date(b.kickoff));
-    return {context:`${S.leagueId}:${S.week}:${p.id}`, watching:S.watchGameId || watchedOf(list).game?.id,
+    return {context:`${S.leagueId}:${S.week}:${p.id}`, storageContext:`${S.user?.user_id}:${S.leagueId}:${S.week}`, watching:S.watchGameId || watchedOf(list).game?.id,
       games, buckets:list.map(b=>({...b,game:b.game?{...b.game,id:String(b.game.id)}:null})), teams:[sideData(p.a),sideData(p.b)],
       matchups:pairs().map(x=>({id:x.id,a:sideData(x.a),b:sideData(x.b)}))};
   },

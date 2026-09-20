@@ -39,6 +39,30 @@ function line(g) {
 export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,createPlayerRails}) {
   let data,root=null,active=false,context=null,returnToTheater=true;
   let playerRails=null;
+  let restoreChecked=false,lastSaved='';
+  let storage;try{storage=document.defaultView.localStorage;}catch{/* Storage may be disabled. */}
+  const storageKey=()=>`matchup.multi.v1:${data.storageContext||data.context}`;
+  function savedLayout(){
+    try {
+      const saved=JSON.parse(storage.getItem(storageKey()));
+      if(!saved || !Array.isArray(saved.order))return null;
+      const valid=new Set(data.games.map(g=>g.id)),seen=new Set(),repl={};
+      const order=saved.order.filter(id=>{
+        if(typeof id!=='string')return false;
+        const target=typeof saved.repl?.[id]==='string'?saved.repl[id]:id;
+        if(!valid.has(target)||seen.has(target))return false;
+        seen.add(target);if(target!==id)repl[id]=target;return true;
+      }).slice(0,6);
+      if(!order.length)return null;
+      const featured=new Set(saved.order.slice(0,Math.min(4,Number(saved.count)||1)));
+      return {...saved,order,repl,count:Math.max(1,order.filter(id=>featured.has(id)).length),watching:valid.has(saved.watching)?saved.watching:data.watching};
+    } catch {return null;}
+  }
+  function persistLayout(isActive=active){
+    if(!data || s.mode!=='multi')return;
+    const value=JSON.stringify({active:isActive,order:s.order,count:s.count,repl:s.repl,watching:s.watching,pin:s.pin,returnToTheater});
+    try{const key=storageKey();if(lastSaved!==key+value){storage.setItem(key,value);lastSaved=key+value;}}catch{/* Private browsing or full storage must not break playback. */}
+  }
   const s={mode:'single',watching:null,expanded:null,order:[],count:1,repl:{},edit:false,pin:false,hover:false,rail:true,details:true,all:false,more:false,drag:null,pool:null,audio:null};
   const tiles=new Map(),switches=new Map(),media=new Map();
   const modeHost=document.createElement('div'); modeHost.className='watch-mode'; modeHost.hidden=true;
@@ -98,6 +122,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     const el=e.target.closest('[data-tile],[data-slot]');if(el&&s.edit){Object.assign(s,toggleFeatured(s.order,s.count,el.dataset.tile||el.dataset.slot));render();}
   }
   function setMode(mode){
+    if(mode==='single'&&s.mode==='multi')persistLayout(false);
     if(mode==='multi')playerRails?.setEnabled(false);
     else playerRails?.setEnabled(true);
     if(mode==='single' && s.mode==='multi' && !returnToTheater){close();return;}
@@ -109,12 +134,22 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
       const seeded=[...(chosen?[chosen]:[]),...candidates].filter((g,i,a)=>a.findIndex(x=>x.id===g.id)===i).slice(0,6);
       if(!seeded.length)seeded.push(...data.games.filter(g=>g.state==='live').slice(0,6));
       s.order=seeded.map(g=>g.id);s.count=1;s.repl={};s.audio=s.order[0];s.pin=s.hover=false;
+      const saved=savedLayout();if(saved)Object.assign(s,{order:saved.order,count:saved.count,repl:saved.repl,watching:saved.watching,pin:!!saved.pin});
     }
     render();
   }
   function update(){
     data=getData();modeHost.hidden=!data;
     if(!data){if(active)close();return;}
+    if(!restoreChecked){
+      restoreChecked=true;const saved=savedLayout();
+      if(saved?.active){
+        returnToTheater=!!saved.returnToTheater;context=data.context;
+        onEnter();active=true;document.body.classList.add('watch-open');mount();
+        Object.assign(s,{mode:'multi',order:saved.order,count:saved.count,repl:saved.repl,watching:saved.watching,pin:!!saved.pin});
+        playerRails?.setEnabled(false);render();return;
+      }
+    }
     if(context!==data.context){const wasMulti=s.mode==='multi';context=data.context;s.order=[];s.repl={};s.watching=data.watching;s.expanded=s.watching;destroyMedia();if(root)$('grid').replaceChildren();switches.clear();if(root)$('switch').replaceChildren();if(active&&wasMulti){s.mode='single';setMode('multi');}}
     if(!s.watching||!game(s.watching)){s.watching=data.watching||data.games.find(g=>g.state==='live')?.id||data.games[0]?.id;s.expanded=s.watching;}
     // Do not reorder an ongoing grid when clocks tick or a game finishes.
@@ -126,10 +161,10 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     if(!active){returnToTheater=mode!=='multi';onEnter();active=true;document.body.classList.add('watch-open');mount();s.mode='single';}
     setMode(mode);
   }
-  function close(){active=false;playerRails?.destroy();playerRails=null;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
+  function close(){active=false;persistLayout();playerRails?.destroy();playerRails=null;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
   function syncMode(){modeHost.querySelectorAll('[data-mode]').forEach(b=>{const on=b.dataset.mode===s.mode;b.classList.toggle('w-is-on',on);b.setAttribute('aria-pressed',String(on));});}
   function render(){
-    if(!active||!root)return;syncMode();const multi=s.mode==='multi',g=game(s.watching);
+    if(!active||!root)return;persistLayout();syncMode();const multi=s.mode==='multi',g=game(s.watching);
     for(const [cls,on] of Object.entries({'w-is-multi':multi,'w-is-single':!multi,'w-is-railshut':!s.rail,'w-has-details':s.details,'w-is-edit':s.edit,'w-is-pool':!!s.pool,'w-is-railpinned':s.pin}))root.classList.toggle(cls,on);
     const railVisible=multi?s.pin||s.hover:s.rail;
     $('rail').classList.toggle('w-is-open',railVisible);$('rail').classList.toggle('w-is-pinned',s.pin);
