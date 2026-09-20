@@ -307,12 +307,12 @@ function createScoringBand(wrapper,anchorOf){
 
   function exit(after){
     at(after,()=>{
-      // Leaving is its own gesture, not the arrival run backwards. The fade and
-      // the collapse run together: fading first and collapsing after left the
-      // flag drawing itself back in at full opacity, which is the sliver of
-      // black and green that stayed on screen.
-      band.classList.add('sf-out');band.classList.remove('sf-on','sf-held');
-      at(420,()=>{band.classList.remove('sf-out');lit(null);at(80,()=>{showing=false;next();});});
+      // It goes back the way it came: the flag draws into the tile it grew out
+      // of, and only once it is gone does the tile drop back. A corner card has
+      // no tile to collapse into, so that one fades as a whole instead.
+      band.classList.remove('sf-on','sf-held');
+      if(!litTile)band.classList.add('sf-out');
+      at(340,()=>{lit(null);band.classList.remove('sf-out');at(160,()=>{showing=false;next();});});
     });
   }
   function next(){ if(!showing&&queue.length)show(queue.shift()); }

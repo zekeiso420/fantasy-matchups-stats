@@ -1079,6 +1079,10 @@ body.theater .video-box iframe {
 .pv-rail.pv-mine { left:12px; }
 .pv-rail.pv-opp { right:12px; }
 .pv-hot .pv-rail { opacity:1; pointer-events:auto; }
+/* A rail with a flag flying out of it does not time out. The rails fade after
+   three idle seconds, which is shorter than the flag's hold - so the face went
+   before the flag did, and the flag was left pointing at nothing. */
+.pv-overlay:has(.pv-player.pv-scoring) .pv-rail { opacity:1; pointer-events:auto; }
 .pv-mine { --pv-accent:var(--accent-warm); }
 .pv-opp { --pv-accent:var(--text); }
 .pv-player { display:flex; flex-direction:column; gap:2px; flex:none; width:var(--pv-face); padding:0; border:0; border-radius:0; background:none; opacity:.55; transition:opacity .15s ease; cursor:pointer; color:var(--pv-face-ink); white-space:nowrap; }
