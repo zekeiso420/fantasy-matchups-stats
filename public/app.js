@@ -37,6 +37,7 @@ const S = {
   players: null,      // slim player index
   view: prefs.view || 'slot',
   theater: !!prefs.theater,
+  watchGameId: prefs.watchGameId || null,   // the game a reload should return to
   laterOpen: false,
   railAll: false,     // theater's All matchups disclosure
   detailOpen: readDetailOpen(),  // theater's rail + score band, together
@@ -62,9 +63,9 @@ const watchSurface = createWatch({
       matchups:pairs().map(x=>({id:x.id,a:sideData(x.a),b:sideData(x.b)}))};
   },
   getStream: key => backend.getStream(key),
-  onWatch: id => { S.watchGameId=id; },
+  onWatch: id => watchGame(id),
   onEnter: () => { srcState.key=null; const f=$('#video-frame'); if(f)f.src='about:blank'; },
-  onExit: id => { S.watchGameId=id; S.theater=false; save({theater:false}); srcState.key=null; render(); },
+  onExit: id => { watchGame(id); S.theater=false; save({theater:false}); srcState.key=null; render(); },
   onMatchup: id => { S.viewMatchupId=Number(id); watchSurface.update(); }
 });
 
@@ -78,7 +79,7 @@ function createPlayerRails(wrapper) {
   const overlay=doc.createElement('div');overlay.className='pv-overlay';
   overlay.innerHTML=`<span class="pv-zone pv-zone-l" aria-hidden="true"></span><span class="pv-zone pv-zone-r" aria-hidden="true"></span>
     <div class="pv-rail pv-mine" aria-label="My players"></div><div class="pv-rail pv-opp" aria-label="Opponent players"></div>
-    <section class="pv-strip" aria-label="Player statistics" hidden><div class="pv-header"><span class="pv-avatar pv-portrait"></span><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-total"><span>PTS</span><strong></strong></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-grid">${Array.from({length:6},()=>'<div class="pv-cell"><span></span><strong></strong></div>').join('')}</div></section>`;
+    <section class="pv-strip" aria-label="Player statistics"><div class="pv-header"><span class="pv-avatar pv-portrait"></span><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-total"><span>PTS</span><strong></strong></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-grid">${Array.from({length:6},()=>'<div class="pv-cell"><span></span><strong></strong></div>').join('')}</div></section>`;
   wrapper.append(overlay);wrapper.classList.add('pv-picture');
   const strip=overlay.querySelector('.pv-strip'), close=overlay.querySelector('.pv-close');
   function portrait(host,p){
@@ -125,6 +126,7 @@ function createPlayerRails(wrapper) {
     list[e.key==='Home'?0:e.key==='End'?list.length-1:(i+(e.key==='ArrowUp'?-1:1)+list.length)%list.length].focus();
   };
   const click=e=>{
+    if(e.target.closest('.pv-zone')){wake();e.stopPropagation();return;}
     const b=e.target.closest('.pv-player');
     if(b){selected=selected===b.dataset.key?null:b.dataset.key;wake();}
     if(e.target.closest('.pv-close')){const previous=buttons.get(selected);selected=null;previous?.focus();wake();}
@@ -397,6 +399,12 @@ function patchNumbers() {
 // ---------------------------------------------------------------------------
 const BENCH = new Set(['BN', 'IR', 'TAXI']);
 const SLOT_LABEL = { SUPER_FLEX: 'SFLX', REC_FLEX: 'RFLX', WRRB_FLEX: 'W/R', IDP_FLEX: 'IDP', DEF: 'DEF', DST: 'DEF', OP: 'SFLX' };
+
+// Which game is being watched outlives the tab: a reload drops back into it
+// rather than into whatever happens to be first. A stale id - last week's game,
+// one that has since finished and gone - simply finds no match, and the callers
+// fall back to the live game the way they already do.
+function watchGame(id) { S.watchGameId = id || null; save({ watchGameId: S.watchGameId }); }
 
 function myRoster() { return S.data?.rosters.find((r) => r.owner_id === S.user?.user_id || (r.co_owners || []).includes(S.user?.user_id)); }
 function myMatchupId() {
@@ -855,7 +863,7 @@ function bindWatchTargets(p, root) {
   if (!root) return;
   root.querySelectorAll('[data-watch]').forEach((b) => b.addEventListener('click', () => {
     if (S.watchGameId === b.dataset.watch) return;
-    S.watchGameId = b.dataset.watch;
+    watchGame(b.dataset.watch);
     updateWatchAside(p);
     if (S.theater && S.view === 'game') renderContent(p);
     renderScoreboardDynamic();

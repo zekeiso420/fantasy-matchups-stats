@@ -26,10 +26,10 @@ test('rails select, pin through idle, toggle, dismiss on leave and preserve node
  t.sides.mine[0].points=20;t.sides.mine[0].stats[0].value=180;t.rails.update('game1',t.sides);
  assert.equal(t.$('.pv-player'),face);assert.equal(t.$('.pv-strip'),strip);assert.equal(t.$('iframe'),frame);
  assert.equal(t.$('.pv-total strong').textContent,'20.00');assert.equal(t.$('.pv-cell strong').textContent,'180');
- face.click();assert.equal(strip.hidden,true);assert.ok(t.$('.pv-hot'));
- face.click();t.$('.pv-close').click();assert.equal(strip.hidden,true);
- face.click();t.fire('mouseleave');assert.equal(strip.hidden,true);assert.ok(t.$('.pv-away'));assert.equal(t.hasTimer(),false);
- t.fire('mouseenter');assert.equal(strip.hidden,true);t.rails.destroy();t.dom.window.close();
+ face.click();assert.equal(strip.classList.contains('pv-up'),false);assert.ok(t.$('.pv-hot'));
+ face.click();t.$('.pv-close').click();assert.equal(strip.classList.contains('pv-up'),false);
+ face.click();t.fire('mouseleave');assert.equal(strip.classList.contains('pv-up'),false);assert.ok(t.$('.pv-away'));assert.equal(t.hasTimer(),false);
+ t.fire('mouseenter');assert.equal(strip.classList.contains('pv-up'),false);t.rails.destroy();t.dom.window.close();
 });
 test('keyboard, opponent selection, coarse input and stream controls',()=>{
  const t=setup(true);assert.equal(t.hasTimer(),false);
