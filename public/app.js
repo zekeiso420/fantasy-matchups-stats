@@ -262,7 +262,9 @@ function createPlayerRails(wrapper) {
 // out of it, and the numbers roll into place: what the play was worth, and the
 // team total it just changed. It answers "what just happened to my score"
 // without the user looking away from the game. Per SCORING_FLAG_SPEC.md.
-const SF_HOLD=6000, SF_CUT=600;
+// How long the band sits there once its numbers have settled, and how little of
+// that is left when a second score arrives behind it.
+const SF_HOLD=3000, SF_CUT=600;
 function createScoringBand(wrapper,anchorOf){
   const doc=wrapper.ownerDocument, win=doc.defaultView;
   const reduced=win.matchMedia('(prefers-reduced-motion: reduce)');
