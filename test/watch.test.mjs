@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {createWatch,boxes,gridLayout,toggleFeatured} from '../public/watch.js';
 
-function setup(count=8,saved=null){
- const dom=new JSDOM('<div class="topbar-right"></div>',{url:'http://localhost/'});globalThis.document=dom.window.document;
+function setup(count=8,saved=null,url='http://localhost/'){
+ const dom=new JSDOM('<div class="topbar-right"></div>',{url});globalThis.document=dom.window.document;
  if(saved)dom.window.localStorage.setItem('matchup.multi.v1:L:1:1',saved);
  const games=Array.from({length:count},(_,i)=>({id:String(i),away:'BUF',home:'KC',awayScore:14,homeScore:7,state:'live',detail:'3RD 8:00',kickoff:'2026-09-15T18:00:00Z'}));
  const data={context:'L:1:1',watching:'0',games,teams:[{name:'First team',points:25,mine:true},{name:'Opponent',points:22}],matchups:[],buckets:games.map((game,i)=>({game,a:i<6?[{id:'p'+i,name:'Player '+i,pos:'QB',team:'BUF',pts:5,bench:false}]:[],b:[]}))};
@@ -20,6 +20,16 @@ test('all featured layouts preserve 16:9 and selection constraints',()=>{
  for(const id of ['b','c','d'])a=toggleFeatured(a.order,a.count,id);
  assert.equal(a.count,4);assert.deepEqual(toggleFeatured(a.order,a.count,'e'),a);
  a=toggleFeatured(a.order,a.count,'d');assert.equal(a.count,3);
+});
+test('refresh keeps Multi when the first schedule is empty and restores tiles when it arrives',()=>{
+ const saved=JSON.stringify({active:true,order:['0','1'],count:2,repl:{},returnToTheater:false});
+ const t=setup(2,saved);const games=t.data.games;t.data.games=[];t.watch.update();assert.equal(t.watch.mode,'multi');assert.equal(t.watch.active,true);
+ assert.equal(t.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1'),saved);
+ t.data.games=games;t.watch.update();assert.equal(t.$('.w-grid').children.length,2);assert.equal(t.dom.window.document.querySelectorAll('.w-tile.w-is-feat').length,2);t.watch.close();t.dom.window.close();
+});
+test('Multi URL restores view even without saved layout and Single removes it',()=>{
+ const t=setup(4,null,'http://localhost/?view=multi');t.watch.update();assert.equal(t.watch.mode,'multi');assert.ok(t.$('.w-is-multi'));
+ t.click('[data-mode="single"]');assert.equal(t.watch.active,false);assert.equal(new URL(t.dom.window.location.href).searchParams.has('view'),false);t.dom.window.close();
 });
 test('grid fills its occupied bounds at every stream count without stretching video',()=>{
  for(let count=1;count<=6;count++)for(let featured=1;featured<=Math.min(4,count);featured++){
