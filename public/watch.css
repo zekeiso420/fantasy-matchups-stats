@@ -481,6 +481,16 @@
 }
 .w-tile.w-is-big .w-tile-bar { height: 34px; padding: 0 12px; font-size: 12px; }
 .w-tile.w-is-hover .w-tile-bar, .w-is-edit .w-tile-bar { opacity: 1; }
+/* The bar itself takes no clicks, so the control inside it has to ask for
+   them back. It sits at the corner it points to. */
+.w-tile-exp {
+  pointer-events: auto; margin-left: auto; flex: none;
+  display: grid; place-items: center; width: 24px; height: 24px;
+  background: none; border: 0; padding: 0; cursor: pointer; color: var(--dim);
+}
+.w-tile-exp svg { width: 15px; height: 15px; }
+.w-tile-exp:hover { color: var(--gold); }
+.w-tile-exp:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .w-tile-bar .w-name { display: none; font-weight: 800; letter-spacing: -.01em; white-space: nowrap; }
 .w-tile.w-is-big .w-tile-bar .w-name { display: inline; }
 .w-tile-bar .w-status {

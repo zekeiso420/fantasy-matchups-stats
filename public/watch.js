@@ -77,12 +77,14 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     const order=stillLive(saved.order,saved.repl||{});
     if(!order.length)return false;
     const repl=Object.fromEntries(Object.entries(saved.repl||{}).filter(([k])=>order.includes(k)));
-    Object.assign(s,{order,repl,count:Math.max(1,Math.min(saved.count||1,order.length)),watching:saved.watching,pin:!!saved.pin});
+    const solo=saved.solo&&order.includes(saved.solo)?saved.solo:null;
+    const pre=solo&&saved.preExpand?{order:(saved.preExpand.order||[]).filter(id=>order.includes(id)),count:saved.preExpand.count}:null;
+    Object.assign(s,{order,repl,count:Math.max(1,Math.min(saved.count||1,order.length)),watching:saved.watching,pin:!!saved.pin,solo,preExpand:pre});
     return true;
   }
   function persistLayout(isActive=active){
     if(!data || s.mode!=='multi' || restorePending)return;
-    const value=JSON.stringify({active:isActive,order:s.order,count:s.count,repl:s.repl,watching:s.watching,pin:s.pin,returnToTheater});
+    const value=JSON.stringify({active:isActive,order:s.order,count:s.count,repl:s.repl,watching:s.watching,pin:s.pin,solo:s.solo,preExpand:s.preExpand,returnToTheater});
     try{const key=storageKey();if(lastSaved!==key+value){storage.setItem(key,value);lastSaved=key+value;}}catch{/* Private browsing or full storage must not break playback. */}
   }
   const s={mode:'single',watching:null,expanded:null,order:[],count:1,repl:{},edit:false,pin:false,hover:false,rail:true,details:true,all:false,more:false,drag:null,pool:null,audio:null};
@@ -143,11 +145,28 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     const match=e.target.closest('[data-match]');if(match){onMatchup(match.dataset.match);return;}
     const row=e.target.closest('[data-game]');if(row){const id=row.dataset.game;s.expanded=s.watching===id&&s.expanded===id?null:id;s.watching=id;onWatch(id);render();return;}
     const audio=e.target.closest('[data-audio]');if(audio){s.audio=audio.dataset.audio;render();return;}
+    // One stream takes the room: the others drop to small and it becomes the
+    // only large one. What the grid looked like before is kept, so the same
+    // control puts it back rather than leaving you to rebuild it by hand.
+    const exp=e.target.closest('[data-expand]');
+    if(exp){
+      const id=exp.dataset.expand;
+      if(s.solo===id){
+        const back=(s.preExpand?.order||[]).filter(x=>s.order.includes(x));
+        if(back.length)Object.assign(s,{order:[...back,...s.order.filter(x=>!back.includes(x))],count:Math.max(1,Math.min(s.preExpand.count||1,s.order.length))});
+        s.solo=null;s.preExpand=null;
+      } else {
+        s.preExpand={order:[...s.order],count:s.count};
+        s.order=[id,...s.order.filter(x=>x!==id)];s.count=1;s.solo=id;
+      }
+      render();return;
+    }
     // Taken before the tile itself, since the control sits inside it.
     const drop=e.target.closest('[data-drop]');
     if(drop&&s.edit){
       const id=drop.dataset.drop;
       if(s.order.length>1){s.order=s.order.filter(x=>x!==id);delete s.repl[id];
+        if(s.solo===id){s.solo=null;s.preExpand=null;}
         s.count=Math.max(1,Math.min(s.count,s.order.length));
         if(s.audio===id)s.audio=s.order[0];
         render();}
@@ -167,7 +186,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
       const chosen=data.games.some(g=>g.state==='live')?game(s.watching):null;
       const seeded=[...(chosen?[chosen]:[]),...candidates].filter((g,i,a)=>a.findIndex(x=>x.id===g.id)===i).slice(0,6);
       if(!seeded.length)seeded.push(...data.games.filter(g=>g.state==='live').slice(0,6));
-      s.order=seeded.map(g=>g.id);s.count=1;s.repl={};s.audio=s.order[0];s.pin=s.hover=false;
+      s.order=seeded.map(g=>g.id);s.count=1;s.repl={};s.audio=s.order[0];s.pin=s.hover=false;s.solo=null;s.preExpand=null;
       const saved=savedLayout();if(saved)restoreInto(saved);   // anything finished falls away, leaving the freshly seeded live games
     }
     render();
@@ -249,10 +268,16 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     for(const [id,t] of tiles)if(!s.order.includes(id)){t.remove();tiles.delete(id);}
     s.order.forEach((id,i)=>{
       const g=slot(id);if(!g)return;
-      let t=tiles.get(id);if(!t){t=document.createElement('div');t.className='w-tile';t.dataset.tile=id;t.innerHTML=`<div class="w-well"><div class="w-media"></div><span class="w-grip"></span><button class="w-tile-x" data-drop="${esc(id)}" aria-label="Remove from grid" tabindex="-1">×</button><div class="w-tile-bar"><span class="w-name"></span><span class="w-status"></span></div></div>`;t.querySelector('.w-media').style.cssText='position:absolute;inset:0';$('grid').append(t);tiles.set(id,t);}
+      let t=tiles.get(id);if(!t){t=document.createElement('div');t.className='w-tile';t.dataset.tile=id;t.innerHTML=`<div class="w-well"><div class="w-media"></div><span class="w-grip"></span><button class="w-tile-x" data-drop="${esc(id)}" aria-label="Remove from grid" tabindex="-1">×</button><div class="w-tile-bar"><span class="w-name"></span><span class="w-status"></span><button class="w-tile-exp" data-expand="${esc(id)}" tabindex="-1"></button></div></div>`;t.querySelector('.w-media').style.cssText='position:absolute;inset:0';$('grid').append(t);tiles.set(id,t);}
       const [x,y,w,h]=layout[i];Object.assign(t.style,{left:x/width*100+'%',top:y/height*100+'%',width:w/width*100+'%',height:h/height*100+'%'});
       t.draggable=s.edit;t.tabIndex=s.edit?0:-1;t.setAttribute('aria-label',`${title(g)}, ${i<s.count?'large':'small'}, slot ${i+1}`);
       t.classList.toggle('w-is-feat',i<s.count);t.classList.toggle('w-is-big',i<s.count);t.classList.toggle('w-is-target',!!s.pool);t.classList.toggle('w-is-dragging',s.drag===id);
+      const exp=t.querySelector('.w-tile-exp'), solo=s.solo===id;
+      exp.innerHTML=solo
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10 21 3"/><path d="M15 3h6v6"/><path d="M10 14 3 21"/><path d="M9 21H3v-6"/></svg>`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14 21 3"/><path d="M14 3h7v7"/></svg>`;
+      exp.setAttribute('aria-label',solo?'Collapse this stream':'Expand this stream');
+      exp.setAttribute('aria-pressed',String(solo));
       t.querySelector('.w-grip').textContent=`${i<s.count?'LARGE · ':''}SLOT ${i+1}`;t.querySelector('.w-name').textContent=title(g);const st=t.querySelector('.w-status');st.textContent=status(g);st.classList.toggle('w-live',g.state==='live');
       placeMedia(ensureMedia(g),t.querySelector('.w-media'));
     });
