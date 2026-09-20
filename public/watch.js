@@ -38,13 +38,13 @@ function line(g) {
 // Kept separate from roster rendering: live updates patch this surface without
 // replacing media or the source of an active drag.
 export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup}) {
-  let data,root=null,active=false,context=null;
+  let data,root=null,active=false,context=null,returnToTheater=true;
   const s={mode:'single',watching:null,expanded:null,order:[],count:1,repl:{},edit:false,pin:false,hover:false,rail:true,details:true,all:false,more:false,drag:null,pool:null,audio:null};
   const tiles=new Map(),switches=new Map(),media=new Map();
   const modeHost=document.createElement('div'); modeHost.className='watch-mode'; modeHost.hidden=true;
   modeHost.innerHTML=`<span>VIEW</span><div class="w-seg"><button class="w-seg-opt" data-mode="single" aria-pressed="true">${singleIcon}SINGLE</button><button class="w-seg-opt" data-mode="multi" aria-pressed="false">${gridIcon}MULTI</button></div>`;
   document.querySelector('.topbar-right').append(modeHost);
-  modeHost.addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b)open(b.dataset.mode);});
+  modeHost.addEventListener('click',e=>{const b=e.target.closest('[data-mode]');if(b && (active || b.dataset.mode==='multi'))open(b.dataset.mode);});
   const $=id=>root.querySelector(`[data-id="${id}"]`);
   const game=id=>data.games.find(g=>g.id===id);
   const slot=id=>game(s.repl[id]||id);
@@ -102,6 +102,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup}
     const el=e.target.closest('[data-tile],[data-slot]');if(el&&s.edit){Object.assign(s,toggleFeatured(s.order,s.count,el.dataset.tile||el.dataset.slot));render();}
   }
   function setMode(mode){
+    if(mode==='single' && s.mode==='multi' && !returnToTheater){close();return;}
     if(mode===s.mode){render();return;}
     s.mode=mode;s.edit=false;s.pool=s.drag=null;
     if(mode==='multi'){
@@ -124,7 +125,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup}
   }
   function open(mode='single'){
     update();if(!data)return;
-    if(!active){onEnter();active=true;document.body.classList.add('watch-open');mount();s.mode='single';}
+    if(!active){returnToTheater=mode!=='multi';onEnter();active=true;document.body.classList.add('watch-open');mount();s.mode='single';}
     setMode(mode);
   }
   function close(){active=false;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
