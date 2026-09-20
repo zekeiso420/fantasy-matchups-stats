@@ -1189,8 +1189,8 @@ body.theater .video-box iframe {
    the system one are covered, the same way the page's own palette is. */
 :root[data-theme="light"] .pv-overlay {
   --accent-warm:#b08a00; --text:#201e1d; --surface-2:#eaece4; --line:#e4e1de; --line-strong:#b9b4b4;
-  --pv-ground:rgba(255,255,255,.96); --pv-plate:rgba(255,255,255,.88); --pv-ring:rgba(255,255,255,.9);
-  --pv-face-ink:#3c3a39; --pv-avatar-edge:rgba(32,30,29,.18);
+  --pv-ground:rgba(255,255,255,.94); --pv-plate:rgba(255,255,255,.8); --pv-ring:rgba(255,255,255,.9);
+  --pv-face-ink:#3c3a39; --pv-avatar-edge:rgba(32,30,29,.28);
 }
 :root[data-theme="light"] .pv-strip {
   --good:#2f7d32; --bad:#c2410c; --label:#605d5d; --dim-total:#605d5d; --ctx:#8a8585;
@@ -1201,8 +1201,8 @@ body.theater .video-box iframe {
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) .pv-overlay {
     --accent-warm:#b08a00; --text:#201e1d; --surface-2:#eaece4; --line:#e4e1de; --line-strong:#b9b4b4;
-    --pv-ground:rgba(255,255,255,.96); --pv-plate:rgba(255,255,255,.88); --pv-ring:rgba(255,255,255,.9);
-    --pv-face-ink:#3c3a39; --pv-avatar-edge:rgba(32,30,29,.18);
+    --pv-ground:rgba(255,255,255,.94); --pv-plate:rgba(255,255,255,.8); --pv-ring:rgba(255,255,255,.9);
+    --pv-face-ink:#3c3a39; --pv-avatar-edge:rgba(32,30,29,.28);
   }
   :root:not([data-theme="dark"]) .pv-strip {
     --good:#2f7d32; --bad:#c2410c; --label:#605d5d; --dim-total:#605d5d; --ctx:#8a8585;
