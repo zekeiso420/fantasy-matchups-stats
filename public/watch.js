@@ -47,7 +47,9 @@ function line(g) {
 export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,createPlayerRails}) {
   let data,root=null,active=false,context=null,returnToTheater=true;
   let playerRails=null;
-  let restoreChecked=false,lastSaved='';
+  let restoreChecked=false,lastSaved='',restorePending=false;
+  const page=document.defaultView;
+  const refreshInMulti=new URL(page.location.href).searchParams.get('view')==='multi';
   let storage;try{storage=document.defaultView.localStorage;}catch{/* Storage may be disabled. */}
   const storageKey=()=>`matchup.multi.v1:${data.storageContext||data.context}`;
   function savedLayout(){
@@ -61,13 +63,12 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
         if(!valid.has(target)||seen.has(target))return false;
         seen.add(target);if(target!==id)repl[id]=target;return true;
       }).slice(0,6);
-      if(!order.length)return null;
       const featured=new Set(saved.order.slice(0,Math.min(4,Number(saved.count)||1)));
       return {...saved,order,repl,count:Math.max(1,order.filter(id=>featured.has(id)).length),watching:valid.has(saved.watching)?saved.watching:data.watching};
     } catch {return null;}
   }
   function persistLayout(isActive=active){
-    if(!data || s.mode!=='multi')return;
+    if(!data || s.mode!=='multi' || restorePending)return;
     const value=JSON.stringify({active:isActive,order:s.order,count:s.count,repl:s.repl,watching:s.watching,pin:s.pin,returnToTheater});
     try{const key=storageKey();if(lastSaved!==key+value){storage.setItem(key,value);lastSaved=key+value;}}catch{/* Private browsing or full storage must not break playback. */}
   }
@@ -149,12 +150,14 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
   function update(){
     data=getData();modeHost.hidden=!data;
     if(!data){if(active)close();return;}
-    if(!restoreChecked){
+    if(!restoreChecked || (restorePending&&data.games.length)){
       restoreChecked=true;const saved=savedLayout();
-      if(saved?.active){
-        returnToTheater=!!saved.returnToTheater;context=data.context;
-        onEnter();active=true;document.body.classList.add('watch-open');mount();
-        Object.assign(s,{mode:'multi',order:saved.order,count:saved.count,repl:saved.repl,watching:saved.watching,pin:!!saved.pin});
+      if(saved?.active || refreshInMulti){
+        restorePending=!data.games.length;
+        returnToTheater=!!saved?.returnToTheater;context=data.context;
+        if(!active){onEnter();active=true;document.body.classList.add('watch-open');mount();}
+        if(saved)Object.assign(s,{mode:'multi',order:saved.order,count:saved.count,repl:saved.repl,watching:saved.watching,pin:!!saved.pin});
+        else {s.mode='single';setMode('multi');}
         playerRails?.setEnabled(false);render();return;
       }
     }
@@ -169,8 +172,13 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     if(!active){returnToTheater=mode!=='multi';onEnter();active=true;document.body.classList.add('watch-open');mount();s.mode='single';}
     setMode(mode);
   }
-  function close(){active=false;persistLayout();playerRails?.destroy();playerRails=null;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
-  function syncMode(){modeHost.querySelectorAll('[data-mode]').forEach(b=>{const on=b.dataset.mode===s.mode;b.classList.toggle('w-is-on',on);b.setAttribute('aria-pressed',String(on));});}
+  function close(){active=false;restorePending=false;persistLayout();playerRails?.destroy();playerRails=null;destroyMedia();root?.remove();root=null;switches.clear();s.mode='single';s.edit=false;s.drag=s.pool=null;document.body.classList.remove('watch-open');syncMode();onExit(s.watching);}
+  function syncMode(){
+    modeHost.querySelectorAll('[data-mode]').forEach(b=>{const on=b.dataset.mode===s.mode;b.classList.toggle('w-is-on',on);b.setAttribute('aria-pressed',String(on));});
+    const url=new URL(page.location.href);
+    if(active&&s.mode==='multi')url.searchParams.set('view','multi');else url.searchParams.delete('view');
+    if(url.href!==page.location.href)page.history.replaceState(page.history.state,'',url.href);
+  }
   function render(){
     if(!active||!root)return;persistLayout();syncMode();const multi=s.mode==='multi',g=game(s.watching);
     for(const [cls,on] of Object.entries({'w-is-multi':multi,'w-is-single':!multi,'w-is-railshut':!s.rail,'w-has-details':s.details,'w-is-edit':s.edit,'w-is-pool':!!s.pool,'w-is-railpinned':s.pin}))root.classList.toggle(cls,on);
@@ -242,7 +250,13 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     return m;
   }
   function setSource(m,i){if(!m.options[i])return;m.index=i;if(m.el.src!==m.options[i].url)m.el.src=m.options[i].url;}
-  function placeMedia(m,host){if(m.el.parentElement!==host)host.append(m.el);}
+  function placeMedia(m,host){
+    if(m.el.parentElement===host)return;
+    // A normal DOM append reloads an already-mounted iframe. Preserve the
+    // provider's player and controls when moving between Single and Multi.
+    if(host.moveBefore && m.el.isConnected && host.isConnected)host.moveBefore(m.el,null);
+    else host.append(m.el);
+  }
   function sourceOptions(m){$('source').innerHTML=m.options.map((o,i)=>`<option value="${i}">${esc(o.label)}</option>`).join('');$('source').value=String(m.index);}
   function destroyMedia(){for(const m of media.values()){m.el.src='about:blank';m.el.remove();}media.clear();tiles.clear();}
   return {open,close,update,get active(){return active;},get mode(){return s.mode;}};

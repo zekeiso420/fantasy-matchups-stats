@@ -1,4 +1,4 @@
-import { createWatch } from './watch.js?v=20260920-6';
+import { createWatch } from './watch.js?v=20260920-7';
 // Matchup: a Sleeper fantasy matchup tracker
 // Data flows one way: fetch → state → render(). Live updates patch state and
 // either re-render or touch only the numbers, depending on what changed.
@@ -387,6 +387,7 @@ function maxWeek() {
 
 function syncUrl() {
   const p = new URLSearchParams();
+  if(new URLSearchParams(location.search).get('view')==='multi')p.set('view','multi');
   if (S.user) p.set('u', S.user.username);
   if (S.leagueId) p.set('l', S.leagueId);
   if (S.week) p.set('w', S.week);
