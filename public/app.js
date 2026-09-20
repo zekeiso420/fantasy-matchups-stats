@@ -133,8 +133,14 @@ function createPlayerRails(wrapper) {
     const over=proj!=null&&pts>proj, none=pts===0;
     total.textContent=fmt(pts);
     total.classList.toggle('over',over);total.classList.toggle('none',none&&!over);
-    projEl.textContent=proj==null?'—':over?`+${fmt(pts-proj)} over proj`:`of ${fmt(proj)} proj`;
+    // No projection is not a value to print. Sleeper does not project every
+    // player - a deep bench back, a defence nobody rosters - and a lone em dash
+    // over an empty track reads as something broken rather than something
+    // unknown, so the readout is just the number and the bar stands down. Its
+    // space is kept, so the header stays the same height either way.
+    projEl.textContent=proj==null?'':over?`+${fmt(pts-proj)} over proj`:`of ${fmt(proj)} proj`;
     projEl.classList.toggle('over',over);
+    strip.querySelector('.pv-bar').classList.toggle('none',proj==null);
     const tickPct=over?(proj/pts)*100:0;
     fill.style.width=proj?`${Math.min(over?tickPct:(pts/proj)*100,100)}%`:'0%';
     fill.classList.toggle('over',over);
