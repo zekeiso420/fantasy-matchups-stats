@@ -126,6 +126,7 @@ function createPlayerRails(wrapper) {
   // the bar keeps saying how far past pace the player is instead of pinning at
   // full and going silent. Before kickoff there is nothing to fill: a bare
   // track, and a grey total, because gold means points have been scored.
+  let painted=null;
   function paintHeader(p){
     const total=strip.querySelector('.pv-total'), projEl=strip.querySelector('.pv-proj');
     const fill=strip.querySelector('.pv-fill'), hatch=strip.querySelector('.pv-hatch'), tick=strip.querySelector('.pv-tick');
@@ -145,10 +146,18 @@ function createPlayerRails(wrapper) {
     fill.classList.toggle('over',over);
     // The overage band and its tick fade rather than appear, on the same easing
     // as the fill that grows under them: hiding them outright made the moment a
-    // player passed their projection a flicker instead of a move. Their
-    // geometry is set either way, so they open from the track's right edge.
+    // player passed their projection a flicker instead of a move.
     strip.querySelector('.pv-bar').classList.toggle('over',over);
-    hatch.style.left=`${tickPct}%`;hatch.style.right='0';tick.style.left=`${tickPct}%`;
+    // It grows the way the fill does - from its own left edge, rightwards. The
+    // band is anchored to the tick and given width, not stretched leftwards
+    // from the end of the track, which read as filling backwards. On a fresh
+    // card the anchor is placed without a transition so the width is the only
+    // thing that moves; on a live tick both slide, because the tick really is
+    // walking left as the lead grows.
+    const fresh=painted!==selected; painted=selected;
+    if(fresh){hatch.style.transition='none';hatch.style.left=`${tickPct}%`;hatch.style.width='0%';void hatch.offsetWidth;hatch.style.transition='';}
+    hatch.style.left=`${tickPct}%`;hatch.style.width=`${Math.max(0,100-tickPct)}%`;
+    tick.style.left=`${tickPct}%`;
   }
 
   function cancel(){win.clearTimeout(timer);timer=null;}

@@ -1124,7 +1124,7 @@ body.theater .video-box iframe {
 .pv-fill.over { background:var(--good); }
 /* Past the projection the track is the live total: solid to the tick, hatched
    beyond it, and the tick slides left as the lead grows. */
-.pv-hatch { opacity:0; background:repeating-linear-gradient(135deg, #5fd47e 0 2px, rgba(95,212,126,.22) 2px 5px); transition:opacity .22s ease, left .4s ease; }
+.pv-hatch { opacity:0; background:repeating-linear-gradient(135deg, #5fd47e 0 2px, rgba(95,212,126,.22) 2px 5px); transition:opacity .22s ease, left .4s ease, width .4s ease; }
 .pv-tick { width:2px; top:-2px; bottom:-2px; opacity:0; background:var(--text); transition:opacity .22s ease, left .4s ease; }
 .pv-bar.over .pv-hatch, .pv-bar.over .pv-tick { opacity:1; }
 .pv-close { flex:none; display:grid; place-items:center; width:26px; height:26px; margin-left:12px; border:0; background:transparent; color:var(--label); font-size:20px; line-height:1; padding:0; cursor:pointer; }
