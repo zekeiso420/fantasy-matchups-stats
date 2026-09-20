@@ -47,9 +47,24 @@ test('refresh restores multi games, replacements, expanded tiles and return mode
  const drag=new t.dom.window.Event('dragstart',{bubbles:true});Object.defineProperty(drag,'dataTransfer',{value:{setData(){}}});t.$('[data-pool="6"]').dispatchEvent(drag);t.$('[data-tile="3"]').dispatchEvent(new t.dom.window.Event('drop',{bubbles:true,cancelable:true}));
  const saved=t.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1');t.dom.window.close();
  const r=setup(8,saved);r.data.games[0].state='final';r.watch.update();
- assert.equal(r.watch.active,true);assert.equal(r.watch.mode,'multi');assert.equal(r.$('.w-grid').children.length,6);assert.equal(r.dom.window.document.querySelectorAll('.w-tile.w-is-feat').length,3);assert.match(r.$('[data-tile="3"] iframe').src,/./);assert.equal(JSON.parse(r.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1')).repl['3'],'6');
+ // The finished game does not come back with the rest: a saved grid says what
+ // was live, not what still is.
+ assert.equal(r.watch.active,true);assert.equal(r.watch.mode,'multi');assert.equal(r.$('.w-grid').children.length,5);assert.equal(r.$('[data-tile="0"]'),null);assert.equal(r.dom.window.document.querySelectorAll('.w-tile.w-is-feat').length,3);assert.match(r.$('[data-tile="3"] iframe').src,/./);assert.equal(JSON.parse(r.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1')).repl['3'],'6');
  r.click('[data-mode="single"]');assert.equal(r.watch.active,false);const closed=r.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1');r.dom.window.close();
  const back=setup(8,closed);back.watch.update();assert.equal(back.watch.active,false);back.dom.window.close();
+});
+
+test('a tile can be taken out of the grid, down to one but never none',()=>{
+ const t=setup(6);t.watch.open('multi');
+ const count=()=>t.$('.w-grid').children.length;
+ const first=()=>t.dom.window.document.querySelector('.w-tile').dataset.tile;
+ const before=count();assert.ok(before>1);
+ t.click('[data-action="edit"]');
+ t.click(`[data-drop="${first()}"]`);assert.equal(count(),before-1);
+ for(let i=0;i<8&&count()>1;i++)t.click(`[data-drop="${first()}"]`);
+ assert.equal(count(),1);
+ t.click(`[data-drop="${first()}"]`);assert.equal(count(),1);
+ t.watch.close();t.dom.window.close();
 });
 
 test('restore discards unavailable games and handles invalid saved data',()=>{

@@ -502,6 +502,16 @@
   height: 56px;
 }
 .w-is-multi .w-chrome { display: none; }
+/* Only while the grid is being edited, and only on the tile it belongs to. */
+.w-tile-x {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  display: none; place-items: center; width: 24px; height: 24px;
+  background: rgba(6,10,7,.82); border: 1px solid var(--line-str); color: var(--ink);
+  font: 700 14px/1 var(--font, inherit); cursor: pointer;
+}
+.w-is-edit .w-tile-x { display: grid; }
+.w-tile-x:hover { border-color: var(--gold); color: var(--gold); }
+.w-tile-x:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 .w-btn {
   flex: none; white-space: nowrap;

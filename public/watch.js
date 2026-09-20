@@ -67,6 +67,19 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
       return {...saved,order,repl,count:Math.max(1,order.filter(id=>featured.has(id)).length),watching:valid.has(saved.watching)?saved.watching:data.watching};
     } catch {return null;}
   }
+  // A saved grid is a memory of what was live, not a claim that it still is.
+  // Coming back to multi - a fresh entry or a refresh - drops whatever has
+  // finished since. A game that ends while you are watching it stays put; that
+  // is the grid you are looking at, and yanking tiles out from under it is
+  // worse than a dark one.
+  function stillLive(order=[],repl={}){return order.filter(id=>{const g=game(repl[id]||id);return g&&g.state==='live';});}
+  function restoreInto(saved){
+    const order=stillLive(saved.order,saved.repl||{});
+    if(!order.length)return false;
+    const repl=Object.fromEntries(Object.entries(saved.repl||{}).filter(([k])=>order.includes(k)));
+    Object.assign(s,{order,repl,count:Math.max(1,Math.min(saved.count||1,order.length)),watching:saved.watching,pin:!!saved.pin});
+    return true;
+  }
   function persistLayout(isActive=active){
     if(!data || s.mode!=='multi' || restorePending)return;
     const value=JSON.stringify({active:isActive,order:s.order,count:s.count,repl:s.repl,watching:s.watching,pin:s.pin,returnToTheater});
@@ -130,6 +143,16 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     const match=e.target.closest('[data-match]');if(match){onMatchup(match.dataset.match);return;}
     const row=e.target.closest('[data-game]');if(row){const id=row.dataset.game;s.expanded=s.watching===id&&s.expanded===id?null:id;s.watching=id;onWatch(id);render();return;}
     const audio=e.target.closest('[data-audio]');if(audio){s.audio=audio.dataset.audio;render();return;}
+    // Taken before the tile itself, since the control sits inside it.
+    const drop=e.target.closest('[data-drop]');
+    if(drop&&s.edit){
+      const id=drop.dataset.drop;
+      if(s.order.length>1){s.order=s.order.filter(x=>x!==id);delete s.repl[id];
+        s.count=Math.max(1,Math.min(s.count,s.order.length));
+        if(s.audio===id)s.audio=s.order[0];
+        render();}
+      return;
+    }
     const el=e.target.closest('[data-tile],[data-slot]');if(el&&s.edit){Object.assign(s,toggleFeatured(s.order,s.count,el.dataset.tile||el.dataset.slot));render();}
   }
   function setMode(mode){
@@ -145,7 +168,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
       const seeded=[...(chosen?[chosen]:[]),...candidates].filter((g,i,a)=>a.findIndex(x=>x.id===g.id)===i).slice(0,6);
       if(!seeded.length)seeded.push(...data.games.filter(g=>g.state==='live').slice(0,6));
       s.order=seeded.map(g=>g.id);s.count=1;s.repl={};s.audio=s.order[0];s.pin=s.hover=false;
-      const saved=savedLayout();if(saved)Object.assign(s,{order:saved.order,count:saved.count,repl:saved.repl,watching:saved.watching,pin:!!saved.pin});
+      const saved=savedLayout();if(saved)restoreInto(saved);   // anything finished falls away, leaving the freshly seeded live games
     }
     render();
   }
@@ -158,7 +181,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
         restorePending=!data.games.length;
         returnToTheater=!!saved?.returnToTheater;context=data.context;
         if(!active){onEnter();active=true;document.body.classList.add('watch-open');mount();}
-        if(saved)Object.assign(s,{mode:'multi',order:saved.order,count:saved.count,repl:saved.repl,watching:saved.watching,pin:!!saved.pin});
+        if(saved&&restoreInto(saved))s.mode='multi';
         else {s.mode='single';setMode('multi');}
         playerRails?.setEnabled(false);render();return;
       }
@@ -193,7 +216,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     const n=eligible().length;$('liveCount').textContent=`Watch ${n>6?'6 of '+n:'all '+n} live`;
     $('detailsGame').innerHTML=line(g);$('detailsBody').innerHTML=g?perf(g):'';
     $('stageTitle').innerHTML=multi?'MULTI-VIEW':line(g);$('clock').textContent=g?status(g):'No game selected';$('score').innerHTML=line(g);
-    $('hint').textContent=multi&&s.edit?(s.count===4?'Four large · deselect one to add another · drag to swap':'Select up to four large games · drag to swap'):'';
+    $('hint').textContent=multi&&s.edit?(s.count===4?'Four large · deselect one to add another · drag to swap · × removes':'Select up to four large games · drag to swap · × removes'):'';
     $('edit').textContent=s.edit?'Done':'Edit grid layout';$('edit').setAttribute('aria-pressed',String(s.edit));$('drop').hidden=!s.pool;
     renderSwitch();
     const bk=bucket(g),reverse=data.teams[1]?.mine;
@@ -226,7 +249,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     for(const [id,t] of tiles)if(!s.order.includes(id)){t.remove();tiles.delete(id);}
     s.order.forEach((id,i)=>{
       const g=slot(id);if(!g)return;
-      let t=tiles.get(id);if(!t){t=document.createElement('div');t.className='w-tile';t.dataset.tile=id;t.innerHTML=`<div class="w-well"><div class="w-media"></div><span class="w-grip"></span><div class="w-tile-bar"><span class="w-name"></span><span class="w-status"></span></div></div>`;t.querySelector('.w-media').style.cssText='position:absolute;inset:0';$('grid').append(t);tiles.set(id,t);}
+      let t=tiles.get(id);if(!t){t=document.createElement('div');t.className='w-tile';t.dataset.tile=id;t.innerHTML=`<div class="w-well"><div class="w-media"></div><span class="w-grip"></span><button class="w-tile-x" data-drop="${esc(id)}" aria-label="Remove from grid" tabindex="-1">×</button><div class="w-tile-bar"><span class="w-name"></span><span class="w-status"></span></div></div>`;t.querySelector('.w-media').style.cssText='position:absolute;inset:0';$('grid').append(t);tiles.set(id,t);}
       const [x,y,w,h]=layout[i];Object.assign(t.style,{left:x/width*100+'%',top:y/height*100+'%',width:w/width*100+'%',height:h/height*100+'%'});
       t.draggable=s.edit;t.tabIndex=s.edit?0:-1;t.setAttribute('aria-label',`${title(g)}, ${i<s.count?'large':'small'}, slot ${i+1}`);
       t.classList.toggle('w-is-feat',i<s.count);t.classList.toggle('w-is-big',i<s.count);t.classList.toggle('w-is-target',!!s.pool);t.classList.toggle('w-is-dragging',s.drag===id);
