@@ -1108,18 +1108,20 @@ body.theater .video-box iframe {
    - so pre-kickoff, live and final all occupy the same box and the video never
    reflows under the strip. Tokens per STAT_STRIP_SPEC.md section 1. */
 .pv-strip { --good:#5fd47e; --bad:#ff7a5c; --label:#7d7979; --dim-total:#9aa596; --ctx:#5c6e59; }
-.pv-header { display:flex; align-items:center; gap:12px; height:60px; padding:0 16px; box-sizing:border-box; }
+.pv-header { display:grid; grid-template-columns:320px 1fr 260px 26px; align-items:center; gap:12px; height:60px; padding:0 16px; box-sizing:border-box; }
 .pv-identity { display:flex; flex-direction:column; gap:3px; min-width:0; }
 .pv-name { font-size:15px; font-weight:800; letter-spacing:-.015em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pv-meta { font-size:9.5px; font-weight:700; letter-spacing:.12em; color:var(--label); white-space:nowrap; }
 /* The number block is a fixed width because the bar under it is a scale: let it
    breathe with the name and the same points would draw a different bar. */
-.pv-right { margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:5px; width:260px; }
+.pv-right { display:flex; flex-direction:column; align-items:flex-end; gap:5px; width:260px; }
 .pv-nums { display:flex; align-items:baseline; gap:8px; }
 .pv-total { font-size:27px; line-height:1; font-weight:800; letter-spacing:-.02em; color:var(--pv-accent); }
 .pv-total.none { color:var(--dim-total); }
 .pv-total.over { color:var(--good); }
-.pv-proj { font-size:11px; font-weight:700; color:var(--label); white-space:nowrap; }
+/* Fixed width, so the total's right edge is the same for every player however
+   long its projection reads - the number is what the eye returns to. */
+.pv-proj { width:98px; font-size:11px; font-weight:700; color:var(--label); white-space:nowrap; }
 .pv-proj.over { color:var(--good); }
 .pv-bar { position:relative; width:100%; height:4px; background:var(--line); overflow:visible; }
 /* Nothing to measure against: the track keeps its space so the header holds
@@ -1142,19 +1144,21 @@ body.theater .video-box iframe {
 .pv-cstatus { font-size:10px; font-weight:700; letter-spacing:.12em; color:var(--label); }
 @container strip (max-width: 999px) { .pv-context { display:none; } }
 @container strip (min-width: 1000px) { .pv-mstatus { display:none; } }
-@container strip (max-width: 899px) { .pv-cells { column-gap:16px; } }
-.pv-close { flex:none; display:grid; place-items:center; width:26px; height:26px; margin-left:12px; border:0; background:transparent; color:var(--label); font-size:20px; line-height:1; padding:0; cursor:pointer; }
+@container strip (max-width: 899px) { .pv-cells { grid-auto-columns:minmax(0, 1fr); } }
+.pv-close { flex:none; display:grid; place-items:center; width:26px; height:26px; border:0; background:transparent; color:var(--label); font-size:20px; line-height:1; padding:0; cursor:pointer; }
 .pv-close:hover { color:var(--text); }
 .pv-close:focus-visible { outline:2px solid var(--accent-warm); outline-offset:2px; }
 .pv-groups { display:flex; height:89px; border-top:1px solid var(--line); box-sizing:border-box; }
 .pv-group { flex:1; min-width:0; padding:10px 16px 12px; box-sizing:border-box; }
 .pv-divide { flex:none; width:1px; background:var(--line); }
 .pv-glabel { display:block; font-size:9px; font-weight:700; letter-spacing:.16em; color:var(--pv-accent); white-space:nowrap; margin-bottom:8px; }
-/* Each group keeps its own measure: the cells spread to a comfortable rhythm
-   inside it and stop, instead of taking whatever slack the group box has. The
-   gap is a floor, not a spacing - space-between does the rest. */
-.pv-cells { display:flex; justify-content:space-between; width:min(100%, 420px); gap:20px 40px; }
-.pv-cells:has(> :nth-child(5)) { width:min(100%, 480px); }
+/* 21a: four canonical slots per group - volume, yards, TD, detail - on a fixed
+   96px pitch. Column one is at the same x whether you clicked a kicker, a tight
+   end or a running back, so the eye does not have to re-find a category every
+   time the card changes. A conditional fifth cell extends the pitch rather than
+   shifting the four. */
+.pv-cells { display:grid; grid-auto-flow:column; grid-auto-columns:96px; }
+.pv-group { flex:0 0 50%; }
 .pv-cell { display:block; background:none; padding:0; }
 .pv-clabel { display:block; font-size:9px; font-weight:700; letter-spacing:.1em; color:var(--label); white-space:nowrap; }
 .pv-value { display:block; font-size:17px; font-weight:800; margin-top:3px; color:var(--text); }
@@ -1165,7 +1169,8 @@ body.theater .video-box iframe {
 .pv-line.ctx, .pv-line.empty { color:var(--ctx); }
 @media (prefers-reduced-motion:reduce) { .pv-strip, .pv-strip.pv-up, .pv-fill, .pv-hatch, .pv-tick { transition:none; } }
 @container (max-width:700px) {
-  .pv-header { gap:6px; padding:0 10px; }
+  .pv-header { grid-template-columns:1fr 180px 26px; gap:6px; padding:0 10px; }
+  .pv-context { display:none; }
   .pv-right { width:180px; }
   .pv-total { font-size:22px; }
   .pv-group { padding:10px; }

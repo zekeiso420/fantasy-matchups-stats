@@ -43,16 +43,15 @@ const groups = {
       ['FUM LOST', 'fum_lost', 'P', 'cond loss'],
     ]],
     ['RECEIVING', [
-      ['TGT', 'rec_tgt', (s) => pct(num(s, 'rec'), num(s, 'rec_tgt'))],
-      ['REC', 'rec', 'P'],
+      ['REC/TGT', { value: (s) => pair(s, 'rec', 'rec_tgt'), points: 'rec' }, 'P'],
       ['YDS', 'rec_yd', 'P'],
       ['TD', 'rec_td', 'P'],
+      ['LONG', 'rec_lng', none],
     ]],
   ],
   WR: [
     ['RECEIVING', [
-      ['TGT', 'rec_tgt', (s) => pct(num(s, 'rec'), num(s, 'rec_tgt'))],
-      ['REC', 'rec', 'P'],
+      ['REC/TGT', { value: (s) => pair(s, 'rec', 'rec_tgt'), points: 'rec' }, 'P'],
       ['YDS', 'rec_yd', 'P'],
       ['TD', 'rec_td', 'P'],
       ['LONG', 'rec_lng', none],
@@ -65,10 +64,10 @@ const groups = {
   ],
   K: [
     ['KICKING', [
-      ['FG', (s) => pair(s, 'fgm', 'fga'), none],
-      ['LONG', 'fgm_lng', (s) => (num(s, 'fgm_lng') ? `${num(s, 'fgm_lng')} yds` : null)],
-      ['XP', (s) => pair(s, 'xpm', 'xpa'), none],
-      ['FG PTS', /^(fgm|xpm)/, 'P'],
+      ['FG', { value: (s) => pair(s, 'fgm', 'fga'), points: /^fgm/ }, 'P'],
+      ['XP', { value: (s) => pair(s, 'xpm', 'xpa'), points: /^xpm/ }, 'P'],
+      ['TD', 'st_td', 'P'],
+      ['LONG', 'fgm_lng', none],
       ['MISS', /^(fgmiss|xpmiss)/, 'P', 'cond loss'],
     ]],
   ],
@@ -102,7 +101,7 @@ const groups = {
 // to print, so it prints what it is worth instead and leaves the value to its
 // points line.
 function cellValue(stats, key) {
-  if (key && key.value) return num(stats, key.value);
+  if (key && key.value) return typeof key.value === 'function' ? key.value(stats || {}) : num(stats, key.value);
   if (typeof key === 'function') return key(stats || {});
   if (key instanceof RegExp) return null;
   return num(stats, key);
@@ -124,7 +123,7 @@ function cellPoints(stats, scoring, key) {
 }
 
 const happened = (stats, key) => {
-  if (key && key.value) key = key.value;
+  if (key && key.points) key = key.points;
   if (typeof key === 'function' || !stats) return false;
   if (key instanceof RegExp) return Object.keys(stats).some((k) => key.test(k) && stats[k] >= 1);
   return num(stats, key) >= 1;

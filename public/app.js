@@ -119,11 +119,13 @@ function createPlayerRails(wrapper) {
       + (st?`<span class="pv-mstatus"> · ${escape(st)}</span>`:'');
     paintContext(p.ctx);
     paintHeader(p);
-    strip.querySelector('.pv-groups').innerHTML=(p.groups||[]).map(g=>`<div class="pv-group"><span class="pv-glabel">${escape(g.label)}</span><div class="pv-cells">`
+    const half=(g)=>`<div class="pv-group">${g?`<span class="pv-glabel">${escape(g.label)}</span><div class="pv-cells">`
       + g.cells.map(c=>`<div class="pv-cell"><span class="pv-clabel">${escape(c.label)}</span>`
         + `<strong class="pv-value ${c.bad?'bad':''}">${escape(String(c.value))}</strong>`
         + `<span class="pv-line ${c.line.kind}">${escape(c.line.text)}</span></div>`).join('')
-      + `</div></div>`).join('<i class="pv-divide"></i>');
+      + `</div>`:''}</div>`;
+    const gs=p.groups||[];
+    strip.querySelector('.pv-groups').innerHTML=half(gs[0])+'<i class="pv-divide"></i>'+half(gs[1]);
   }
   // Three states in one readout. Under projection the bar fills toward it and
   // the tick is not drawn - the track's right edge is the projection. Past it
