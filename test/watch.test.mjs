@@ -20,6 +20,15 @@ test('all featured layouts preserve 16:9 and selection constraints',()=>{
  assert.equal(a.count,4);assert.deepEqual(toggleFeatured(a.order,a.count,'e'),a);
  a=toggleFeatured(a.order,a.count,'d');assert.equal(a.count,3);
 });
+
+test('multi streams receive controls directly except during grid editing',()=>{
+ const t=setup();const style=document.createElement('style');style.textContent=readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');document.head.append(style);t.watch.open('multi');
+ const frame=t.$('.w-tile iframe'),css=e=>t.dom.window.getComputedStyle(e);
+ assert.equal(t.$('[data-controls]'),null);assert.equal(css(frame).pointerEvents,'auto');assert.equal(css(t.$('.w-tile-bar')).pointerEvents,'none');
+ t.click('[data-action="edit"]');assert.equal(css(frame).pointerEvents,'none');
+ t.click('[data-action="edit"]');assert.equal(css(frame).pointerEvents,'auto');assert.equal(t.$('.w-tile iframe'),frame);
+ t.watch.close();t.dom.window.close();
+});
 test('mode controls agree, leaving multi returns to original game',()=>{
  const t=setup();t.watch.open();t.click('[data-game="2"]');t.click('[data-action="multi"]');
  assert.equal(t.watch.mode,'multi');assert.equal(t.$('[data-mode="multi"]').getAttribute('aria-pressed'),'true');
