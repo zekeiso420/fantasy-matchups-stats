@@ -1074,8 +1074,12 @@ body.theater .video-box iframe {
 .pv-opp { --pv-accent:var(--text); }
 .pv-player { display:flex; flex-direction:column; gap:2px; flex:none; width:44px; padding:0; border:0; border-radius:0; background:none; opacity:.55; transition:opacity .15s ease; cursor:pointer; color:#cfd6cb; white-space:nowrap; }
 .pv-player:hover,.pv-player:focus-visible,.pv-player[aria-pressed="true"] { opacity:1; }
-.pv-avatar { position:relative; display:grid; place-items:center; width:44px; height:44px; box-sizing:border-box; flex:none; background:var(--surface-2); border:2px solid rgba(234,239,230,.28); border-radius:0; font-size:13px; font-weight:800; color:var(--text); }
-.pv-avatar img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.pv-avatar { position:relative; display:grid; place-items:center; width:44px; height:44px; box-sizing:border-box; flex:none; overflow:hidden; background:var(--surface-2); border:2px solid rgba(234,239,230,.28); border-radius:0; font-size:13px; font-weight:800; color:var(--text); }
+/* These are 1000px portraits landing in a 44px square, and the default crop
+   kept the whole torso - so the face was a dozen pixels of it and every
+   downscaled edge showed. Framing the head fills the square with the part that
+   reads at this size, and a hair of blur takes the aliasing off the rest. */
+.pv-avatar img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center top; transform:scale(1.22); transform-origin:center top; filter:blur(.15px); }
 .pv-player[aria-pressed="true"] .pv-avatar { border-color:var(--pv-accent); box-shadow:0 0 0 2px rgba(10,15,12,.9); }
 .pv-points { width:44px; padding:3px 0; background:rgba(10,15,12,.8); text-align:center; font-size:10.5px; line-height:14px; font-weight:800; }
 .pv-mine .pv-points { color:var(--accent-warm); }
