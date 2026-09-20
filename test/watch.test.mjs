@@ -58,3 +58,24 @@ test('watch CSS shows expanded performance and hides collapsed controls',()=>{
  t.click('[data-action="collapse"]');assert.equal(css(t.$('.w-rail')).width,'46px');assert.equal(css(t.$('.w-details')).width,'260px');
  t.click('[data-action="hideDetails"]');assert.equal(css(t.$('.w-show-details')).display,'flex');t.watch.close();t.dom.window.close();
 });
+
+test('single-player chrome stays inside the player and scrollbars are hidden',()=>{
+ const t=setup();const style=document.createElement('style');style.textContent=readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');document.head.append(style);t.watch.open();
+ const player=t.$('.w-player');
+ assert.equal(t.$('.w-player-top').parentElement,player);
+ assert.equal(t.$('.w-chrome').parentElement,player);
+ assert.equal(t.dom.window.getComputedStyle(t.$('.w-stage')).overflow,'hidden');
+ assert.equal(t.dom.window.getComputedStyle(t.$('[data-id="railInner"]')).scrollbarWidth,'none');
+ t.click('[data-action="collapse"]');
+ assert.equal(t.$('.w-player-top').parentElement,player);
+ assert.equal(t.$('.w-chrome').parentElement,player);
+ t.watch.close();t.dom.window.close();
+});
+
+test('theater aliases the shared matchup palette',()=>{
+ const css=readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');
+ assert.match(css,/--well:\s+var\(--frame-deep\)/);
+ assert.match(css,/--sel:\s+var\(--surface-2\)/);
+ assert.match(css,/--gold:\s+var\(--accent\)/);
+ assert.doesNotMatch(css,/--bg:\s*#[0-9a-f]/i);
+});

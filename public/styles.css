@@ -4,18 +4,18 @@
    screen; structure comes from rules (2px sections, 1px rows, 3px markers).
    ========================================================================== */
 :root {
-  --bg: #16201a;
-  --surface: #1d2921;
-  --raised: #25332a;
-  --line: #31432f;
+  --bg: #141a16;
+  --surface: #1b241e;
+  --raised: #24302a;
+  --line: #2c3830;
   --line-strong: #46593f;
   --text: #eaefe6;
   --muted: #9b9797;
   --faint: #7d7979;
-  --video: #0f1712;
-  --surface-2: #243026;    /* raised chrome: menu trigger, current row, hover */
-  --menu: #1b2620;         /* source panel fill */
-  --frame-deep: #0a0f0c;   /* the video area itself */
+  --video: #0a0f0c;
+  --surface-2: #1e2721;    /* raised chrome: menu trigger, current row, hover */
+  --menu: #18211b;         /* source panel fill */
+  --frame-deep: #060a08;   /* the video area itself */
   --dim: #4e5a4a;          /* secondary labels inside chrome */
   --swing-even: #f0c543;   /* the swing scale: close, ahead, behind */
   --swing-ahead: #3ddc5f;
