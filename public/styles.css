@@ -771,7 +771,7 @@ body.theater { --rail-w: 380px; }
    the rail leaves its fixed position and becomes the grid's first column, so
    the top bar, the score band and both columns all sit on the same 24px page
    padding and the band spans the width the video ends at. */
-body.theater .topbar-inner,
+body.theater:not(.watch-open) .topbar-inner,
 body.theater main { max-width: none; margin-left: 0; margin-right: 0; }
 body.theater aside.rail {
   /* z-index still applies to a static grid item, so the strip's stacking order

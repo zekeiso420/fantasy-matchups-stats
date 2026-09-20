@@ -79,3 +79,20 @@ test('theater aliases the shared matchup palette',()=>{
  assert.match(css,/--gold:\s+var\(--accent\)/);
  assert.doesNotMatch(css,/--bg:\s*#[0-9a-f]/i);
 });
+
+test('watch stage avoids page main offsets and keeps Show details with the player',()=>{
+ const t=setup();const style=document.createElement('style');
+ style.textContent=readFileSync(new URL('../public/styles.css',import.meta.url),'utf8')+readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');
+ document.head.append(style);t.watch.open();
+ assert.equal(t.$('.w-stage').tagName,'DIV');
+ assert.equal(t.$('.w-show-details').parentElement,t.$('.w-chrome'));
+ document.body.classList.add('theater');
+ assert.equal(t.dom.window.getComputedStyle(t.$('.w-stage')).marginLeft,'400px');
+ t.click('[data-action="collapse"]');
+ assert.equal(t.dom.window.getComputedStyle(t.$('.w-stage')).marginLeft,'306px');
+ t.click('[data-action="hideDetails"]');
+ assert.equal(t.dom.window.getComputedStyle(t.$('.w-stage')).marginLeft,'46px');
+ t.click('[data-mode="multi"]');
+ assert.equal(t.dom.window.getComputedStyle(t.$('[data-mode="multi"]')).borderLeftStyle,'solid');
+ t.watch.close();t.dom.window.close();
+});

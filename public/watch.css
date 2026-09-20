@@ -566,7 +566,7 @@
 .watch-surface .w-edit-hint { white-space:normal; }
 .watch-mode { display:flex; gap:8px; align-items:center; border-left:1px solid var(--line); padding-left:12px; }
 .watch-mode > span { font-size:10px; color:var(--muted); }
-.watch-mode .w-seg-opt.w-is-on { border-color:var(--accent); color:var(--accent); }
+.watch-mode .w-seg-opt.w-is-on { border-width:1px; border-style:solid; border-color:var(--accent); color:var(--accent); position:relative; z-index:1; }
 .watch-mode .w-seg-opt { color:var(--muted); }
 body.watch-open #app { display:none; }
 body.watch-open #detail-slot, body.watch-open #nav-score { display:none; }
@@ -588,7 +588,7 @@ body::-webkit-scrollbar, main::-webkit-scrollbar, aside::-webkit-scrollbar,
 .watch-surface .w-grid { max-width: min(1342px, 100%, calc((100dvh - 140px) * 1100 / 604)); }
 .watch-surface .w-player { height: fit-content; }
 .watch-surface .w-chrome { width: 100%; }
-.watch-surface.w-is-single .w-stage-head { position: absolute; left: 8px; top: 8px; width: auto; z-index: 2; padding: 0; }
+.watch-surface.w-is-single .w-stage-head { display: none; }
 .watch-surface.w-is-single .w-stage-title,
 .watch-surface.w-is-single .w-head-ctl { display: none; }
 .watch-surface .w-switch-row { height:auto; min-height:38px; flex-wrap:wrap; gap:5px 8px; padding-top:5px; padding-bottom:5px; }
