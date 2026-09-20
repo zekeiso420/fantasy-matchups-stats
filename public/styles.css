@@ -1093,35 +1093,61 @@ body.theater .video-box iframe {
 /* The strip rises out of the player's bottom edge rather than cutting in: it
    stays mounted so there is something to animate, and is taken out of reach
    while it is down. */
-.pv-strip { position:absolute; left:calc(var(--pv-face) + 32px); right:calc(var(--pv-face) + 32px); bottom:0; z-index:2; background:rgba(10,15,12,.93); border-top:1px solid var(--line-strong); padding:11px 16px 13px; pointer-events:auto; color:var(--text); white-space:nowrap;
+.pv-strip { position:absolute; left:calc(var(--pv-face) + 32px); right:calc(var(--pv-face) + 32px); bottom:0; z-index:2; height:152px; box-sizing:border-box; background:rgba(10,15,12,.94); border-top:2px solid var(--pv-accent); pointer-events:auto; color:var(--text); white-space:nowrap; font-variant-numeric:tabular-nums;
   transform:translateY(100%); opacity:0; visibility:hidden;
   transition:transform .22s cubic-bezier(.4,0,.2,1), opacity .16s, visibility 0s .22s; }
 .pv-strip.pv-up { transform:translateY(0); opacity:1; visibility:visible; transition:transform .22s cubic-bezier(.4,0,.2,1), opacity .16s, visibility 0s; }
-.pv-header { display:flex; align-items:center; gap:11px; border-bottom:1px solid var(--line); padding-bottom:9px; }
+/* 19b: identity on the left, the readout and its bar on the right, then one
+   rule and a row of grouped cells. Heights are fixed - 60px header, 89px stats
+   - so pre-kickoff, live and final all occupy the same box and the video never
+   reflows under the strip. Tokens per STAT_STRIP_SPEC.md section 1. */
+.pv-strip { --good:#5fd47e; --bad:#ff7a5c; --label:#7d7979; --dim-total:#9aa596; --ctx:#5c6e59; }
+.pv-header { display:flex; align-items:center; gap:12px; height:60px; padding:0 16px; box-sizing:border-box; }
 .pv-identity { display:flex; flex-direction:column; gap:3px; min-width:0; }
-.pv-name { font-size:14px; font-weight:800; overflow:hidden; text-overflow:ellipsis; }
-.pv-meta { font-size:9.5px; font-weight:700; letter-spacing:.12em; color:var(--faint); white-space:nowrap; }
-.pv-total { margin-left:auto; display:flex; align-items:baseline; gap:6px; color:var(--pv-accent); }
-.pv-total span { font-size:9px; font-weight:700; letter-spacing:.12em; }
-.pv-total strong { font-size:20px; font-weight:800; }
-/* A bare glyph: the box around it never sat square on the ×, and the strip's
-   own edge is frame enough. */
-.pv-close { flex:none; display:grid; place-items:center; width:26px; height:26px; border:0; background:transparent; color:var(--faint); font-size:20px; line-height:1; padding:0; cursor:pointer; }
+.pv-name { font-size:15px; font-weight:800; letter-spacing:-.015em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pv-meta { font-size:9.5px; font-weight:700; letter-spacing:.12em; color:var(--label); white-space:nowrap; }
+/* The number block is a fixed width because the bar under it is a scale: let it
+   breathe with the name and the same points would draw a different bar. */
+.pv-right { margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:5px; width:260px; }
+.pv-nums { display:flex; align-items:baseline; gap:8px; }
+.pv-total { font-size:27px; line-height:1; font-weight:800; letter-spacing:-.02em; color:var(--pv-accent); }
+.pv-total.none { color:var(--dim-total); }
+.pv-total.over { color:var(--good); }
+.pv-proj { font-size:11px; font-weight:700; color:var(--label); white-space:nowrap; }
+.pv-proj.over { color:var(--good); }
+.pv-bar { position:relative; width:100%; height:4px; background:var(--line); overflow:visible; }
+.pv-bar i { position:absolute; top:0; bottom:0; display:block; }
+.pv-fill { left:0; background:var(--pv-accent); transition:width .4s ease; }
+.pv-fill.over { background:var(--good); }
+/* Past the projection the track is the live total: solid to the tick, hatched
+   beyond it, and the tick slides left as the lead grows. */
+.pv-hatch { background:repeating-linear-gradient(135deg, #5fd47e 0 2px, rgba(95,212,126,.22) 2px 5px); }
+.pv-tick { width:2px; top:-2px; bottom:-2px; background:var(--text); transition:left .4s ease; }
+.pv-close { flex:none; display:grid; place-items:center; width:26px; height:26px; margin-left:12px; border:0; background:transparent; color:var(--label); font-size:20px; line-height:1; padding:0; cursor:pointer; }
 .pv-close:hover { color:var(--text); }
 .pv-close:focus-visible { outline:2px solid var(--accent-warm); outline-offset:2px; }
-.pv-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:1px; background:var(--line); }
-.pv-cell { background:#0a0f0c; padding:8px 10px; display:flex; flex-direction:column; gap:4px; }
-.pv-cell span { font-size:9px; font-weight:700; letter-spacing:.12em; color:var(--faint); white-space:nowrap; }
-.pv-cell strong { font-size:16px; font-weight:800; }
-.pv-away .pv-rail { opacity:0; transition:none; pointer-events:none; }
+.pv-groups { display:flex; height:89px; border-top:1px solid var(--line); box-sizing:border-box; }
+.pv-group { flex:1; min-width:0; padding:10px 16px 12px; box-sizing:border-box; }
+.pv-divide { flex:none; width:1px; background:var(--line); }
+.pv-glabel { display:block; font-size:9px; font-weight:700; letter-spacing:.16em; color:var(--pv-accent); white-space:nowrap; margin-bottom:8px; }
+.pv-cells { display:flex; gap:20px; }
+.pv-cell { display:block; background:none; padding:0; }
+.pv-clabel { display:block; font-size:9px; font-weight:700; letter-spacing:.1em; color:var(--label); white-space:nowrap; }
+.pv-value { display:block; font-size:17px; font-weight:800; margin-top:3px; color:var(--text); }
+.pv-value.bad { color:var(--bad); }
+.pv-line { display:block; font-size:9.5px; font-weight:700; margin-top:2px; white-space:nowrap; }
+.pv-line.pts { color:var(--pv-accent); }
+.pv-line.neg { color:var(--bad); }
+.pv-line.ctx, .pv-line.empty { color:var(--ctx); }
 @media (prefers-reduced-motion:reduce) { .pv-strip, .pv-strip.pv-up { transition:none; } }
 @container (max-width:700px) {
-  .pv-strip { padding:8px 6px; }
-  .pv-header { gap:5px; }
-  .pv-cell { padding:8px 3px; }
-  .pv-cell span,.pv-meta { font-size:8px; letter-spacing:0; }
-  .pv-total { gap:3px; }
-  .pv-total strong { font-size:16px; }
+  .pv-header { gap:6px; padding:0 10px; }
+  .pv-right { width:180px; }
+  .pv-total { font-size:22px; }
+  .pv-group { padding:10px; }
+  .pv-cells { gap:12px; }
+  .pv-clabel,.pv-meta { font-size:8px; letter-spacing:.06em; }
+  .pv-value { font-size:15px; }
 }
 @media (pointer:coarse) { .pv-overlay .pv-rail { opacity:1; pointer-events:auto; } }
 @media (prefers-reduced-motion:reduce) { .pv-rail,.pv-player { transition:none; } }

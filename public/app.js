@@ -79,7 +79,7 @@ function createPlayerRails(wrapper) {
   const overlay=doc.createElement('div');overlay.className='pv-overlay';
   overlay.innerHTML=`<span class="pv-zone pv-zone-l" aria-hidden="true"></span><span class="pv-zone pv-zone-r" aria-hidden="true"></span>
     <div class="pv-rail pv-mine" aria-label="My players"></div><div class="pv-rail pv-opp" aria-label="Opponent players"></div>
-    <section class="pv-strip" aria-label="Player statistics"><div class="pv-header"><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-total"><span>PTS</span><strong></strong></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-grid">${Array.from({length:6},()=>'<div class="pv-cell"><span></span><strong></strong></div>').join('')}</div></section>`;
+    <section class="pv-strip" aria-label="Player statistics"><div class="pv-header"><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-right"><span class="pv-nums"><strong class="pv-total"></strong><span class="pv-proj"></span></span><span class="pv-bar"><i class="pv-fill"></i><i class="pv-hatch"></i><i class="pv-tick"></i></span></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-groups"></div></section>`;
   wrapper.append(overlay);wrapper.classList.add('pv-picture');
   const strip=overlay.querySelector('.pv-strip'), close=overlay.querySelector('.pv-close');
   function portrait(host,p){
@@ -108,10 +108,40 @@ function createPlayerRails(wrapper) {
     strip.classList.toggle('pv-mine',p.side==='mine');strip.classList.toggle('pv-opp',p.side==='opp');
     strip.querySelector('.pv-name').textContent=p.name;
     const role=p.bench?'BENCH':'STARTER';
-    strip.querySelector('.pv-meta').textContent=`${p.position} · ${p.nflTeam} · ${p.fantasyTeam?`${p.fantasyTeam.toUpperCase()} ${role}`:role}`;
-    strip.querySelector('.pv-total strong').textContent=fmt(p.points);
-    strip.querySelectorAll('.pv-cell').forEach((cell,i)=>{cell.firstChild.textContent=p.stats[i]?.key||'—';cell.lastChild.textContent=p.stats[i]?.value??'—';});
+    // The meta line ends with where the game is: a kickoff time before it, the
+    // word FINAL after it, and nothing while it is being played.
+    const tail=p.state==='pre'&&p.kick?` · ${shortKick(p.kick)}`:p.state==='final'?' · FINAL':'';
+    strip.querySelector('.pv-meta').textContent=`${p.position} · ${p.nflTeam} · ${p.fantasyTeam?`${p.fantasyTeam.toUpperCase()} ${role}`:role}${tail}`;
+    paintHeader(p);
+    strip.querySelector('.pv-groups').innerHTML=(p.groups||[]).map(g=>`<div class="pv-group"><span class="pv-glabel">${escape(g.label)}</span><div class="pv-cells">`
+      + g.cells.map(c=>`<div class="pv-cell"><span class="pv-clabel">${escape(c.label)}</span>`
+        + `<strong class="pv-value ${c.bad?'bad':''}">${escape(String(c.value))}</strong>`
+        + `<span class="pv-line ${c.line.kind}">${escape(c.line.text)}</span></div>`).join('')
+      + `</div></div>`).join('<i class="pv-divide"></i>');
   }
+  // Three states in one readout. Under projection the bar fills toward it and
+  // the tick is not drawn - the track's right edge is the projection. Past it
+  // the whole track becomes the live total, the projection turns into a tick
+  // that slides left as the lead grows, and everything beyond it is hatched, so
+  // the bar keeps saying how far past pace the player is instead of pinning at
+  // full and going silent. Before kickoff there is nothing to fill: a bare
+  // track, and a grey total, because gold means points have been scored.
+  function paintHeader(p){
+    const total=strip.querySelector('.pv-total'), projEl=strip.querySelector('.pv-proj');
+    const fill=strip.querySelector('.pv-fill'), hatch=strip.querySelector('.pv-hatch'), tick=strip.querySelector('.pv-tick');
+    const pts=Number(p.points)||0, proj=p.projection==null?null:Number(p.projection);
+    const over=proj!=null&&pts>proj, none=pts===0;
+    total.textContent=fmt(pts);
+    total.classList.toggle('over',over);total.classList.toggle('none',none&&!over);
+    projEl.textContent=proj==null?'—':over?`+${fmt(pts-proj)} over proj`:`of ${fmt(proj)} proj`;
+    projEl.classList.toggle('over',over);
+    const tickPct=over?(proj/pts)*100:0;
+    fill.style.width=proj?`${Math.min(over?tickPct:(pts/proj)*100,100)}%`:'0%';
+    fill.classList.toggle('over',over);
+    hatch.hidden=!over;tick.hidden=!over;
+    if(over){hatch.style.left=`${tickPct}%`;hatch.style.right='0';tick.style.left=`${tickPct}%`;}
+  }
+
   function cancel(){win.clearTimeout(timer);timer=null;}
   function wake(){
     hot=true;overlay.classList.remove('pv-away');cancel();

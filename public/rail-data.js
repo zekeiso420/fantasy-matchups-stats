@@ -1,21 +1,173 @@
 // Shared by the Node API and the static-host data adapter, never the renderer.
-const columns = {
-  QB: [['PASS YDS','pass_yd'],['PASS TD','pass_td'],['INT','pass_int'],['RUSH YDS','rush_yd'],['RUSH TD','rush_td']],
-  RB: [['CAR','rush_att'],['RUSH YDS','rush_yd'],['TD','total_td'],['REC','rec'],['REC YDS','rec_yd']],
-  WR: [['TGT','rec_tgt'],['REC','rec'],['REC YDS','rec_yd'],['TD','total_td'],['LONG','rec_lng']],
-  K: [['FG','fgm'],['ATT','fga'],['LONG','fgm_lng'],['XP','xpm'],['MISSED XP','xpmiss']],
-  DEF: [['SACK','sack'],['INT','int'],['FUM REC','fum_rec'],['TD','def_td'],['PTS ALLOWED','pts_allow']],
-  IDP: [['TACKLES','idp_tkl'],['SACK','idp_sack'],['INT','idp_int'],['FUM REC','idp_fum_rec'],['TD','idp_def_td']],
+// Cells are grouped the way a box score reads - PASSING then RUSHING, RUSHING
+// then RECEIVING - and each carries a third line under its value: the fantasy
+// points it produced, or a piece of context when it produces none. Per
+// STAT_STRIP_SPEC.md, sections 3 and 4.
+//
+// cell: [label, key, line, 'cond']
+//   key    a stat key, a function that formats a paired value, or a pattern
+//          matching the tiered keys that make up one cell
+//   line   'P' for points from the league's own scoring settings, or a
+//          function returning a context string (null when it is not knowable)
+//   cond   the cell only appears once its stat reaches 1, and then stays
+const pct = (a, b) => (b ? `${((a / b) * 100).toFixed(1)}%` : null);
+const per = (a, b) => (b ? `${(a / b).toFixed(1)} avg` : null);
+const num = (s, k) => (typeof s?.[k] === 'number' ? s[k] : 0);
+const pair = (s, a, b) => `${num(s, a)}/${num(s, b)}`;
+const none = () => null;
+
+const groups = {
+  QB: [
+    ['PASSING', [
+      ['C/ATT', (s) => pair(s, 'pass_cmp', 'pass_att'), (s) => pct(num(s, 'pass_cmp'), num(s, 'pass_att'))],
+      ['YDS', 'pass_yd', 'P'],
+      ['TD', 'pass_td', 'P'],
+      ['INT', 'pass_int', 'P'],
+    ]],
+    ['RUSHING', [
+      ['CAR', 'rush_att', (s) => per(num(s, 'rush_yd'), num(s, 'rush_att'))],
+      ['YDS', 'rush_yd', 'P'],
+      ['TD', 'rush_td', 'P'],
+      ['LONG', 'rush_lng', none],
+      ['FUM LOST', 'fum_lost', 'P', 'cond'],
+    ]],
+  ],
+  RB: [
+    ['RUSHING', [
+      ['CAR', 'rush_att', (s) => per(num(s, 'rush_yd'), num(s, 'rush_att'))],
+      ['YDS', 'rush_yd', 'P'],
+      ['TD', 'rush_td', 'P'],
+      ['LONG', 'rush_lng', none],
+      ['FUM LOST', 'fum_lost', 'P', 'cond'],
+    ]],
+    ['RECEIVING', [
+      ['TGT', 'rec_tgt', (s) => pct(num(s, 'rec'), num(s, 'rec_tgt'))],
+      ['REC', 'rec', 'P'],
+      ['YDS', 'rec_yd', 'P'],
+      ['TD', 'rec_td', 'P'],
+    ]],
+  ],
+  WR: [
+    ['RECEIVING', [
+      ['TGT', 'rec_tgt', (s) => pct(num(s, 'rec'), num(s, 'rec_tgt'))],
+      ['REC', 'rec', 'P'],
+      ['YDS', 'rec_yd', 'P'],
+      ['TD', 'rec_td', 'P'],
+      ['LONG', 'rec_lng', none],
+    ]],
+    ['RUSHING', [
+      ['CAR', 'rush_att', (s) => per(num(s, 'rush_yd'), num(s, 'rush_att'))],
+      ['YDS', 'rush_yd', 'P'],
+      ['TD', 'rush_td', 'P'],
+    ], 'cond'],
+  ],
+  K: [
+    ['KICKING', [
+      ['FG', (s) => pair(s, 'fgm', 'fga'), none],
+      ['LONG', 'fgm_lng', (s) => (num(s, 'fgm_lng') ? `${num(s, 'fgm_lng')} yds` : null)],
+      ['XP', (s) => pair(s, 'xpm', 'xpa'), none],
+      ['FG PTS', /^(fgm|xpm)/, 'P'],
+      ['MISS', /^(fgmiss|xpmiss)/, 'P', 'cond'],
+    ]],
+  ],
+  DEF: [
+    ['DEFENSE', [
+      ['SACK', 'sack', 'P'],
+      ['INT', 'int', 'P'],
+      ['FUM REC', 'fum_rec', 'P'],
+      ['TD', 'def_td', 'P', 'cond'],
+      ['SAFETY', 'safe', 'P', 'cond'],
+    ]],
+    ['ALLOWED', [
+      ['PTS', /^pts_allow/, 'P'],
+      ['YDS', 'yds_allow', none],
+    ]],
+  ],
+  IDP: [
+    ['DEFENSE', [
+      ['TACKLES', 'idp_tkl', 'P'],
+      ['SACK', 'idp_sack', 'P'],
+      ['INT', 'idp_int', 'P'],
+      ['FUM REC', 'idp_fum_rec', 'P'],
+      ['TD', 'idp_def_td', 'P', 'cond'],
+    ]],
+  ],
 };
-export function railPlayer(id, player, points, projection, stats) {
-  const position=player?.p || '', name=player?.n || `Player ${id}`;
-  const fields=columns[position==='TE'?'WR':position] || columns.IDP;
-  const value=key=>!stats ? '—' : key==='total_td' ? (stats.rush_td||0)+(stats.rec_td||0) : stats[key] ?? (key.endsWith('_lng')?'—':0);
-  return {id:String(id), name, position, nflTeam:player?.t || '',
-    initials:name.split(/\s+/).map(s=>s[0]).slice(0,2).join(''),
-    headshotUrl:position==='DEF' ? `https://sleepercdn.com/images/team_logos/nfl/${String(player.t).toLowerCase()}.png` : `https://sleepercdn.com/content/nfl/players/${encodeURIComponent(id)}.jpg`,
-    fallbackUrl:player?.e ? `https://a.espncdn.com/i/headshots/nfl/players/full/${encodeURIComponent(player.e)}.png` : '',
-    points, stats:[...fields.map(([key,stat])=>({key,value:value(stat)})),{key:'PROJ',value:projection==null?'—':Number(projection).toFixed(2)}]};
+
+// A pattern cell - points allowed, a kicker's made kicks - has no single number
+// to print, so it prints what it is worth instead and leaves the value to its
+// points line.
+function cellValue(stats, key) {
+  if (typeof key === 'function') return key(stats || {});
+  if (key instanceof RegExp) return null;
+  return num(stats, key);
+}
+
+// What a cell is worth under this league's settings. A pattern gathers the
+// tiered keys - pts_allow_0_6, fgm_40_49 - that are one cell between them.
+function cellPoints(stats, scoring, key) {
+  if (!stats || !scoring || typeof key === 'function') return null;
+  let total = 0, seen = false;
+  for (const k in scoring) {
+    if (!(key instanceof RegExp ? key.test(k) : k === key)) continue;
+    seen = true;
+    const v = stats[k];
+    if (typeof v === 'number' && v !== 0) total += v * scoring[k];
+  }
+  return seen ? Math.round(total * 100) / 100 : null;
+}
+
+const happened = (stats, key) => {
+  if (typeof key === 'function' || !stats) return false;
+  if (key instanceof RegExp) return Object.keys(stats).some((k) => key.test(k) && stats[k] >= 1);
+  return num(stats, key) >= 1;
+};
+
+// Points, a context string, or nothing to say yet. An em dash rather than
+// "0.00 pts", which would read as a claim that something happened.
+function thirdLine(stats, scoring, key, line) {
+  if (line !== 'P') {
+    const text = typeof line === 'function' ? line(stats || {}) : null;
+    return text ? { kind: 'ctx', text } : { kind: 'empty', text: '—' };
+  }
+  const pts = stats ? cellPoints(stats, scoring, key) : null;
+  if (!pts) return { kind: 'empty', text: '—' };
+  const body = `${Math.abs(pts).toFixed(2)} pts`;
+  return pts < 0 ? { kind: 'neg', text: `−${body}` } : { kind: 'pts', text: body };
+}
+
+export function railGroups(position, stats, scoring) {
+  const table = groups[position === 'TE' ? 'WR' : position] || groups.IDP;
+  const out = [];
+  for (const [label, cells, cond] of table) {
+    if (cond && !cells.some(([, key]) => happened(stats, key))) continue;
+    const rendered = [];
+    for (const [cellLabel, key, line, cellCond] of cells) {
+      if (cellCond && !happened(stats, key)) continue;
+      const value = cellValue(stats, key);
+      rendered.push({
+        label: cellLabel,
+        value: value == null ? '—' : value,
+        // Inherently negative stats read red the moment they happen.
+        bad: /INT|FUM LOST|MISS/.test(cellLabel) && value > 0,
+        line: thirdLine(stats, scoring, key, line),
+      });
+    }
+    if (rendered.length) out.push({ label, cells: rendered });
+  }
+  return out;
+}
+
+export function railPlayer(id, player, points, projection, stats, scoring) {
+  const position = player?.p || '', name = player?.n || `Player ${id}`;
+  return {
+    id: String(id), name, position, nflTeam: player?.t || '',
+    initials: name.split(/\s+/).map((s) => s[0]).slice(0, 2).join(''),
+    headshotUrl: position === 'DEF' ? `https://sleepercdn.com/images/team_logos/nfl/${String(player.t).toLowerCase()}.png` : `https://sleepercdn.com/content/nfl/players/${encodeURIComponent(id)}.jpg`,
+    fallbackUrl: player?.e ? `https://a.espncdn.com/i/headshots/nfl/players/full/${encodeURIComponent(player.e)}.png` : '',
+    points, projection: projection == null ? null : projection,
+    groups: railGroups(position, stats, scoring),
+  };
 }
 
 export function gameRailPlayers({matchups,rosters,games,scored},matchupId,gameId,rosterId) {

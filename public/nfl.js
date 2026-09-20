@@ -118,7 +118,7 @@ export function scoreLeagueWeek({ league, matchups, rosters, stats, proj, games,
       const projected = proj?.[pid] ? scorePlayer(proj[pid], scoring) : 0;
       const exp = expectedPoints(pts, projected, game);
       out.players[pid] = { pts: round2(pts), proj: round2(projected), exp: round2(exp), src };
-      out.players[pid].rail = railPlayer(pid, players?.[pid], round2(pts), proj?.[pid] ? round2(projected) : null, stats?.[pid]);
+      out.players[pid].rail = railPlayer(pid, players?.[pid], round2(pts), proj?.[pid] ? round2(projected) : null, stats?.[pid], scoring);
       if ((m.starters || []).includes(pid)) { teamPts += pts; teamExp += exp; }
     }
     out.teams[m.roster_id] = { pts: round2(teamPts), exp: round2(teamExp) };
