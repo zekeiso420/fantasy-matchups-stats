@@ -76,7 +76,8 @@ function createPlayerRails(wrapper) {
   let hot=false, selected=null, timer=null, context=null, enabled=true;
   const players=new Map(), buttons=new Map();
   const overlay=doc.createElement('div');overlay.className='pv-overlay';
-  overlay.innerHTML=`<div class="pv-rail pv-mine" aria-label="My players"></div><div class="pv-rail pv-opp" aria-label="Opponent players"></div>
+  overlay.innerHTML=`<span class="pv-zone pv-zone-l" aria-hidden="true"></span><span class="pv-zone pv-zone-r" aria-hidden="true"></span>
+    <div class="pv-rail pv-mine" aria-label="My players"></div><div class="pv-rail pv-opp" aria-label="Opponent players"></div>
     <section class="pv-strip" aria-label="Player statistics" hidden><div class="pv-header"><span class="pv-avatar pv-portrait"></span><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-total"><span>PTS</span><strong></strong></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-grid">${Array.from({length:6},()=>'<div class="pv-cell"><span></span><strong></strong></div>').join('')}</div></section>`;
   wrapper.append(overlay);wrapper.classList.add('pv-picture');
   const strip=overlay.querySelector('.pv-strip'), close=overlay.querySelector('.pv-close');
@@ -130,6 +131,9 @@ function createPlayerRails(wrapper) {
     e.stopPropagation();
   };
   wrapper.addEventListener('mouseenter',wake);wrapper.addEventListener('mousemove',wake);wrapper.addEventListener('mouseleave',leave);
+  // Movement over the picture itself never reaches us - the iframe keeps it -
+  // so the edge zones and the rails are what report that a hand is still here.
+  overlay.addEventListener('mousemove',wake);
   overlay.addEventListener('focusin',wake);overlay.addEventListener('focusout',focusOut);overlay.addEventListener('keydown',keydown);overlay.addEventListener('click',click);
   coarse.addEventListener?.('change',wake);
   return {

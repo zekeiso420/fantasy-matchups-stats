@@ -1054,7 +1054,15 @@ body.theater .video-box iframe {
 .possession-ball { width: 12px; height: 8px; flex: none; vertical-align: middle; }
 /* Theater-only player rails. The provider frame remains mounted underneath. */
 .pv-picture { container-type: inline-size; }
-.pv-picture.pv-enabled > iframe { pointer-events: none; }
+/* The rails need to know the pointer is near them, and an iframe swallows every
+   mouse event over it. Making the whole picture click-through bought that at
+   the cost of the player's own controls - nothing in the video could be clicked
+   at all. Instead two invisible strips stand where the rails are, down the
+   edges and clear of the provider's control bar, so the approach is caught and
+   the rest of the picture stays live. */
+.pv-zone { position:absolute; top:0; bottom:52px; width:72px; pointer-events:auto; }
+.pv-zone-l { left:0; }
+.pv-zone-r { right:0; }
 .pv-overlay { position:absolute; inset:0; z-index:3; pointer-events:none; --accent-warm:#f0c543; --text:#eaefe6; --surface-2:#1a231d; --line:#2c3830; --line-strong:#46593f; }
 .pv-overlay[hidden] { display:none; }
 .pv-rail { position:absolute; top:18px; bottom:18px; width:48px; display:flex; flex-direction:column; justify-content:safe center; gap:10px; overflow-y:auto; scrollbar-width:none; opacity:0; transition:opacity 180ms ease; pointer-events:none; padding:2px; box-sizing:border-box; max-height:450px; margin-block:auto; }
