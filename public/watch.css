@@ -582,7 +582,9 @@ body::-webkit-scrollbar, main::-webkit-scrollbar, aside::-webkit-scrollbar,
 @media (prefers-reduced-motion:reduce) { .watch-surface * { transition:none !important; } }
 
 .watch-surface .w-single { max-width: min(100%, calc((100dvh - 154px) * 16 / 9)); }
-.watch-surface .w-grid { max-width: min(1342px, 100%, calc((100dvh - 140px) * 1100 / 604)); }
+.watch-surface .w-grid-space { display:none; }
+.watch-surface.w-is-multi .w-grid-space { display:grid; place-items:center; container-type:size; flex:1; min-height:0; width:100%; }
+.watch-surface .w-grid { width:min(100cqw, calc(100cqh * var(--grid-ratio, 1.777778))); max-width:none; height:auto; aspect-ratio:var(--grid-ratio, 1.777778); }
 .watch-surface .w-player { height: fit-content; }
 .watch-surface .w-chrome { width: 100%; }
 .watch-surface.w-is-single .w-stage-head { display: none; }
