@@ -1,4 +1,5 @@
 import express from 'express';
+import { gameRailPlayers } from './public/rail-data.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SLEEPER, ESPN, slimPlayers, scoreboardUrl, feedUrls, summarizeGames, normalizeStatFeed, scoreLeagueWeek } from './public/nfl.js';
@@ -107,7 +108,7 @@ const route = (fn) => async (req, res) => {
   try {
     res.json(await fn(req));
   } catch (err) {
-    res.status(err.status === 404 ? 404 : 502).json({ error: err.message });
+    res.status([400,404].includes(err.status) ? err.status : 502).json({ error: err.message });
   }
 };
 
@@ -150,6 +151,18 @@ app.get('/api/league/:leagueId/week/:week', route(async (req) => {
 }));
 
 app.get('/api/players', route(getPlayers));
+
+// Matchup IDs repeat across leagues/weeks; query context identifies the viewer.
+app.get('/api/matchup/:matchupId/game/:gameId/players', route(async req => {
+  const {leagueId,week,rosterId}=req.query;
+  if(!/^\d+$/.test(leagueId||'') || !/^\d+$/.test(week||'') || !/^\d+$/.test(rosterId||'')) {
+    throw Object.assign(new Error('leagueId, week and rosterId are required'),{status:400});
+  }
+  const [update,rosters]=await Promise.all([buildUpdate(leagueId,week),getRosters(leagueId)]);
+  const result=gameRailPlayers({...update,rosters,matchups:update.teams},req.params.matchupId,req.params.gameId,rosterId);
+  if(!result)throw Object.assign(new Error('Roster not found in matchup'),{status:404});
+  return result;
+}));
 
 // Live variants for one stream key. An empty list means nothing is up yet; the
 // provider 404s an unknown key, which is not an error worth surfacing as 502.

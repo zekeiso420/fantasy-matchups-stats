@@ -1,5 +1,6 @@
 // Data-shaping logic shared by server.js and the static (GitHub Pages) client.
 import { scorePlayer, expectedPoints, round2 } from './scoring.js';
+import { railPlayer } from './rail-data.js';
 
 export const SLEEPER = 'https://api.sleeper.app/v1';
 export const SLEEPER_STATS = 'https://api.sleeper.com'; // undocumented stats/projections host
@@ -117,10 +118,10 @@ export function scoreLeagueWeek({ league, matchups, rosters, stats, proj, games,
       const projected = proj?.[pid] ? scorePlayer(proj[pid], scoring) : 0;
       const exp = expectedPoints(pts, projected, game);
       out.players[pid] = { pts: round2(pts), proj: round2(projected), exp: round2(exp), src };
+      out.players[pid].rail = railPlayer(pid, players?.[pid], round2(pts), proj?.[pid] ? round2(projected) : null, stats?.[pid]);
       if ((m.starters || []).includes(pid)) { teamPts += pts; teamExp += exp; }
     }
     out.teams[m.roster_id] = { pts: round2(teamPts), exp: round2(teamExp) };
   }
   return out;
 }
-

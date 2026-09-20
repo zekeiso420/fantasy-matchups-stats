@@ -1,10 +1,10 @@
-import { createWatch } from './watch.js?v=20260920-2';
+import { createWatch } from './watch.js?v=20260920-3';
 // Matchup: a Sleeper fantasy matchup tracker
 // Data flows one way: fetch → state → render(). Live updates patch state and
 // either re-render or touch only the numbers, depending on what changed.
 
 import { breakdown, scorePlayer, STAT_LABEL } from './scoring.js';
-import * as backend from './backend.js';
+import * as backend from './backend.js?v=20260920-3';
 import { VIDEO_BASE, PROVIDER, streamKey, sourceLabel } from './video.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -48,6 +48,7 @@ const S = {
 
 // Unified watch surface shares the existing selected matchup and data feed.
 const watchSurface = createWatch({
+  createPlayerRails,
   getData: () => {
     if (!S.data) return null;
     const p = current(); if (!p) return null;
@@ -66,6 +67,88 @@ const watchSurface = createWatch({
   onExit: id => { S.watchGameId=id; S.theater=false; save({theater:false}); srcState.key=null; render(); },
   onMatchup: id => { S.viewMatchupId=Number(id); watchSurface.update(); }
 });
+
+// In-video rails own their nodes: live ticks patch text without replacing focus,
+// the open strip, or the provider iframe. Stat columns come from the data feed.
+function createPlayerRails(wrapper) {
+  const doc=wrapper.ownerDocument, win=doc.defaultView;
+  const coarse=win.matchMedia('(pointer: coarse)');
+  let hot=false, selected=null, timer=null, context=null, enabled=true;
+  const players=new Map(), buttons=new Map();
+  const overlay=doc.createElement('div');overlay.className='pv-overlay';
+  overlay.innerHTML=`<div class="pv-rail pv-mine" aria-label="My players"></div><div class="pv-rail pv-opp" aria-label="Opponent players"></div>
+    <section class="pv-strip" aria-label="Player statistics" hidden><div class="pv-header"><span class="pv-avatar pv-portrait"></span><span class="pv-identity"><strong class="pv-name"></strong><span class="pv-meta"></span></span><span class="pv-total"><span>PTS</span><strong></strong></span><button type="button" class="pv-close" aria-label="Close player statistics">×</button></div><div class="pv-grid">${Array.from({length:6},()=>'<div class="pv-cell"><span></span><strong></strong></div>').join('')}</div></section>`;
+  wrapper.append(overlay);wrapper.classList.add('pv-picture');
+  const strip=overlay.querySelector('.pv-strip'), close=overlay.querySelector('.pv-close');
+  function portrait(host,p){
+    if(host.dataset.player===p.id)return;
+    host.dataset.player=p.id;host.textContent=p.initials;
+    if(!p.headshotUrl)return;
+    const img=doc.createElement('img');img.alt='';img.src=p.headshotUrl;
+    let fallback=p.fallbackUrl;
+    img.onerror=()=>{if(fallback){img.src=fallback;fallback=null;}else img.remove();};host.append(img);
+  }
+  function paint(){
+    wrapper.classList.toggle('pv-enabled',enabled&&players.size>0);
+    overlay.hidden=!enabled || !players.size;
+    overlay.classList.toggle('pv-hot',hot || coarse.matches);
+    for(const [key,b] of buttons)b.setAttribute('aria-pressed',String(key===selected));
+    const p=players.get(selected);strip.hidden=!p;
+    if(!p)return;
+    strip.classList.toggle('pv-mine',p.side==='mine');strip.classList.toggle('pv-opp',p.side==='opp');
+    portrait(strip.querySelector('.pv-portrait'),p);
+    strip.querySelector('.pv-name').textContent=p.name;
+    strip.querySelector('.pv-meta').textContent=`${p.position} · ${p.nflTeam} · ${p.side==='mine'?'MY':'OPPONENT'} ${p.bench?'BENCH':'STARTER'}`;
+    strip.querySelector('.pv-total strong').textContent=fmt(p.points);
+    strip.querySelectorAll('.pv-cell').forEach((cell,i)=>{cell.firstChild.textContent=p.stats[i]?.key||'—';cell.lastChild.textContent=p.stats[i]?.value??'—';});
+  }
+  function cancel(){win.clearTimeout(timer);timer=null;}
+  function wake(){
+    hot=true;overlay.classList.remove('pv-away');cancel();
+    if(!coarse.matches)timer=win.setTimeout(()=>{if(!selected&&!(overlay.contains(doc.activeElement)&&doc.activeElement.matches(':focus-visible'))){hot=false;paint();}},3000);
+    paint();
+  }
+  function leave(){cancel();hot=false;selected=null;overlay.classList.add('pv-away');paint();}
+  const focusOut=e=>{if(!overlay.contains(e.relatedTarget))leave();};
+  const keydown=e=>{
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();const b=buttons.get(selected);selected=null;b?.focus();wake();return;}
+    const b=e.target.closest('.pv-player');
+    if(!b||!['ArrowUp','ArrowDown','Home','End'].includes(e.key))return;
+    e.preventDefault();e.stopPropagation();
+    const list=[...b.parentElement.querySelectorAll('.pv-player')],i=list.indexOf(b);
+    list[e.key==='Home'?0:e.key==='End'?list.length-1:(i+(e.key==='ArrowUp'?-1:1)+list.length)%list.length].focus();
+  };
+  const click=e=>{
+    const b=e.target.closest('.pv-player');
+    if(b){selected=selected===b.dataset.key?null:b.dataset.key;wake();}
+    if(e.target.closest('.pv-close')){const previous=buttons.get(selected);selected=null;previous?.focus();wake();}
+    e.stopPropagation();
+  };
+  wrapper.addEventListener('mouseenter',wake);wrapper.addEventListener('mousemove',wake);wrapper.addEventListener('mouseleave',leave);
+  overlay.addEventListener('focusin',wake);overlay.addEventListener('focusout',focusOut);overlay.addEventListener('keydown',keydown);overlay.addEventListener('click',click);
+  coarse.addEventListener?.('change',wake);
+  return {
+    update(nextContext,sides){
+      if(context!==nextContext){leave();context=nextContext;}
+      players.clear();
+      for(const side of ['mine','opp']){
+        const rail=overlay.querySelector(`.pv-rail.pv-${side}`);
+        for(const p of sides[side]||[]){
+          const key=`${side}:${p.id}`;players.set(key,{...p,side});
+          let b=buttons.get(key);
+          if(!b){b=doc.createElement('button');b.type='button';b.className='pv-player';b.dataset.key=key;b.innerHTML='<span class="pv-avatar"></span><span class="pv-points"></span>';buttons.set(key,b);rail.append(b);}
+          portrait(b.firstChild,p);b.lastChild.textContent=fmt(p.points);
+          b.setAttribute('aria-label',`${p.name}, ${p.position} ${p.nflTeam}, ${fmt(p.points)} points`);
+        }
+      }
+      for(const [key,b] of buttons)if(!players.has(key)){b.remove();buttons.delete(key);}
+      if(!players.has(selected))selected=null;
+      paint();
+    },
+    setEnabled(value){if(enabled!==value){enabled=value;leave();}},
+    destroy(){leave();wrapper.removeEventListener('mouseenter',wake);wrapper.removeEventListener('mousemove',wake);wrapper.removeEventListener('mouseleave',leave);coarse.removeEventListener?.('change',wake);wrapper.classList.remove('pv-picture','pv-enabled');overlay.remove();}
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -394,6 +477,7 @@ function player(pid, m) {
     pts: sc ? sc.pts : m.players_points?.[pid],
     proj: sc?.proj ?? 0,
     exp: sc?.exp,
+    rail: sc?.rail,
     game: team ? S.data.games?.[team] || null : null,
   };
 }
