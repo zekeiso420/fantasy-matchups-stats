@@ -25,10 +25,11 @@ export function gameRailPlayers({matchups,rosters,games,scored},matchupId,gameId
   const select=m=>{
     if(!m)return [];
     const roster=rosters.find(r=>r.roster_id===m.roster_id);
+    const lineup=(m.starters||[]).filter(id=>id&&id!=='0');
     return [...new Set([...(roster?.players||[]),...(m.starters||[])])].filter(id=>id&&id!=='0').map(id=>{
       const p=scored.players[id]?.rail;
-      return p&&String(games[p.nflTeam]?.id)===String(gameId)?{...p,bench:!(m.starters||[]).includes(id)}:null;
-    }).filter(Boolean).sort((a,b)=>Number(a.bench)-Number(b.bench));
+      return p&&String(games[p.nflTeam]?.id)===String(gameId)?{...p,bench:!lineup.includes(id),slot:lineup.indexOf(id)}:null;
+    }).filter(Boolean).sort((a,b)=>Number(a.bench)-Number(b.bench)||a.slot-b.slot);
   };
   return {mine:select(mine),opp:select(sides.find(m=>m!==mine))};
 }

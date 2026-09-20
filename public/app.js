@@ -1185,12 +1185,15 @@ const posRank = (p) => { const i = POS_ORDER.indexOf(p); return i < 0 ? 99 : i; 
 function gameBuckets(p) {
   const buckets = new Map(); // gameKey → { game, team, a: [], b: [] }
   const add = (s, key) => {
-    const starters = new Set((s.m.starters || []).filter((id) => id && id !== '0'));
+    // The starters array is the lineup in order - QB, RB, RB, WR, WR, TE, FLEX,
+    // K, DEF - so a player's index in it is the only slot ranking needed.
+    const lineup = (s.m.starters || []).filter((id) => id && id !== '0');
+    const starters = new Set(lineup);
     for (const id of s.roster?.players || []) {
       const pl = player(id, s.m);
       const gk = pl.game ? pl.game.id : pl.team ? `bye:${pl.team}` : 'fa';
       if (!buckets.has(gk)) buckets.set(gk, { game: pl.game, team: pl.team, a: [], b: [] });
-      buckets.get(gk)[key].push({ ...pl, bench: !starters.has(id), rosterId: s.m.roster_id });
+      buckets.get(gk)[key].push({ ...pl, bench: !starters.has(id), slot: lineup.indexOf(id), rosterId: s.m.roster_id });
     }
   };
   add(p.a, 'a');
