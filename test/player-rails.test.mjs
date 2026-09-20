@@ -46,9 +46,9 @@ test('data has six labeled stats, missing data stays unknown, rosters filter to 
  for(const position of ['QB','RB','WR','TE','K','DEF','LB'])assert.ok(railPlayer('1',{p:position,n:'A B',t:'BUF'},0,null,null).groups.length>=1);
  const scoring={rush_yd:0.1,rush_td:6,rec:1,rec_yd:0.1,rec_td:6};
  const p=railPlayer('1',{p:'RB',n:'A B',t:'BUF'},12,20,{rush_td:1,rec_td:1,rush_att:8},scoring);
- assert.equal(p.groups[0].label,'RUSHING');assert.equal(p.groups[0].cells[0].value,8);
+ assert.equal(p.groups[0].label,'RUSHING');assert.equal(p.groups[0].cells[0].value,'8');
  assert.equal(p.groups[0].cells[2].line.text,'6.00 pts');
- assert.equal(railPlayer('1',{p:'QB'},0,null,null).groups[0].cells[1].value,0);
+ assert.equal(railPlayer('1',{p:'QB'},0,null,null).groups[0].cells[1].value,'0');
  const data={matchups:[{matchup_id:1,roster_id:2,starters:['1']},{matchup_id:1,roster_id:3,starters:[]}],rosters:[{roster_id:2,players:['1','2']},{roster_id:3,players:['3']}],games:{BUF:{id:'g'},KC:{id:'other'}},scored:{players:{'1':{rail:p},'2':{rail:{...p,id:'2',nflTeam:'KC'}},'3':{rail:{...p,id:'3'}}}}};
  const result=gameRailPlayers(data,1,'g',2);assert.deepEqual(result.mine.map(p=>p.id),['1']);assert.equal(result.mine[0].bench,false);assert.equal(result.opp[0].bench,true);assert.equal(gameRailPlayers(data,1,'g',7),null);
 });

@@ -18,7 +18,12 @@ const num = (s, k) => (typeof s?.[k] === 'number' ? s[k] : 0);
 // A denominator the feed does not carry is not a zero: projections have no
 // target count, and some live feeds drop attempts. Show the numerator alone
 // rather than "4/0", which reads as four catches on no targets.
-const pair = (s, a, b) => (num(s, b) ? `${num(s, a)}/${num(s, b)}` : `${num(s, a)}`);
+// Counts are whole things - you cannot complete 18.4 passes - so a paired cell
+// rounds to the nearest one. Every other stat carries a decimal, which only
+// shows on a projection: live numbers are already whole and print as whole.
+const whole = (v) => String(Math.round(v));
+const dec = (v) => { const r = Math.round(v * 10) / 10; return Number.isInteger(r) ? String(r) : r.toFixed(1); };
+const pair = (s, a, b) => (num(s, b) ? `${whole(num(s, a))}/${whole(num(s, b))}` : whole(num(s, a)));
 const none = () => null;
 
 const groups = {
@@ -104,10 +109,10 @@ const groups = {
 // to print, so it prints what it is worth instead and leaves the value to its
 // points line.
 function cellValue(stats, key) {
-  if (key && key.value) return typeof key.value === 'function' ? key.value(stats || {}) : num(stats, key.value);
+  if (key && key.value) return typeof key.value === 'function' ? key.value(stats || {}) : dec(num(stats, key.value));
   if (typeof key === 'function') return key(stats || {});
   if (key instanceof RegExp) return null;
-  return num(stats, key);
+  return dec(num(stats, key));
 }
 
 // What a cell is worth under this league's settings. A pattern gathers the
@@ -162,7 +167,7 @@ export function railGroups(position, stats, scoring) {
         // quarterback's interception is a loss, a defence's is a takeaway. The
         // ones marked as losses read red even in a league that pays nothing for
         // them, because a lost fumble is still a lost fumble.
-        bad: /loss/.test(flags) ? value > 0 : third.kind === 'neg',
+        bad: /loss/.test(flags) ? Number(value) > 0 : third.kind === 'neg',
         line: third,
       });
     }
