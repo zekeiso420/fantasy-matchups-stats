@@ -456,6 +456,7 @@
 .w-tile.w-is-audio .w-audio-mark { display: block; }
 
 .w-tile-bar {
+  pointer-events: none;
   position: absolute; left: 0; right: 0; bottom: 0;
   display: flex; align-items: center; gap: 8px;
   height: 26px; padding: 0 8px;
@@ -545,9 +546,9 @@
 .watch-surface .w-player { max-width: none; }
 .watch-surface .w-well--player { flex: none; aspect-ratio: 16 / 9; }
 .watch-surface iframe, .watch-surface video { width: 100%; height: 100%; border: 0; display: block; }
-.watch-surface .w-tile iframe { pointer-events: none; }
-.watch-surface .w-tile.w-controls iframe { pointer-events: auto; }
-.watch-surface.w-is-edit .w-tile iframe { pointer-events: none; }
+.watch-surface .w-tile iframe { pointer-events: auto; }
+.watch-surface.w-is-edit .w-tile iframe,
+.watch-surface.w-is-pool .w-tile iframe { pointer-events: none; }
 .watch-surface .w-tile:hover .w-tile-bar, .watch-surface .w-tile:focus-within .w-tile-bar { opacity: 1; }
 .watch-surface .w-switch-row, .watch-surface .w-rail-row, .watch-surface .w-all-row, .watch-surface .w-pool-row { width: 100%; border: 0; background-color: transparent; text-align: left; font-family: inherit; }
 .watch-surface .w-switch-row.w-is-watching, .watch-surface .w-rail-row.w-is-feat { background: var(--sel); }

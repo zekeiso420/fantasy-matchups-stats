@@ -5,7 +5,6 @@ const num = n => (Number(n) || 0).toFixed(2);
 const icon = paths => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">${paths}</svg>`;
 const singleIcon = icon('<rect x="3" y="4" width="18" height="16"/>');
 const gridIcon = icon('<rect x="3" y="4" width="11" height="9"/><rect x="16" y="4" width="5" height="4"/><rect x="16" y="11" width="5" height="4"/><rect x="3" y="16" width="11" height="4"/>');
-const speaker = icon('<path d="M11 5 6 9H2v6h4l5 4V5Z M16 8q6 4 0 8"/>');
 export const LAYOUTS = {
   1:[[0,0,896,504],[904,0,196,110],[904,118,196,110],[904,236,196,110],[904,354,196,110],[904,472,196,110]],
   2:[[0,0,546,307],[554,0,546,307],[0,315,269,151],[277,315,269,151],[554,315,269,151],[831,315,269,151]],
@@ -95,7 +94,6 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     }
     const match=e.target.closest('[data-match]');if(match){onMatchup(match.dataset.match);return;}
     const row=e.target.closest('[data-game]');if(row){const id=row.dataset.game;s.expanded=s.watching===id&&s.expanded===id?null:id;s.watching=id;onWatch(id);render();return;}
-    const ctl=e.target.closest('[data-controls]');if(ctl){const t=tiles.get(ctl.dataset.controls);t.classList.toggle('w-controls');ctl.setAttribute('aria-pressed',String(t.classList.contains('w-controls')));return;}
     const audio=e.target.closest('[data-audio]');if(audio){s.audio=audio.dataset.audio;render();return;}
     const el=e.target.closest('[data-tile],[data-slot]');if(el&&s.edit){Object.assign(s,toggleFeatured(s.order,s.count,el.dataset.tile||el.dataset.slot));render();}
   }
@@ -174,7 +172,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     for(const [id,t] of tiles)if(!s.order.includes(id)){t.remove();tiles.delete(id);}
     s.order.forEach((id,i)=>{
       const g=slot(id);if(!g)return;
-      let t=tiles.get(id);if(!t){t=document.createElement('div');t.className='w-tile';t.dataset.tile=id;t.innerHTML=`<div class="w-well"><div class="w-media"></div><span class="w-grip"></span><div class="w-tile-bar"><span class="w-name"></span><span class="w-status"></span><span class="w-ctl"><button class="w-icon-btn" data-controls="${esc(id)}" aria-label="Enable stream controls" aria-pressed="false" title="Enable stream controls">${speaker}</button></span></div></div>`;t.querySelector('.w-media').style.cssText='position:absolute;inset:0';$('grid').append(t);tiles.set(id,t);}
+      let t=tiles.get(id);if(!t){t=document.createElement('div');t.className='w-tile';t.dataset.tile=id;t.innerHTML=`<div class="w-well"><div class="w-media"></div><span class="w-grip"></span><div class="w-tile-bar"><span class="w-name"></span><span class="w-status"></span></div></div>`;t.querySelector('.w-media').style.cssText='position:absolute;inset:0';$('grid').append(t);tiles.set(id,t);}
       const [x,y,w,h]=layout[i];Object.assign(t.style,{left:x/1100*100+'%',top:y/604*100+'%',width:w/1100*100+'%',height:h/604*100+'%'});
       t.draggable=s.edit;t.tabIndex=s.edit?0:-1;t.setAttribute('aria-label',`${title(g)}, ${i<s.count?'large':'small'}, slot ${i+1}`);
       t.classList.toggle('w-is-feat',i<s.count);t.classList.toggle('w-is-big',i<s.count);t.classList.toggle('w-is-target',!!s.pool);t.classList.toggle('w-is-dragging',s.drag===id);
@@ -187,8 +185,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     if(!s.pool)$('pool').innerHTML=pool.map(g=>`<div class="w-pool-row" draggable="true" data-pool="${esc(g.id)}"><span class="w-label">${line(g)}</span><span class="w-status">${esc(status(g))}</span></div>`).join('');
     for(const row of $('pool').children)row.classList.toggle('w-is-dragging',row.dataset.pool===s.pool);
   }
-  // Iframe providers expose no standard mute API. Keep provider controls
-  // available explicitly instead of pretending a selected tile is unmuted.
+  // Provider controls receive input directly except while arranging the grid.
   function ensureMedia(g){
     if(media.has(g.id))return media.get(g.id);
     const el=document.createElement('iframe');el.title=title(g);el.allow='autoplay; fullscreen; picture-in-picture; encrypted-media';el.allowFullscreen=true;
