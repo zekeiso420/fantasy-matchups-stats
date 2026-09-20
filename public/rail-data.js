@@ -4,7 +4,7 @@ const columns = {
   RB: [['CAR','rush_att'],['RUSH YDS','rush_yd'],['TD','total_td'],['REC','rec'],['REC YDS','rec_yd']],
   WR: [['TGT','rec_tgt'],['REC','rec'],['REC YDS','rec_yd'],['TD','total_td'],['LONG','rec_lng']],
   K: [['FG','fgm'],['ATT','fga'],['LONG','fgm_lng'],['XP','xpm'],['MISSED XP','xpmiss']],
-  DEF: [['SACK','sack'],['INT','int'],['FUM REC','fum_rec'],['TD','def_td'],['PTS ALW','pts_allow']],
+  DEF: [['SACK','sack'],['INT','int'],['FUM REC','fum_rec'],['TD','def_td'],['PTS ALLOWED','pts_allow']],
   IDP: [['TACKLES','idp_tkl'],['SACK','idp_sack'],['INT','idp_int'],['FUM REC','idp_fum_rec'],['TD','idp_def_td']],
 };
 export function railPlayer(id, player, points, projection, stats) {
