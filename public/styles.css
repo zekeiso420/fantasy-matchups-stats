@@ -1243,15 +1243,18 @@ body.theater .video-box iframe {
 /* The delay belongs to the arrival - the flag waits for the pop before it
    opens - so it is set on the open state, not on the element, or the exit would
    sit still for a quarter second before starting. */
-.sf-flag { flex:none; height:78px; width:0; overflow:hidden; transition:width .3s cubic-bezier(.16,1,.28,1); }
-.sf-band.sf-on .sf-flag { transition:width .46s cubic-bezier(.16,1,.28,1) .26s; }
+/* The flag fades as it draws in, or the last two or three pixels of it - black
+   with a green edge on top - sit there at full strength and then vanish, which
+   reads as a sliver left behind. */
+.sf-flag { flex:none; height:78px; width:0; opacity:0; overflow:hidden; transition:width .18s cubic-bezier(.4,0,.2,1), opacity .12s ease .06s; }
+.sf-band.sf-on .sf-flag { opacity:1; transition:width .46s cubic-bezier(.16,1,.28,1) .26s, opacity .12s ease .26s; }
 /* The row is a fixed width inside a clipping flag, so nothing reflows while it opens. */
 .sf-row {
   width:512px; height:78px; box-sizing:border-box; display:flex; align-items:stretch;
   background:rgba(6,10,7,.94); border-top:2px solid var(--good, #5fd47e);
 }
 /* And the way out: the band fades as a whole while the flag draws back in. */
-.sf-band { opacity:1; transition:opacity .35s ease; }
+.sf-band { opacity:1; transition:opacity .2s ease; }
 .sf-band.sf-out { opacity:0; }
 .sf-band.sf-on .sf-face { opacity:1; transform:none; }
 .sf-band.sf-on .sf-flag { width:512px; }
@@ -1284,7 +1287,7 @@ body.theater .video-box iframe {
 @container (max-width:379px) { .sf-band { display:none; } }
 @media (prefers-reduced-motion:reduce) {
   .sf-face { transition:opacity .15s ease; transform:none; }
-  .sf-flag, .sf-band.sf-on .sf-flag { transition:none; }
+  .sf-flag, .sf-band.sf-on .sf-flag { transition:opacity .12s ease; }
   .sf-band.sf-on .sf-flag { width:512px; }
   .sf-strip { transition:none; }
 }

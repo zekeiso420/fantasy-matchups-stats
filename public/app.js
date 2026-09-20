@@ -312,7 +312,7 @@ function createScoringBand(wrapper,anchorOf){
       // no tile to collapse into, so that one fades as a whole instead.
       band.classList.remove('sf-on','sf-held');
       if(!litTile)band.classList.add('sf-out');
-      at(340,()=>{lit(null);band.classList.remove('sf-out');at(160,()=>{showing=false;next();});});
+      at(200,()=>{lit(null);band.classList.remove('sf-out');at(120,()=>{showing=false;next();});});
     });
   }
   function next(){ if(!showing&&queue.length)show(queue.shift()); }
