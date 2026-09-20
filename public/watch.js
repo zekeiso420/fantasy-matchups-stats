@@ -274,7 +274,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
       t.classList.toggle('w-is-feat',i<s.count);t.classList.toggle('w-is-big',i<s.count);t.classList.toggle('w-is-target',!!s.pool);t.classList.toggle('w-is-dragging',s.drag===id);
       const exp=t.querySelector('.w-tile-exp'), solo=s.solo===id;
       exp.innerHTML=solo
-        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10 21 3"/><path d="M15 3h6v6"/><path d="M10 14 3 21"/><path d="M9 21H3v-6"/></svg>`
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10 3 21"/><path d="M10 21H3v-7"/></svg>`
         : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14 21 3"/><path d="M14 3h7v7"/></svg>`;
       exp.setAttribute('aria-label',solo?'Collapse this stream':'Expand this stream');
       exp.setAttribute('aria-pressed',String(solo));
