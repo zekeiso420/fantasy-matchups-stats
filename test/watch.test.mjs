@@ -21,6 +21,20 @@ test('all featured layouts preserve 16:9 and selection constraints',()=>{
  assert.equal(a.count,4);assert.deepEqual(toggleFeatured(a.order,a.count,'e'),a);
  a=toggleFeatured(a.order,a.count,'d');assert.equal(a.count,3);
 });
+test('a three-stream grid can add other live games up to six and restore them',()=>{
+ const t=setup();t.data.buckets.forEach((b,i)=>{if(i>=3)b.a=[];});t.watch.open('multi');assert.equal(t.$('.w-grid').children.length,3);
+ const frame=t.$('[data-tile="0"] iframe');t.click('[data-action="more"]');
+ for(const id of ['3','4','5'])t.click(`[data-add-game="${id}"]`);
+ assert.equal(t.$('.w-grid').children.length,6);assert.equal(t.$('[data-tile="0"] iframe'),frame);assert.equal(t.$('[data-add-game="6"]').disabled,true);
+ t.click('[data-add-game="6"]');assert.equal(t.$('.w-grid').children.length,6);
+ const saved=t.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1');t.dom.window.close();
+ const r=setup(8,saved);r.watch.update();assert.equal(r.watch.mode,'multi');assert.equal(r.$('.w-grid').children.length,6);r.watch.close();r.dom.window.close();
+});
+test('adding a previously replaced game does not collide with its existing slot',()=>{
+ const t=setup(8,JSON.stringify({active:true,order:['0','1','2'],count:1,repl:{'0':'6'}}));t.watch.update();t.click('[data-action="more"]');t.click('[data-add-game="0"]');
+ const saved=JSON.parse(t.dom.window.localStorage.getItem('matchup.multi.v1:L:1:1'));
+ assert.equal(saved.order.length,4);assert.equal(new Set(saved.order).size,4);assert.equal(saved.repl['0'],'6');assert.equal(saved.repl['added:0'],'0');t.watch.close();t.dom.window.close();
+});
 test('refresh keeps Multi when the first schedule is empty and restores tiles when it arrives',()=>{
  const saved=JSON.stringify({active:true,order:['0','1'],count:2,repl:{},returnToTheater:false});
  const t=setup(2,saved);const games=t.data.games;t.data.games=[];t.watch.update();assert.equal(t.watch.mode,'multi');assert.equal(t.watch.active,true);
@@ -78,6 +92,16 @@ test('multi streams receive controls directly except during grid editing',()=>{
  assert.equal(t.$('[data-controls]'),null);assert.equal(css(frame).pointerEvents,'auto');assert.equal(css(t.$('.w-tile-bar')).pointerEvents,'none');
  t.click('[data-action="edit"]');assert.equal(css(frame).pointerEvents,'none');
  t.click('[data-action="edit"]');assert.equal(css(frame).pointerEvents,'auto');assert.equal(t.$('.w-tile iframe'),frame);
+ t.watch.close();t.dom.window.close();
+});
+test('expanded small stream toolbar stays above player rail hit areas',()=>{
+ const t=setup();const style=document.createElement('style');style.textContent=readFileSync(new URL('../public/styles.css',import.meta.url),'utf8')+readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');document.head.append(style);t.watch.open('multi');
+ t.click('[data-expand="2"]');const tile=t.$('[data-tile="2"]');assert.equal(tile.querySelector('[data-expand]').getAttribute('aria-pressed'),'true');
+ const overlay=document.createElement('div');overlay.className='pv-overlay';overlay.innerHTML='<span class="pv-zone pv-zone-r"></span>';tile.querySelector('.w-well').append(overlay);
+ const css=e=>t.dom.window.getComputedStyle(e);assert.ok(Number(css(tile.querySelector('.w-tile-bar')).zIndex)>Number(css(overlay).zIndex));
+ assert.equal(css(tile.querySelector('[data-reload]')).pointerEvents,'auto');assert.equal(css(tile.querySelector('[data-expand]')).pointerEvents,'auto');
+ t.click('[data-reload="2"]');assert.equal(tile.querySelector('iframe').src,'about:blank');
+ t.click('[data-expand="2"]');assert.equal(tile.querySelector('[data-expand]').getAttribute('aria-pressed'),'false');
  t.watch.close();t.dom.window.close();
 });
 test('mode controls agree, leaving multi returns to original game',()=>{
