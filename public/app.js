@@ -264,7 +264,7 @@ function createPlayerRails(wrapper) {
 // without the user looking away from the game. Per SCORING_FLAG_SPEC.md.
 // How long the band sits there once its numbers have settled, and how little of
 // that is left when a second score arrives behind it.
-const SF_HOLD=3000, SF_CUT=600;
+const SF_DELAY=3000, SF_HOLD=3000, SF_CUT=600;
 function createScoringBand(wrapper,anchorOf){
   const doc=wrapper.ownerDocument, win=doc.defaultView;
   const reduced=win.matchMedia('(prefers-reduced-motion: reduce)');
@@ -278,7 +278,14 @@ function createScoringBand(wrapper,anchorOf){
   // screen readers and the event is announced once, here, instead.
   const live=doc.createElement('div');live.className='sf-live';live.setAttribute('role','status');live.setAttribute('aria-live','polite');
   wrapper.append(band,live);
-  const last=new Map(); const queue=[]; let showing=false, timers=[], litTile=null;
+  const last=new Map(); const queue=[]; const pending=new Set(); let showing=false, timers=[], litTile=null;
+  // Keep stream-lag delays separate from animation timers and queue cuts.
+  function delayedShow(e){
+    if(!e)return;
+    const timer=win.setTimeout(()=>{pending.delete(timer);show(e);},SF_DELAY);
+    pending.add(timer);
+  }
+  function clearPending(){pending.forEach(timer=>win.clearTimeout(timer));pending.clear();}
   // A tile with a flag out of it comes up to full, the way it does on hover:
   // the player being talked about should not be the dim one.
   const lit=(tile)=>{litTile?.classList.remove('pv-scoring');litTile=tile;tile?.classList.add('pv-scoring');};
@@ -393,14 +400,14 @@ function createScoringBand(wrapper,anchorOf){
         if(!was)continue;                                  // first sight is a baseline, not a play
         const delta=Math.round((now.pts-was.pts)*100)/100;
         if(!earns(p,delta))continue;
-        show({name:p.name,position:p.position,nflTeam:p.nflTeam,headshotUrl:p.headshotUrl,logo:p.position==='DEF',
+        delayedShow({name:p.name,position:p.position,nflTeam:p.nflTeam,headshotUrl:p.headshotUrl,logo:p.position==='DEF',
           anchor:anchorOf?anchorOf(p):null,
           playText:describe(was.cells,now.cells),points:`+${delta.toFixed(2)}`,teamTotal:fmt(p.teamTotal==null?now.pts:p.teamTotal)});
       }
     },
-    show,
-    reset(){last.clear();queue.length=0;clear();showing=false;lit(null);band.classList.remove('sf-on','sf-held','sf-out');},
-    destroy(){clear();lit(null);band.remove();live.remove();},
+    show:delayedShow,
+    reset(){clearPending();last.clear();queue.length=0;clear();showing=false;lit(null);band.classList.remove('sf-on','sf-held','sf-out');},
+    destroy(){clearPending();clear();lit(null);band.remove();live.remove();},
   };
 }
 
