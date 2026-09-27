@@ -131,6 +131,15 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
   function clearDrag(){s.pool=null;s.drag=null;if(active)render();}
   document.addEventListener('dragend',clearDrag);
   function click(e){
+    const add=e.target.closest('[data-add-game]');
+    if(add){
+      const id=add.dataset.addGame;
+      if(s.mode!=='multi'||s.order.length>=6||game(id)?.state!=='live'||s.order.some(key=>slot(key)?.id===id))return;
+      // A replaced tile may still use this game's ID as its slot key.
+      let key=id;while(s.order.includes(key))key=`added:${key}`;
+      if(key!==id)s.repl[key]=id;
+      s.order.push(key);render();return;
+    }
     const action=e.target.closest('[data-action]')?.dataset.action;
     if(action){
       if(action==='multi')return setMode('multi');
@@ -315,7 +324,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     $('rows').innerHTML=s.order.map((id,i)=>{const g=slot(id);return `<button class="w-rail-row ${i<s.count?'w-is-feat':''} ${s.pool?'w-is-target':''}" data-slot="${esc(id)}" aria-label="${esc(title(g))}, slot ${i+1}" aria-pressed="${i<s.count}"><span></span><span class="w-mid"><span class="w-label">${line(g)}<span class="w-status ${g.state==='live'?'w-live':''}">${esc(status(g))}</span></span><span class="w-players">${s.repl[id]?'':`${starters(g,'a').length} starters · ${starters(g,'b').length} opposing`}</span></span><span class="w-swing-val" style="color:${color(swing(g))}">${s.repl[id]?'—':(swing(g)>0?'+':'')+num(swing(g))}</span></button>`;}).join('');
     const pool=data.games.filter(g=>g.state==='live'&&!s.order.some(id=>slot(id)?.id===g.id));
     $('moreBtn').textContent=`${s.more?'Hide':'Show'} ${pool.length} other live games`;$('moreBtn').setAttribute('aria-expanded',String(s.more));$('pool').hidden=!s.more;
-    if(!s.pool)$('pool').innerHTML=pool.map(g=>`<div class="w-pool-row" draggable="true" data-pool="${esc(g.id)}"><span class="w-label">${line(g)}</span><span class="w-status">${esc(status(g))}</span></div>`).join('');
+    if(!s.pool)$('pool').innerHTML=pool.map(g=>`<div class="w-pool-row" draggable="true" data-pool="${esc(g.id)}"><span class="w-label">${line(g)}</span><span class="w-status">${esc(status(g))}</span><button type="button" class="w-add-game" data-add-game="${esc(g.id)}" aria-label="Add ${esc(title(g))} to multi-view" ${s.order.length>=6?'disabled title="Six streams already open; remove a tile or drag to replace one"':''}>${s.order.length>=6?'Full':'Add'}</button></div>`).join('');
     for(const row of $('pool').children)row.classList.toggle('w-is-dragging',row.dataset.pool===s.pool);
   }
   // Provider controls receive input directly except while arranging the grid.

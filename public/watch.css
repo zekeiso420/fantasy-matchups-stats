@@ -247,6 +247,8 @@
 .w-pool-row svg { flex: none; align-self: center; }
 .w-pool-row .w-label { font-weight: 700; }
 .w-pool-row .w-status { font-size: 9px; letter-spacing: .08em; font-weight: 700; color: var(--red); }
+.w-add-game { margin-left:auto; flex:none; padding:5px 9px; border:1px solid var(--gold); background:transparent; color:var(--gold); font-family:inherit; font-size:10px; font-weight:700; cursor:pointer; }
+.w-add-game:disabled { color:var(--dim); border-color:var(--line); cursor:default; }
 
 .w-rail-foot {
   margin-top: auto; padding-top: 14px;
@@ -471,7 +473,9 @@
 
 /* Along the top edge, not the bottom: a stream puts its own controls across its
    bottom, and on hover the two were landing on each other. */
+/* Keep toolbar buttons above the player rail hover zones (z-index: 3). */
 .w-tile-bar {
+  z-index: 4;
   pointer-events: none;
   position: absolute; left: 0; right: 0; top: 0;
   display: flex; align-items: center; gap: 8px;
@@ -526,7 +530,7 @@
 .w-is-multi .w-chrome { display: none; }
 /* Only while the grid is being edited, and only on the tile it belongs to. */
 .w-tile-x {
-  position: absolute; top: 6px; right: 6px; z-index: 3;
+  position: absolute; top: 6px; right: 6px; z-index: 5;
   display: none; place-items: center; width: 24px; height: 24px;
   background: rgba(6,10,7,.82); border: 1px solid var(--line-str); color: var(--ink);
   font: 700 14px/1 var(--font, inherit); cursor: pointer;
