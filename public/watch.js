@@ -254,7 +254,7 @@ export function createWatch({getData,getStream,onWatch,onEnter,onExit,onMatchup,
     for(const [cls,on] of Object.entries({'w-is-multi':multi,'w-is-single':!multi,'w-is-railshut':!s.rail,'w-has-details':s.details,'w-is-edit':s.edit,'w-is-pool':!!s.pool,'w-is-railpinned':s.pin}))root.classList.toggle(cls,on);
     const railVisible=multi?s.pin||s.hover:s.rail;
     $('rail').classList.toggle('w-is-open',railVisible);$('rail').classList.toggle('w-is-pinned',s.pin);
-    $('railInner').inert=!railVisible;$('details').inert=multi||s.rail||!s.details;
+    $('railInner').inert=!railVisible;$('details').inert=multi||s.rail;
     $('pin').hidden=!multi;$('pin').textContent=s.pin?'Unpin panel':'Pin panel';
     $('all').hidden=!s.all;$('all').innerHTML=data.matchups.map(m=>{const d=m.a.points-(m.b?.points||0);return `<button class="w-all-row" data-match="${esc(m.id)}"><span>${esc(m.a.name)}</span><span class="w-s w-s-a">${num(m.a.points)}</span><span class="w-s w-s-b">${num(m.b?.points)}</span><span class="w-n-b">${esc(m.b?.name||'Bye')}</span></button><div class="w-swing"><i style="${d>=0?'right':'left'}:50%;width:${Math.min(50,Math.abs(d)/60*50)}%;background:${color(d)}"></i></div>`;}).join('');
     $('mine').innerHTML=data.teams.filter(Boolean).map((t,i)=>`<div class="w-mine-row ${i?'w-mine-row--them':''}"><span class="w-mine-name">${esc(t.name)} ${t.mine?'<span class="w-you">YOU</span>':''}</span><span class="w-mine-score">${num(t.points)}</span></div>`).join('');
