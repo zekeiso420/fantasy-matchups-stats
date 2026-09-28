@@ -143,6 +143,16 @@ test('watch CSS shows expanded performance and hides collapsed controls',()=>{
  t.watch.close();t.dom.window.close();
 });
 
+test('collapsed details hides its contents and leaves its reopen button usable',()=>{
+ const t=setup();const style=document.createElement('style');style.textContent=readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');document.head.append(style);t.watch.open();
+ const frame=t.$('.w-single iframe'),css=e=>t.dom.window.getComputedStyle(e);
+ t.click('[data-action="collapse"]');t.click('[data-action="hideDetails"]');
+ assert.equal(css(t.$('.w-details')).width,'46px');assert.equal(t.$('.w-details').inert,false);assert.equal(css(t.$('.w-details-tab')).display,'flex');
+ for(const selector of ['.w-details-head','.w-details-game','.w-details .w-perf-body'])assert.equal(css(t.$(selector)).display,'none');
+ t.watch.update();assert.equal(css(t.$('.w-details-head')).display,'none');
+ t.click('[data-action="showDetails"]');assert.equal(css(t.$('.w-details')).width,'260px');assert.equal(css(t.$('.w-details-head')).display,'flex');assert.equal(css(t.$('.w-details-tab')).display,'none');assert.equal(t.$('.w-single iframe'),frame);
+ t.watch.close();t.dom.window.close();
+});
 test('single-player chrome stays inside the player and scrollbars are hidden',()=>{
  const t=setup();const style=document.createElement('style');style.textContent=readFileSync(new URL('../public/watch.css',import.meta.url),'utf8');document.head.append(style);t.watch.open();
  const player=t.$('.w-player');
