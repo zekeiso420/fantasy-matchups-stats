@@ -1294,3 +1294,8 @@ body.theater .video-box iframe {
 
 @media (pointer:coarse) { .pv-overlay .pv-rail { opacity:1; pointer-events:auto; } }
 @media (prefers-reduced-motion:reduce) { .pv-rail,.pv-player { transition:none; } }
+
+/* Defensive events vary by league; wrap extra scored categories without clipping. */
+.pv-strip.pv-defense { height:auto; min-height:152px; }
+.pv-defense .pv-groups { height:auto; min-height:89px; }
+.pv-defense .pv-cells { grid-auto-flow:row; grid-template-columns:repeat(auto-fit,minmax(76px,1fr)); gap:10px; }

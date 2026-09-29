@@ -1,6 +1,6 @@
 // Data-shaping logic shared by server.js and the static (GitHub Pages) client.
 import { scorePlayer, expectedPoints, round2 } from './scoring.js';
-import { railPlayer } from './rail-data.js';
+import { railPlayer } from './rail-data.js?v=20260929-1';
 
 export const SLEEPER = 'https://api.sleeper.app/v1';
 export const SLEEPER_STATS = 'https://api.sleeper.com'; // undocumented stats/projections host
