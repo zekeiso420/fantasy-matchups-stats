@@ -2,7 +2,7 @@
 // otherwise direct browser calls to Sleeper/ESPN (GitHub Pages, or any
 // other static host). Everything else in app.js is backend-agnostic.
 import * as server from './backend-server.js';
-import * as staticBackend from './backend-static.js?v=20260920-3';
+import * as staticBackend from './backend-static.js?v=20260929-1';
 
 let impl = null;
 export let mode = null; // 'server' | 'static'

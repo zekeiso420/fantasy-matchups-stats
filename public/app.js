@@ -4,7 +4,7 @@ import { createWatch } from './watch.js?v=20260928-1';
 // either re-render or touch only the numbers, depending on what changed.
 
 import { breakdown, scorePlayer, STAT_LABEL } from './scoring.js';
-import * as backend from './backend.js?v=20260920-3';
+import * as backend from './backend.js?v=20260929-1';
 import { VIDEO_BASE, PROVIDER, streamKey, sourceLabel } from './video.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -129,6 +129,7 @@ function createPlayerRails(wrapper) {
         + `<span class="pv-line ${c.line.kind}">${escape(c.line.text)}</span></div>`).join('')
       + `</div>`:''}</div>`;
     const gs=p.groups||[];
+    strip.classList.toggle('pv-defense',p.position==='DEF'||p.position==='DST');
     strip.querySelector('.pv-groups').innerHTML=half(gs[0])+'<i class="pv-divide"></i>'+half(gs[1]);
   }
   // Three states in one readout. Under projection the bar fills toward it and
@@ -2143,7 +2144,8 @@ function panelRows(stats, scoring, pos) {
   const filler = (PANEL_STATS[pos] || PANEL_FALLBACK)
     .filter((k) => !seen.has(k) && typeof scoring[k] === 'number' && scoring[k] !== 0)
     .map((k) => ({ key: k, label: STAT_LABEL[k] || k.replace(/_/g, ' '), value: 0, weight: scoring[k], points: 0 }));
-  return [...scored, ...filler].slice(0, 8);
+  // Defensive tiers and special teams can contribute beyond eight categories.
+  return pos === 'DEF' || pos === 'DST' ? [...scored, ...filler] : [...scored, ...filler].slice(0, 8);
 }
 
 function sheetBodyHtml(pid, rosterId) {

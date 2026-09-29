@@ -84,6 +84,16 @@ const groups = {
       ['SACK', 'sack', 'P'],
       ['INT', 'int', 'P'],
       ['FUM REC', 'fum_rec', 'P'],
+      ['FORCED FUM', 'ff', 'P', 'cond'],
+      ['BLOCK', 'blk_kick', 'P', 'cond'],
+      ['ST TD', 'def_st_td', 'P', 'cond'],
+      ['ST FUM REC', 'def_st_fum_rec', 'P', 'cond'],
+      ['ST FORCED FUM', 'def_st_ff', 'P', 'cond'],
+      ['RETURN TD', 'st_td', 'P', 'cond'],
+      ['PUNT TD', 'def_pr_td', 'P', 'cond'],
+      ['KICK TD', 'def_kr_td', 'P', 'cond'],
+      ['RETURN FF', 'st_ff', 'P', 'cond'],
+      ['RETURN REC', 'st_fum_rec', 'P', 'cond'],
       ['TD', 'def_td', 'P', 'cond'],
       ['SAFETY', 'safe', 'P', 'cond'],
     ]],
@@ -91,7 +101,7 @@ const groups = {
       // The number is the points a defence gave up; what it is worth is the
       // tier that number falls into, which is a different set of keys.
       ['PTS', { value: 'pts_allow', points: /^pts_allow/ }, 'P'],
-      ['YDS', 'yds_allow', none],
+      ['YDS', { value: 'yds_allow', points: /^yds_allow/ }, 'P'],
     ]],
   ],
   IDP: [
@@ -151,12 +161,16 @@ function thirdLine(stats, scoring, key, line) {
 }
 
 export function railGroups(position, stats, scoring) {
-  const table = groups[position === 'TE' ? 'WR' : position] || groups.IDP;
+  const defense = position === 'DEF' || position === 'DST';
+  const table = groups[defense ? 'DEF' : position === 'TE' ? 'WR' : position] || groups.IDP;
   const out = [];
   for (const [label, cells, cond] of table) {
     if (cond && !cells.some(([, key]) => happened(stats, key))) continue;   // a whole group can be conditional too
     const rendered = [];
     for (const [cellLabel, key, line, flags = ''] of cells) {
+      // A defense's scoring cells follow its league, including disabled categories.
+      const pointsKey = key?.points || key;
+      if (defense && scoring && !Object.keys(scoring).some(k => (pointsKey instanceof RegExp ? pointsKey.test(k) : pointsKey === k) && Number(scoring[k]) !== 0)) continue;
       if (/cond/.test(flags) && !happened(stats, key)) continue;
       const value = cellValue(stats, key);
       const third = thirdLine(stats, scoring, key, line);
